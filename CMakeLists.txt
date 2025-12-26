@@ -47,6 +47,12 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
 )
 
+# Add Core user sources
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/imu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/can.c
+)
+
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
