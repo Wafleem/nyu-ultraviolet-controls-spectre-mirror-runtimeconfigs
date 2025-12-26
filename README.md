@@ -1,6 +1,6 @@
 # spectre2_can_usb_sensors
 
-STM32H7 project for the Spectre rev2 sensors board. This repository contains the MCU firmware sources, CMake build files and a linker script. Currently, all relevant testing and low level code for IMU/CAN setups are in the main.c file.
+STM32H7 project for the Spectre rev2 sensors board. This repository contains the MCU firmware sources, CMake build files and a linker script. Currently, all relevant testing functions/code are in main.c, and the important config/lower level code for things like imu or can are in imu.c/h can.c/h respectively.
 
 ## What’s here
 - All files in here were the default output of CubeMX upon code generation.
