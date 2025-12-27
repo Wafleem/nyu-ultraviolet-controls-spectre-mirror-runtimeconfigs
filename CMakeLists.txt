@@ -51,6 +51,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/imu.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/flysky.c
 )
 
 # Add include paths

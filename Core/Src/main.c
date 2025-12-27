@@ -37,6 +37,7 @@
 #include "usbd_cdc_if.h"
 #include "imu.h"
 #include "can.h"
+#include "flysky.h"
 
 /* USER CODE END Includes */
 
@@ -54,7 +55,7 @@
 
 /* USER CODE END PD */
 
-/* CAN implementation moved to Core/Src/can.c */
+/* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
@@ -87,6 +88,51 @@ static void MPU_Config(void);
 /* CAN implementation moved to Core/Src/can.c */
 
 /* IMU implementation moved to Core/Src/imu.c */
+// Read FlySky RC data and print formatted output (uses uart_buf)
+static void Run_FlySky_Report(void)
+{
+  sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
+  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  HAL_Delay(10);
+
+  if (FLAGS.FLYSKY_SYNC_STATES == FLYSKY_SYNC_VERIFIED) {
+    sprintf(uart_buf, "Status: CONNECTED %s\r\n", 
+        FLAGS.FAIL_SAFE ? "(FAILSAFE!)" : "(OK)");
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+
+    // Right stick
+    sprintf(uart_buf, "Right Stick:  Horiz(CH1)=%4d  Vert(CH2)=%4d\r\n",
+        ServoList.Channel_1, ServoList.Channel_2);
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+
+    // Left stick
+    sprintf(uart_buf, "Left Stick:   Throt(CH3)=%4d  Yaw(CH4)=%4d\r\n",
+        ServoList.Channel_3, ServoList.Channel_4);
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+
+    // Switches and knobs
+    sprintf(uart_buf, "SwA(CH5)=%4d  SwB(CH6)=%4d  SwC(CH7)=%4d  SwD(CH8)=%4d\r\n",
+        ServoList.Channel_5, ServoList.Channel_6,
+        ServoList.Channel_7, ServoList.Channel_8);
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+
+    // Aux channels
+    sprintf(uart_buf, "VrA(CH9)=%4d  VrB(CH10)=%4d\r\n",
+        ServoList.Channel_9, ServoList.Channel_10);
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+
+  } else {
+    sprintf(uart_buf, "Status: NOT CONNECTED (Sync: %d)\r\n", 
+        FLAGS.FLYSKY_SYNC_STATES);
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+  }
+}
 
 // Run the CAN loopback test and print results (uses uart_buf)
 static void Run_CAN_Loopback(uint32_t sent_number)
@@ -168,8 +214,7 @@ static void Run_IMU_Report(void)
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point. There are function calls to test functions (CAN loopback and IMU readout).
-  *         comment out as needed for what test you care about seeing. If both are enabled, CAN test runs first.
+  * @brief  The application entry point.
   * @retval int
   */
 int main(void)
@@ -239,6 +284,16 @@ int main(void)
       CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   }
   HAL_Delay(10);
+   // Initialize FlySky RC receiver
+  sprintf(uart_buf, "Initializing FlySky iBus receiver...\r\n");
+  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  HAL_Delay(10);
+
+  Servo_UART_Flysky_Init(&huart7);
+
+  sprintf(uart_buf, "FlySky Init: READY (waiting for signal)\r\n");
+  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  HAL_Delay(10);
 
   sprintf(uart_buf, "CAN configured. Starting main loop...\r\n\r\n");
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
@@ -250,15 +305,18 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  //WHICHEVER TESTS YOU WANT TO RUN,COMMENT/UNCOMMENT HERE.
     while (1)
     {
-      Run_CAN_Loopback(sent_number);
+      //you must connect CAN1 TX to CAN2 RX for loopback test
+      Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
       Run_IMU_Report();
+      Run_FlySky_Report();
 
       sprintf(uart_buf, "\r\n");
       CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
 
-      sent_number++;
+      sent_number++; //used in can test
       HAL_Delay(1000);
 
     /* USER CODE END WHILE */
@@ -284,11 +342,6 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-
-  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
-
-  __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
@@ -394,7 +447,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1) {
+  if (htim->Instance == TIM1)
+  {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
@@ -416,8 +470,7 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
