@@ -12,6 +12,14 @@ volatile uint8_t imu_initialized = 0;
 // Extern uart buffer from main.c for debug messages
 extern char uart_buf[256];
 
+// Magnetometer noise measurement buffers
+#define MAG_NOISE_BUFFER_SIZE 100
+static int16_t mag_x_buffer[MAG_NOISE_BUFFER_SIZE];
+static int16_t mag_y_buffer[MAG_NOISE_BUFFER_SIZE];
+static int16_t mag_z_buffer[MAG_NOISE_BUFFER_SIZE];
+static uint16_t buffer_index = 0;
+static bool buffers_filled = false;
+
 // Low-level SPI / chip-select helpers (use CubeMX-generated SPI handles)
 static inline void IMU_CS_Select(void)   { HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_RESET); }
 static inline void IMU_CS_Deselect(void) { HAL_GPIO_WritePin(IMU_CS_GPIO_Port, IMU_CS_Pin, GPIO_PIN_SET); }
@@ -185,4 +193,53 @@ void System_Read_And_Process(void) {
         IMU_System.mag_y = (int16_t)(mraw[3]<<8 | mraw[4]) - IMU_System.mag_bias_y;
         IMU_System.mag_z = (int16_t)(mraw[5]<<8 | mraw[6]) - IMU_System.mag_bias_z;
     }
+}
+void Mag_Update_noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
+    // Store raw readings in circular buffers
+    mag_x_buffer[buffer_index] = raw_x;
+    mag_y_buffer[buffer_index] = raw_y;
+    mag_z_buffer[buffer_index] = raw_z;
+    
+    // Increment and wrap buffer index
+    buffer_index++;
+    if (buffer_index >= MAG_NOISE_BUFFER_SIZE) {
+        buffer_index = 0;
+        buffers_filled = true;
+    }
+    
+    // Return early if buffers aren't filled yet
+    if (!buffers_filled) {
+        return;
+    }
+    
+    // Calculate means
+    float mean_x = 0, mean_y = 0, mean_z = 0;
+    for (uint16_t i = 0; i < MAG_NOISE_BUFFER_SIZE; i++) {
+        mean_x += mag_x_buffer[i];
+        mean_y += mag_y_buffer[i];
+        mean_z += mag_z_buffer[i];
+    }
+    mean_x /= MAG_NOISE_BUFFER_SIZE;
+    mean_y /= MAG_NOISE_BUFFER_SIZE;
+    mean_z /= MAG_NOISE_BUFFER_SIZE;
+    
+    // Calculate variances
+    float var_x = 0, var_y = 0, var_z = 0;
+    for (uint16_t i = 0; i < MAG_NOISE_BUFFER_SIZE; i++) {
+        float diff_x = mag_x_buffer[i] - mean_x;
+        float diff_y = mag_y_buffer[i] - mean_y;
+        float diff_z = mag_z_buffer[i] - mean_z;
+        var_x += diff_x * diff_x;
+        var_y += diff_y * diff_y;
+        var_z += diff_z * diff_z;
+    }
+    var_x /= MAG_NOISE_BUFFER_SIZE;
+    var_y /= MAG_NOISE_BUFFER_SIZE;
+    var_z /= MAG_NOISE_BUFFER_SIZE;
+    
+    // Calculate combined standard deviation (RMS of individual std devs)
+    float std_dev = sqrtf((var_x + var_y + var_z) / 3.0f);
+    
+    // Update IMU_System.mag_noise
+    IMU_System.mag_noise = std_dev;
 }
