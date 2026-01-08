@@ -203,11 +203,18 @@ static void Run_IMU_Report(void)
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
     HAL_Delay(10);
 
+    sprintf(uart_buf, "Mag Noise: %.3f\r\n", IMU_System.mag_noise);
+    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    HAL_Delay(10);
+
   } else {
     sprintf(uart_buf, "IMU: Not initialized!\r\n");
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
     HAL_Delay(10);
   }
+
+  
+
 }
 
 
