@@ -1,0 +1,65 @@
+# GitLab CI/CD Pipeline for STM32H743 Firmware Build
+# Builds Debug configuration and outputs ELF binary
+
+# Use Docker image with ARM GCC toolchain pre-installed
+image: registry.gitlab.com/arm-research/toolchains/gcc-arm-none-eabi:latest
+
+# Define pipeline stages
+stages:
+  - build
+
+# Cache build directory to speed up subsequent builds
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - build/
+
+# Global variables
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+# Build job for Debug configuration
+build:debug:
+  stage: build
+  script:
+    # Display toolchain versions for debugging
+    - echo "Verifying build environment..."
+    - arm-none-eabi-gcc --version
+    - cmake --version
+    - ninja --version
+
+    # Configure CMake with Debug preset
+    - echo "Configuring CMake..."
+    - cmake --preset Debug
+
+    # Build the firmware
+    - echo "Building firmware..."
+    - cmake --build build/Debug
+
+    # Display memory usage information
+    - echo "Firmware size information:"
+    - arm-none-eabi-size build/Debug/spectre2_can_usb_sensor.elf
+
+    # Verify ELF file was created
+    - test -f build/Debug/spectre2_can_usb_sensor.elf && echo "Build successful - ELF file generated"
+
+  artifacts:
+    name: "firmware-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - build/Debug/spectre2_can_usb_sensor.elf
+      - build/Debug/spectre2_can_usb_sensor.map
+    expire_in: 2 weeks
+    reports:
+      dotenv: build.env
+
+  # Run on main branch and merge requests
+  only:
+    - main
+    - merge_requests
+
+  # Allow manual retry on failure
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
