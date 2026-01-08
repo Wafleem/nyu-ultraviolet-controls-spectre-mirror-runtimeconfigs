@@ -192,9 +192,11 @@ void System_Read_And_Process(void) {
         IMU_System.mag_x = (int16_t)(mraw[1]<<8 | mraw[2]) - IMU_System.mag_bias_x;
         IMU_System.mag_y = (int16_t)(mraw[3]<<8 | mraw[4]) - IMU_System.mag_bias_y;
         IMU_System.mag_z = (int16_t)(mraw[5]<<8 | mraw[6]) - IMU_System.mag_bias_z;
+
+        Mag_Update_Noise(IMU_System.mag_x, IMU_System.mag_y, IMU_System.mag_z);
     }
 }
-void Mag_Update_noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
+void Mag_Update_Noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
     // Store raw readings in circular buffers
     mag_x_buffer[buffer_index] = raw_x;
     mag_y_buffer[buffer_index] = raw_y;
