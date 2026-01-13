@@ -114,7 +114,8 @@ void Mag_Save_Biases_To_EPROM(void);
 void Mag_Calibrate_And_Check_Noise(void);
 int8_t System_Sensors_Init(void);
 void System_Read_And_Process(void);
-void Mag_Update_noise(int16_t raw_x, int16_t raw_y, int16_t raw_z);
+void Mag_Update_Noise(int16_t raw_x, int16_t raw_y, int16_t raw_z);
+
 
 typedef struct {
     float accel[3];
