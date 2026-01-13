@@ -203,7 +203,8 @@ static void Run_IMU_Report(void)
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
     HAL_Delay(10);
 
-    sprintf(uart_buf, "Mag Noise: %.3f\r\n", IMU_System.mag_noise);
+    int32_t mag_noise_int = (int32_t)(IMU_System.mag_noise * 1000);
+    sprintf(uart_buf, "Mag Noise: %ld.%03d\r\n", (long)(mag_noise_int / 1000), abs((int)(mag_noise_int % 1000)));
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
     HAL_Delay(10);
 
@@ -316,9 +317,9 @@ int main(void)
     while (1)
     {
       //you must connect CAN1 TX to CAN2 RX for loopback test
-      Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
+      //Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
       Run_IMU_Report();
-      Run_FlySky_Report();
+      //Run_FlySky_Report();
 
       sprintf(uart_buf, "\r\n");
       CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));

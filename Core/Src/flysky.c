@@ -31,19 +31,18 @@ void Servo_UART_Flysky_Init(UART_HandleTypeDef *huart) {
 
 
 void Servo_UART_Error_Callback(UART_HandleTypeDef *huart){
-    // Restart UART
+    // Clear all error flags
     __HAL_UART_CLEAR_PEFLAG(huart);
+    __HAL_UART_CLEAR_OREFLAG(huart);
+    __HAL_UART_CLEAR_NEFLAG(huart);
+    __HAL_UART_CLEAR_FEFLAG(huart);
+
     HAL_UART_DMAStop(huart);
-    HAL_UART_MspDeInit(huart);
-    HAL_UART_MspInit(huart);
-    printf(
-        "Servo UART Error %lu DMA error 0x%lx \r\n",
-        (unsigned long) HAL_UART_GetError(huart),
-        (unsigned long) HAL_DMA_GetError(huart->hdmarx)
-    );
+
     FLAGS.FLYSKY_SYNC_STATES = FLYSKY_SYNC_SYNC0;
-    // Wait until DMA starts successfully
-    while(HAL_UART_Receive_DMA(huart, (uint8_t*) &Transiever_TX_Buffer[0], 1) != HAL_OK);
+
+    // Restart DMA - non-blocking (if it fails, we'll retry on next error)
+    HAL_UART_Receive_DMA(huart, (uint8_t*) &Transiever_TX_Buffer[0], 1);
 }
 
 
