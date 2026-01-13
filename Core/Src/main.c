@@ -178,22 +178,22 @@ static void Run_IMU_Report(void)
     sprintf(uart_buf, "Accel: X=%d Y=%d Z=%d\r\n",
         IMU_System.accel_x, IMU_System.accel_y, IMU_System.accel_z);
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
 
     sprintf(uart_buf, "Gyro:  X=%d Y=%d Z=%d\r\n",
         IMU_System.gyro_x, IMU_System.gyro_y, IMU_System.gyro_z);
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
 
     sprintf(uart_buf, "Mag:   X=%d Y=%d Z=%d\r\n",
         IMU_System.mag_x, IMU_System.mag_y, IMU_System.mag_z);
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
 
     int16_t temp_int = (int16_t)(IMU_System.temp_c * 10);
     sprintf(uart_buf, "Temp:  %d.%d C\r\n", temp_int / 10, abs(temp_int % 10));
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
 
     int16_t roll_int = (int16_t)(IMU_System.roll * 10);
     int16_t pitch_int = (int16_t)(IMU_System.pitch * 10);
@@ -201,17 +201,17 @@ static void Run_IMU_Report(void)
         (roll_int < 0) ? "-" : "", abs(roll_int) / 10, abs(roll_int % 10),
         (pitch_int < 0) ? "-" : "", abs(pitch_int) / 10, abs(pitch_int % 10));
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
 
     int32_t mag_noise_int = (int32_t)(IMU_System.mag_noise * 1000);
     sprintf(uart_buf, "Mag Noise: %ld.%03d\r\n", (long)(mag_noise_int / 1000), abs((int)(mag_noise_int % 1000)));
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
 
   } else {
     sprintf(uart_buf, "IMU: Not initialized!\r\n");
     CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+    HAL_Delay(1);
   }
 
   
@@ -325,7 +325,7 @@ int main(void)
       CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
 
       sent_number++; //used in can test
-      HAL_Delay(1000);
+      HAL_Delay(10);
 
     /* USER CODE END WHILE */
 

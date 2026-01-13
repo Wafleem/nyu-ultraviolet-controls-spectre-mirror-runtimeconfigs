@@ -110,12 +110,19 @@ void Mag_Calibrate_And_Check_Noise(void) {
 
     Mag_Save_Biases_To_EPROM();
 
-    float var_x = 0;
+    float var_x = 0, var_y = 0, var_z = 0;
     for(int i=0; i<50; i++) {
-        float diff = readings_x[i] - IMU_System.mag_bias_x;
-        var_x += diff * diff;
+        float diff_x = readings_x[i] - IMU_System.mag_bias_x;
+        float diff_y = readings_y[i] - IMU_System.mag_bias_y;
+        float diff_z = readings_z[i] - IMU_System.mag_bias_z;
+        var_x += diff_x * diff_x;
+        var_y += diff_y * diff_y;
+        var_z += diff_z * diff_z;
     }
-    IMU_System.mag_noise = sqrtf(var_x / 50.0f);
+    var_x /= 50.0f;
+    var_y /= 50.0f;
+    var_z /= 50.0f;
+    IMU_System.mag_noise = sqrtf((var_x + var_y + var_z) / 3.0f);
 }
 
 int8_t System_Sensors_Init(void) {
