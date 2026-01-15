@@ -67,6 +67,12 @@
 /* USER CODE BEGIN PV */
 // CAN Variables defined in Core/Src/can.c
 char uart_buf[256];
+uint8_t tx_buf[] = {
+    0x20, 0x40, 0xDB, 0x05, 0xDC, 0x05, 0x54, 0x05,
+    0xDC, 0x05, 0xE8, 0x03, 0xD0, 0x07, 0xD2, 0x05,
+    0xE8, 0x03, 0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05,
+    0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDA, 0xF3
+};
 uint16_t ibus_data[IBUS_USER_CHANNELS];
 int iter_number;
 
@@ -249,6 +255,7 @@ int main(void)
   MX_UART7_Init();
   MX_SPI2_Init();
   MX_SPI5_Init();
+  MX_UART5_Init();
   /* USER CODE BEGIN 2 */
   MX_USB_DEVICE_Init();
 
@@ -301,10 +308,15 @@ int main(void)
   //WHICHEVER TESTS YOU WANT TO RUN,COMMENT/UNCOMMENT HERE.
     while (1)
     {
+      //you must connect UART5 TX to UART7 RX for loopback test
+      // if (iter_number % 10 == 0) {
+      //   HAL_UART_Transmit(&huart5, tx_buf, sizeof(tx_buf), 100);
+      // }
+
       //you must connect CAN1 TX to CAN2 RX for loopback test
       // Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
-      Run_IMU_Report();
-      // Run_FlySky_Report();
+      // Run_IMU_Report();
+      Run_FlySky_Report();
 
       // sprintf(uart_buf, "\r\n");
       // CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
@@ -313,9 +325,9 @@ int main(void)
       sent_number++; //used in can test
       HAL_Delay(10);
 
-      /* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-      /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
