@@ -2,8 +2,8 @@
  * flysky.c
  * This file reads iBus channel data from FlySky Radio Receivers (FS-IA6B),
  * assuming the receiver's iBus servo pin is connected to the devboard's UART RX.
- * 
- * Modified to use standard asynchronous UART (RX-only) instead of half-duplex in order to use with Spectre2 board.
+ *
+ * This uses a DMA + State Machine implementation.
  *
  * Adapted from https://github.com/AtaberkOKLU/STM32-FlySky-IBus
  */
@@ -21,9 +21,6 @@ void Servo_UART_Flysky_Init(UART_HandleTypeDef *huart) {
     // Register UART callbacks to receive Flysky servo frames
     HAL_UART_RegisterCallback(huart, HAL_UART_RX_COMPLETE_CB_ID, Servo_UART_RxComplete_Callback);
     HAL_UART_RegisterCallback(huart, HAL_UART_ERROR_CB_ID, Servo_UART_Error_Callback);
-    
-    // No half-duplex needed we're only receiving
-    // HAL_HalfDuplex_EnableReceiver(huart);
     
     FLAGS.FLYSKY_SYNC_STATES = FLYSKY_SYNC_SYNC0;
     HAL_UART_Receive_DMA(huart, (uint8_t*) &Transiever_TX_Buffer[0], 1);

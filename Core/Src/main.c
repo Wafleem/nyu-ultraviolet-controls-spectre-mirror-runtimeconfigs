@@ -37,7 +37,7 @@
 #include "usbd_cdc_if.h"
 #include "imu.h"
 #include "can.h"
-#include "flysky.h"
+#include "ibus.h"
 
 /* USER CODE END Includes */
 
@@ -67,6 +67,8 @@
 /* USER CODE BEGIN PV */
 // CAN Variables defined in Core/Src/can.c
 char uart_buf[256];
+uint16_t ibus_data[IBUS_USER_CHANNELS];
+int iter_number;
 
 // IMU Variables (defined in Core/Src/imu.c)
 
@@ -91,45 +93,28 @@ static void MPU_Config(void);
 // Read FlySky RC data and print formatted output (uses uart_buf)
 static void Run_FlySky_Report(void)
 {
-  sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  HAL_Delay(10);
+  int ibus_status = ibus_read(ibus_data);
 
-  if (FLAGS.FLYSKY_SYNC_STATES == FLYSKY_SYNC_VERIFIED) {
-    sprintf(uart_buf, "Status: CONNECTED %s\r\n", 
-        FLAGS.FAIL_SAFE ? "(FAILSAFE!)" : "(OK)");
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
+  if (iter_number % 100 == 0) {
+    // Ignore incomplete reads
+    if (ibus_status == 2) {
+      return;
+    }
 
-    // Right stick
-    sprintf(uart_buf, "Right Stick:  Horiz(CH1)=%4d  Vert(CH2)=%4d\r\n",
-        ServoList.Channel_1, ServoList.Channel_2);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
-
-    // Left stick
-    sprintf(uart_buf, "Left Stick:   Throt(CH3)=%4d  Yaw(CH4)=%4d\r\n",
-        ServoList.Channel_3, ServoList.Channel_4);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
-
-    // Switches and knobs
-    sprintf(uart_buf, "SwA(CH5)=%4d  SwB(CH6)=%4d  SwC(CH7)=%4d  SwD(CH8)=%4d\r\n",
-        ServoList.Channel_5, ServoList.Channel_6,
-        ServoList.Channel_7, ServoList.Channel_8);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
-
-    // Aux channels
-    sprintf(uart_buf, "VrA(CH9)=%4d  VrB(CH10)=%4d\r\n",
-        ServoList.Channel_9, ServoList.Channel_10);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(10);
-
-  } else {
-    sprintf(uart_buf, "Status: NOT CONNECTED (Sync: %d)\r\n", 
-        FLAGS.FLYSKY_SYNC_STATES);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+    int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
+    if (ibus_status == 0) {
+        len += sprintf(uart_buf + len, "Status: CONNECTED, Channels: ");
+        for (uint32_t i = 0; i < IBUS_USER_CHANNELS; ++i) {
+            len += sprintf(uart_buf + len, "%4d ", ibus_data[i]);
+        }
+        len += sprintf(uart_buf + len, "\r\n");
+    } else if (ibus_status != 2) {
+        uint8_t* buffer = ibus_get_buffer();
+        len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
+            ibus_status, buffer[0], buffer[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
+            huart7.RxState, huart7.ErrorCode);
+    }
+    CDC_Transmit_FS((uint8_t*)uart_buf, len);
     HAL_Delay(10);
   }
 }
@@ -297,7 +282,7 @@ int main(void)
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
 
-  Servo_UART_Flysky_Init(&huart7);
+  ibus_init();
 
   sprintf(uart_buf, "FlySky Init: READY (waiting for signal)\r\n");
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
@@ -317,19 +302,20 @@ int main(void)
     while (1)
     {
       //you must connect CAN1 TX to CAN2 RX for loopback test
-      //Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
+      // Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
       Run_IMU_Report();
-      //Run_FlySky_Report();
+      // Run_FlySky_Report();
 
-      sprintf(uart_buf, "\r\n");
-      CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+      // sprintf(uart_buf, "\r\n");
+      // CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
 
+      iter_number++; //used for logic that runs every N loops
       sent_number++; //used in can test
       HAL_Delay(10);
 
-    /* USER CODE END WHILE */
+      /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+      /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -410,7 +396,27 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart == &huart7) {
+    ibus_set_ready();
+  }
+}
 
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if (huart == &huart7) {
+    // Clear overrun error
+    __HAL_UART_CLEAR_OREFLAG(&huart7);
+    
+    // Clear error code
+    huart->ErrorCode = HAL_UART_ERROR_NONE;
+    
+    // Abort and restart reception
+    HAL_UART_AbortReceive(&huart7);
+    HAL_UART_Receive_IT(&huart7, ibus_get_buffer(), IBUS_LENGTH);
+  }
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */
