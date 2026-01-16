@@ -73,7 +73,6 @@ uint8_t tx_buf[] = {
     0xE8, 0x03, 0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05,
     0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDA, 0xF3
 };
-uint16_t ibus_data[IBUS_USER_CHANNELS];
 int iter_number;
 
 // IMU Variables (defined in Core/Src/imu.c)
@@ -99,26 +98,33 @@ static void MPU_Config(void);
 // Read FlySky RC data and print formatted output (uses uart_buf)
 static void Run_FlySky_Report(void)
 {
-  int ibus_status = ibus_read(ibus_data);
+  int ibus_status = ibus_read();
 
   if (iter_number % 100 == 0) {
     // Ignore incomplete reads
-    if (ibus_status == 2) {
+    if (ibus_status == IBUS_NOT_READY) {
       return;
     }
 
+    // If connected, print remote control data
     int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
-    if (ibus_status == 0) {
+    if (ibus_status == IBUS_OK) {
+        const RC_ctrl_t *raw_rc = get_remote_control_point();
         len += sprintf(uart_buf + len, "Status: CONNECTED, Channels: ");
-        for (uint32_t i = 0; i < IBUS_USER_CHANNELS; ++i) {
-            len += sprintf(uart_buf + len, "%4d ", ibus_data[i]);
+        for (uint32_t i = 0; i < IBUS_NUM_CHANNELS; ++i) {
+            len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.ch[i]);
+        }
+        for (uint32_t i = 0; i < IBUS_NUM_SWITCHES; ++i) {
+            len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.s[i]);
         }
         len += sprintf(uart_buf + len, "\r\n");
-    } else if (ibus_status != 2) {
+    }
+    // If disconnected, print debug info
+    else {
         uint8_t* buffer = ibus_get_buffer();
         len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
             ibus_status, buffer[0], buffer[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
-            huart7.RxState, huart7.ErrorCode);
+            IBUS_UART->RxState, IBUS_UART->ErrorCode);
     }
     CDC_Transmit_FS((uint8_t*)uart_buf, len);
     HAL_Delay(10);
@@ -323,7 +329,7 @@ int main(void)
 
       iter_number++; //used for logic that runs every N loops
       sent_number++; //used in can test
-      HAL_Delay(10);
+      HAL_Delay(5);
 
     /* USER CODE END WHILE */
 
@@ -408,25 +414,15 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if (huart == &huart7) {
-    ibus_set_ready();
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  if (huart == IBUS_UART) {
+    ibus_handle_complete(huart);
   }
 }
 
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
-{
-  if (huart == &huart7) {
-    // Clear overrun error
-    __HAL_UART_CLEAR_OREFLAG(&huart7);
-    
-    // Clear error code
-    huart->ErrorCode = HAL_UART_ERROR_NONE;
-    
-    // Abort and restart reception
-    HAL_UART_AbortReceive(&huart7);
-    HAL_UART_Receive_IT(&huart7, ibus_get_buffer(), IBUS_LENGTH);
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  if (huart == IBUS_UART) {
+    ibus_handle_error(huart);
   }
 }
 /* USER CODE END 4 */
