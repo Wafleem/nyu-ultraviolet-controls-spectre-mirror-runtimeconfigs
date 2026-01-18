@@ -14,21 +14,16 @@
 
 /* Defines */
 #define RC_UART 				(&huart7)
+#define RC_FRAME_LENGTH			0x20	// 32 bytes
 #define RC_COMMAND40			0x40	// Header byte
 #define RC_NUM_CHANNELS 		6		// 4 stick + knob channels
 #define RC_NUM_SWITCHES 		4		// 4 switches
-#define RC_FRAME_LENGTH			0x20	// 32 bytes
 
 #define RC_CH_VALUE_MIN         ((uint16_t)1000)
 #define RC_CH_VALUE_OFFSET      ((uint16_t)1500)
 #define RC_CH_VALUE_MAX         ((uint16_t)2000)
 #define RC_SW_UP                ((uint16_t)1)
 #define RC_SW_DOWN              ((uint16_t)2)
-
-#define RC_OK                 0
-#define RC_NOT_READY          1
-#define RC_INVALID_HEADER     2
-#define RC_INVALID_CHECKSUM   3
 
 
 /* Structs */
@@ -41,14 +36,23 @@ typedef __PACKED_STRUCT
     } rc;
 } RC_ctrl_t;
 
+typedef enum {
+    RC_SYNC0     = 0,
+    RC_SYNC1     = 1,
+    RC_SYNCED    = 2,
+    RC_VERIFIED  = 3
+} RC_sync_state_t;
+
+extern volatile RC_sync_state_t RC_sync_state;
+
 
 /* Functions */
+uint32_t RC_GetFrameCount();
 void remote_control_init();
-void RC_GetBuffer(uint8_t out[RC_FRAME_LENGTH]);
+void RC_GetLastFrame(uint8_t out[RC_FRAME_LENGTH]);
 const RC_ctrl_t *get_remote_control_point();
-void ibus_handle_complete();
-void ibus_handle_error();
-int ibus_read();
+void REMOTE_RX_Complete_Handler();
+void REMOTE_UART_Error_Handler();
 
 
 #endif /* __IBUS_H__ */

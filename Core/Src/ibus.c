@@ -21,20 +21,26 @@
 
 RC_ctrl_t rc_ctrl;
 static uint8_t buffer[RC_FRAME_LENGTH] = {0};
-static volatile bool ibus_ready = false;
+static volatile uint32_t rc_frame_count = 0;
+volatile RC_sync_state_t RC_sync_state = RC_SYNC0;
 
-static int ibus_to_rc(volatile const uint8_t *ibus_buf, RC_ctrl_t *rc_ctrl);
+static void ibus_to_rc(volatile const uint8_t *ibus_buf, RC_ctrl_t *rc_ctrl);
 static bool ibus_checksum(volatile const uint8_t *ibus_buf);
 
 /* Public functions */
 
-// Put this in your main.c initialization.
-void remote_control_init() {
-	HAL_UART_Receive_IT(RC_UART, buffer, RC_FRAME_LENGTH);
+// Put this where you need IBUS frame count
+uint32_t RC_GetFrameCount(void) {
+  return rc_frame_count;
 }
 
-// Put this where you need to debug buffer data
-void RC_GetBuffer(uint8_t out[RC_FRAME_LENGTH]) {
+// Put this in your main.c initialization.
+void remote_control_init() {
+	HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+}
+
+// Put this where you need raw buffer data
+void RC_GetLastFrame(uint8_t out[RC_FRAME_LENGTH]) {
     if (!out) return;
     memcpy(out, buffer, RC_FRAME_LENGTH);
 }
@@ -45,48 +51,63 @@ const RC_ctrl_t *get_remote_control_point() {
 }
 
 // Put this in HAL_UART_RxCpltCallback
-void ibus_handle_complete(UART_HandleTypeDef *huart) {
-	ibus_ready = true;
+void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart) {
+	switch (RC_sync_state) {
+		case RC_SYNC0:
+			if (buffer[0] == RC_FRAME_LENGTH) {
+				RC_sync_state = RC_SYNC1;
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[1], 1);
+			} else {
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+			}
+			break;
+		case RC_SYNC1:
+			if (buffer[1] == RC_COMMAND40) {
+				RC_sync_state = RC_SYNCED;
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[2], RC_FRAME_LENGTH - 2);
+			} else {
+				RC_sync_state = RC_SYNC0;
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+			}
+			break;
+		case RC_VERIFIED:
+			if (buffer[0] != RC_FRAME_LENGTH || buffer[1] != RC_COMMAND40) {
+				RC_sync_state = RC_SYNC0;
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+				break;
+			}
+			// Fall through to SYNCED case
+            __attribute__((fallthrough));
+		case RC_SYNCED:
+			if (ibus_checksum(buffer)) {
+				ibus_to_rc(buffer, &rc_ctrl);
+				rc_frame_count++;
+				RC_sync_state = RC_VERIFIED;
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
+			} else {
+				RC_sync_state = RC_SYNC0;
+				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+			}
+			break;
+	}
 }
 
 // Put this in HAL_UART_ErrorCallback
-void ibus_handle_error(UART_HandleTypeDef *huart) {
+void REMOTE_UART_Error_Handler(UART_HandleTypeDef *huart) {
 	// Clear overrun error
     __HAL_UART_CLEAR_OREFLAG(RC_UART);
     // Clear error code
     RC_UART->ErrorCode = HAL_UART_ERROR_NONE;
+	// Reset state machine
+	RC_sync_state = RC_SYNC0;
     
     // Abort and restart reception
     HAL_UART_AbortReceive(RC_UART);
-    HAL_UART_Receive_IT(RC_UART, buffer, RC_FRAME_LENGTH);
-}
-
-// Put this in your main infinite loop
-int ibus_read() {
-	// Check if IBUS frame is complete
-	if (!ibus_ready) {
-		return RC_NOT_READY;
-	}
-	ibus_ready = false;
-
-	// Read IBUS data into provided buffer
-	int status = ibus_to_rc(buffer, &rc_ctrl);
-	HAL_UART_Receive_IT(RC_UART, buffer, RC_FRAME_LENGTH);
-	return status;
+    HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer, 1);
 }
 
 /* Helper Functions */
-static int ibus_to_rc(volatile const uint8_t *ibus_buf, RC_ctrl_t *rc_ctrl) {
-	// Stop if header bytes are wrong
-	if(ibus_buf[0] != RC_FRAME_LENGTH || ibus_buf[1] != RC_COMMAND40) {
-		return RC_INVALID_HEADER;
-	}
-
-	// Stop if checksum is wrong
-	if(!ibus_checksum(ibus_buf)) {
-		return RC_INVALID_CHECKSUM;
-	}
-
+static void ibus_to_rc(volatile const uint8_t *ibus_buf, RC_ctrl_t *rc_ctrl) {
 	// Joy-stick channels: right horizontal (0), right vertical (1), left vertical (2), left horizontal (3)
 	int bf_index = 2;
 	for(int ch_index = 0; ch_index < 4; ch_index++) {
@@ -111,7 +132,6 @@ static int ibus_to_rc(volatile const uint8_t *ibus_buf, RC_ctrl_t *rc_ctrl) {
 		rc_ctrl->rc.ch[ch_index] = raw_channel - RC_CH_VALUE_OFFSET;
 		bf_index += 2;
 	}
-	return RC_OK;
 }
 
 static bool ibus_checksum(volatile const uint8_t *ibus_buf) {

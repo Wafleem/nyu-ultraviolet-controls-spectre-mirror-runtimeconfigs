@@ -99,19 +99,12 @@ static void MPU_Config(void);
 // Read FlySky RC data and print formatted output (uses uart_buf)
 static void Run_FlySky_Report(void)
 {
-  int ibus_status = ibus_read();
-
   if (iter_number % 100 == 0) {
-    // Ignore incomplete reads
-    if (ibus_status == RC_NOT_READY) {
-      return;
-    }
-
     // If connected, print remote control data
     int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
-    if (ibus_status == RC_OK) {
+    if (RC_sync_state == RC_SYNCED || RC_sync_state == RC_VERIFIED) {
         const RC_ctrl_t *raw_rc = get_remote_control_point();
-        len += sprintf(uart_buf + len, "Status: CONNECTED, Channels: ");
+        len += sprintf(uart_buf + len, "Status: CONNECTED, Frame: %ld, Channels: ", RC_GetFrameCount());
         for (uint32_t i = 0; i < RC_NUM_CHANNELS; ++i) {
             len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.ch[i]);
         }
@@ -122,9 +115,9 @@ static void Run_FlySky_Report(void)
     }
     // If disconnected, print debug info
     else {
-        RC_GetBuffer(rx_buf);
+        RC_GetLastFrame(rx_buf);
         len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
-            ibus_status, rx_buf[0], rx_buf[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
+            RC_sync_state, rx_buf[0], rx_buf[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
             RC_UART->RxState, RC_UART->ErrorCode);
     }
     CDC_Transmit_FS((uint8_t*)uart_buf, len);
@@ -316,9 +309,9 @@ int main(void)
     while (1)
     {
       //you must connect UART5 TX to UART7 RX for loopback test
-      if (iter_number % 10 == 0) {
-        HAL_UART_Transmit(&huart5, tx_buf, sizeof(tx_buf), 100);
-      }
+      // if (iter_number % 10 == 0) {
+      //   HAL_UART_Transmit(&huart5, tx_buf, sizeof(tx_buf), 100);
+      // }
 
       //you must connect CAN1 TX to CAN2 RX for loopback test
       // Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
@@ -417,13 +410,13 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart == RC_UART) {
-    ibus_handle_complete(huart);
+    REMOTE_RX_Complete_Handler(huart);
   }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   if (huart == RC_UART) {
-    ibus_handle_error(huart);
+    REMOTE_UART_Error_Handler(huart);
   }
 }
 /* USER CODE END 4 */
