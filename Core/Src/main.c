@@ -67,13 +67,14 @@
 /* USER CODE BEGIN PV */
 // CAN Variables defined in Core/Src/can.c
 char uart_buf[256];
+int iter_number;
 uint8_t tx_buf[] = {
     0x20, 0x40, 0xDB, 0x05, 0xDC, 0x05, 0x54, 0x05,
     0xDC, 0x05, 0xE8, 0x03, 0xD0, 0x07, 0xD2, 0x05,
     0xE8, 0x03, 0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05,
     0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDA, 0xF3
 };
-int iter_number;
+uint8_t rx_buf[RC_FRAME_LENGTH];
 
 // IMU Variables (defined in Core/Src/imu.c)
 
@@ -102,29 +103,29 @@ static void Run_FlySky_Report(void)
 
   if (iter_number % 100 == 0) {
     // Ignore incomplete reads
-    if (ibus_status == IBUS_NOT_READY) {
+    if (ibus_status == RC_NOT_READY) {
       return;
     }
 
     // If connected, print remote control data
     int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
-    if (ibus_status == IBUS_OK) {
+    if (ibus_status == RC_OK) {
         const RC_ctrl_t *raw_rc = get_remote_control_point();
         len += sprintf(uart_buf + len, "Status: CONNECTED, Channels: ");
-        for (uint32_t i = 0; i < IBUS_NUM_CHANNELS; ++i) {
+        for (uint32_t i = 0; i < RC_NUM_CHANNELS; ++i) {
             len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.ch[i]);
         }
-        for (uint32_t i = 0; i < IBUS_NUM_SWITCHES; ++i) {
+        for (uint32_t i = 0; i < RC_NUM_SWITCHES; ++i) {
             len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.s[i]);
         }
         len += sprintf(uart_buf + len, "\r\n");
     }
     // If disconnected, print debug info
     else {
-        uint8_t* buffer = ibus_get_buffer();
+        RC_GetBuffer(rx_buf);
         len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
-            ibus_status, buffer[0], buffer[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
-            IBUS_UART->RxState, IBUS_UART->ErrorCode);
+            ibus_status, rx_buf[0], rx_buf[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
+            RC_UART->RxState, RC_UART->ErrorCode);
     }
     CDC_Transmit_FS((uint8_t*)uart_buf, len);
     HAL_Delay(10);
@@ -295,7 +296,7 @@ int main(void)
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
 
-  ibus_init();
+  remote_control_init();
 
   sprintf(uart_buf, "FlySky Init: READY (waiting for signal)\r\n");
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
@@ -315,9 +316,9 @@ int main(void)
     while (1)
     {
       //you must connect UART5 TX to UART7 RX for loopback test
-      // if (iter_number % 10 == 0) {
-      //   HAL_UART_Transmit(&huart5, tx_buf, sizeof(tx_buf), 100);
-      // }
+      if (iter_number % 10 == 0) {
+        HAL_UART_Transmit(&huart5, tx_buf, sizeof(tx_buf), 100);
+      }
 
       //you must connect CAN1 TX to CAN2 RX for loopback test
       // Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
@@ -415,13 +416,13 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  if (huart == IBUS_UART) {
+  if (huart == RC_UART) {
     ibus_handle_complete(huart);
   }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-  if (huart == IBUS_UART) {
+  if (huart == RC_UART) {
     ibus_handle_error(huart);
   }
 }

@@ -13,11 +13,11 @@
 
 
 /* Defines */
-#define IBUS_UART				(&huart7)
-#define IBUS_LENGTH				0x20	// 32 bytes
-#define IBUS_COMMAND40			0x40	// Header byte
-#define IBUS_NUM_CHANNELS 		6		// 4 stick + knob channels
-#define IBUS_NUM_SWITCHES		4		// 4 switches
+#define RC_UART 				(&huart7)
+#define RC_COMMAND40			0x40	// Header byte
+#define RC_NUM_CHANNELS 		6		// 4 stick + knob channels
+#define RC_NUM_SWITCHES 		4		// 4 switches
+#define RC_FRAME_LENGTH			0x20	// 32 bytes
 
 #define RC_CH_VALUE_MIN         ((uint16_t)1000)
 #define RC_CH_VALUE_OFFSET      ((uint16_t)1500)
@@ -25,10 +25,10 @@
 #define RC_SW_UP                ((uint16_t)1)
 #define RC_SW_DOWN              ((uint16_t)2)
 
-#define IBUS_OK                 0
-#define IBUS_NOT_READY          1
-#define IBUS_INVALID_HEADER     2
-#define IBUS_INVALID_CHECKSUM   3
+#define RC_OK                 0
+#define RC_NOT_READY          1
+#define RC_INVALID_HEADER     2
+#define RC_INVALID_CHECKSUM   3
 
 
 /* Structs */
@@ -43,11 +43,12 @@ typedef __PACKED_STRUCT
 
 
 /* Functions */
-void ibus_init();
+void remote_control_init();
+void RC_GetBuffer(uint8_t out[RC_FRAME_LENGTH]);
+const RC_ctrl_t *get_remote_control_point();
 void ibus_handle_complete();
 void ibus_handle_error();
 int ibus_read();
-const RC_ctrl_t *get_remote_control_point();
-uint8_t* ibus_get_buffer();
+
 
 #endif /* __IBUS_H__ */
