@@ -9,10 +9,6 @@
  * Baudrate: 115200
  * Format: 8N1
  *
- * Note: this implementation requires your IBUS reads to keep up with the
- * transmit rate (approximately every 7ms), so don't put too many delays in
- * your main infinite loop.
- *
  * Adapted from https://github.com/mokhwasomssi/stm32_hal_ibus/blob/main/stm32f411_fw_ibus/Ibus/ibus.c
  */
 
@@ -70,24 +66,15 @@ void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart) {
 				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
 			}
 			break;
-		case RC_VERIFIED:
-			if (buffer[0] != RC_FRAME_LENGTH || buffer[1] != RC_COMMAND40) {
+		case RC_SYNCED:
+			if (buffer[0] != RC_FRAME_LENGTH || buffer[1] != RC_COMMAND40 || !ibus_checksum(buffer)) {
 				RC_sync_state = RC_SYNC0;
 				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
 				break;
 			}
-			// Fall through to SYNCED case
-            __attribute__((fallthrough));
-		case RC_SYNCED:
-			if (ibus_checksum(buffer)) {
-				ibus_to_rc(buffer, &rc_ctrl);
-				rc_frame_count++;
-				RC_sync_state = RC_VERIFIED;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
-			} else {
-				RC_sync_state = RC_SYNC0;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
-			}
+			rc_frame_count++;
+			ibus_to_rc(buffer, &rc_ctrl);
+			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
 			break;
 	}
 }

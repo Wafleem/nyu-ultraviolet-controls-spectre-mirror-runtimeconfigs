@@ -39,8 +39,7 @@ typedef __PACKED_STRUCT
 typedef enum {
     RC_SYNC0     = 0,
     RC_SYNC1     = 1,
-    RC_SYNCED    = 2,
-    RC_VERIFIED  = 3
+    RC_SYNCED    = 2
 } RC_sync_state_t;
 
 extern volatile RC_sync_state_t RC_sync_state;

@@ -99,10 +99,10 @@ static void MPU_Config(void);
 // Read FlySky RC data and print formatted output (uses uart_buf)
 static void Run_FlySky_Report(void)
 {
-  if (iter_number % 100 == 0) {
+  if (iter_number % 50 == 0) {
     // If connected, print remote control data
     int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
-    if (RC_sync_state == RC_SYNCED || RC_sync_state == RC_VERIFIED) {
+    if (RC_sync_state == RC_SYNCED) {
         const RC_ctrl_t *raw_rc = get_remote_control_point();
         len += sprintf(uart_buf + len, "Status: CONNECTED, Frame: %ld, Channels: ", RC_GetFrameCount());
         for (uint32_t i = 0; i < RC_NUM_CHANNELS; ++i) {
@@ -323,7 +323,7 @@ int main(void)
 
       iter_number++; //used for logic that runs every N loops
       sent_number++; //used in can test
-      HAL_Delay(5);
+      HAL_Delay(10);
 
     /* USER CODE END WHILE */
 
