@@ -9,7 +9,9 @@
  * Baudrate: 115200
  * Format: 8N1
  *
- * Adapted from https://github.com/mokhwasomssi/stm32_hal_ibus/blob/main/stm32f411_fw_ibus/Ibus/ibus.c
+ * Adapted from:
+ * https://gitlab.com/nyu-robomaster/controls_freertos_pubsub/-/blob/master/modules/remote/remote_control.c?ref_type=heads
+ * https://github.com/AtaberkOKLU/STM32-FlySky-IBus/blob/main/Examples/RadioTelemetry-F1/Core/Src/Telemetry.c
  */
 
 #include "ibus.h"
