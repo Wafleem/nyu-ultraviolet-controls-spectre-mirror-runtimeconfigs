@@ -99,6 +99,7 @@ static void MPU_Config(void);
 // Read FlySky RC data and print formatted output (uses uart_buf)
 static void Run_FlySky_Report(void)
 {
+  remote_control_read();
   if (iter_number % 50 == 0) {
     // If connected, print remote control data
     int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
@@ -116,9 +117,12 @@ static void Run_FlySky_Report(void)
     // If disconnected, print debug info
     else {
         RC_GetLastFrame(rx_buf);
-        len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
-            RC_sync_state, rx_buf[0], rx_buf[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
-            RC_UART->RxState, RC_UART->ErrorCode);
+        for (uint32_t i = 0; i < 32; ++i) {
+            len += sprintf(uart_buf + len, "0x%x ", rx_buf[i]);
+        }
+        // len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
+        //     RC_sync_state, rx_buf[0], rx_buf[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
+        //     RC_UART->RxState, RC_UART->ErrorCode);
     }
     CDC_Transmit_FS((uint8_t*)uart_buf, len);
     HAL_Delay(10);
@@ -409,16 +413,16 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  if (huart == RC_UART) {
+  if (huart->Instance == RC_UART->Instance) {
     REMOTE_RX_Complete_Handler(huart);
   }
 }
 
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-  if (huart == RC_UART) {
-    REMOTE_UART_Error_Handler(huart);
-  }
-}
+// void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+//   if (huart == RC_UART) {
+//     REMOTE_UART_Error_Handler(huart);
+//   }
+// }
 /* USER CODE END 4 */
 
  /* MPU Configuration */

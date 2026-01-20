@@ -19,6 +19,7 @@
 
 RC_ctrl_t rc_ctrl;
 static uint8_t buffer[RC_FRAME_LENGTH] = {0};
+static uint8_t frame[RC_FRAME_LENGTH] = {0};
 static volatile uint32_t rc_frame_count = 0;
 volatile RC_sync_state_t RC_sync_state = RC_SYNC0;
 
@@ -34,13 +35,13 @@ uint32_t RC_GetFrameCount(void) {
 
 // Put this in your main.c initialization.
 void remote_control_init() {
-	HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+	HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
 }
 
 // Put this where you need raw buffer data
 void RC_GetLastFrame(uint8_t out[RC_FRAME_LENGTH]) {
     if (!out) return;
-    memcpy(out, buffer, RC_FRAME_LENGTH);
+    memcpy(out, frame, RC_FRAME_LENGTH);
 }
 
 // Put this where you need remote control data
@@ -48,37 +49,43 @@ const RC_ctrl_t *get_remote_control_point() {
 	return &rc_ctrl;
 }
 
+void remote_control_read() {
+	HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
+}
+
 // Put this in HAL_UART_RxCpltCallback
 void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart) {
-	switch (RC_sync_state) {
-		case RC_SYNC0:
-			if (buffer[0] == RC_FRAME_LENGTH) {
-				RC_sync_state = RC_SYNC1;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[1], 1);
-			} else {
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
-			}
-			break;
-		case RC_SYNC1:
-			if (buffer[1] == RC_COMMAND40) {
-				RC_sync_state = RC_SYNCED;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[2], RC_FRAME_LENGTH - 2);
-			} else {
-				RC_sync_state = RC_SYNC0;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
-			}
-			break;
-		case RC_SYNCED:
-			if (buffer[0] != RC_FRAME_LENGTH || buffer[1] != RC_COMMAND40 || !ibus_checksum(buffer)) {
-				RC_sync_state = RC_SYNC0;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
-				break;
-			}
-			rc_frame_count++;
-			ibus_to_rc(buffer, &rc_ctrl);
-			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
-			break;
-	}
+	memcpy(frame, buffer, 32);
+	memset(buffer, '\0', 32);
+	// switch (RC_sync_state) {
+	// 	case RC_SYNC0:
+	// 		if (buffer[0] == RC_FRAME_LENGTH) {
+	// 			RC_sync_state = RC_SYNC1;
+	// 			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[1], 1);
+	// 		} else {
+	// 			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+	// 		}
+	// 		break;
+	// 	case RC_SYNC1:
+	// 		if (buffer[1] == RC_COMMAND40) {
+	// 			RC_sync_state = RC_SYNCED;
+	// 			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[2], RC_FRAME_LENGTH - 2);
+	// 		} else {
+	// 			RC_sync_state = RC_SYNC0;
+	// 			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+	// 		}
+	// 		break;
+	// 	case RC_SYNCED:
+	// 		if (buffer[0] != RC_FRAME_LENGTH || buffer[1] != RC_COMMAND40 || !ibus_checksum(buffer)) {
+	// 			RC_sync_state = RC_SYNC0;
+	// 			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+	// 			break;
+	// 		}
+	// 		rc_frame_count++;
+	// 		ibus_to_rc(buffer, &rc_ctrl);
+	// 		HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
+	// 		break;
+	// }
 }
 
 // Put this in HAL_UART_ErrorCallback
