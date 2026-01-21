@@ -17,8 +17,10 @@
 #include "ibus.h"
 #include <string.h>
 
-RC_ctrl_t rc_ctrl;
+// Load buffer into a custom RAM section instead of default DTCMRAM (required on STM32H7)
 __attribute__((__section__(".dma_bss"))) static uint8_t buffer[RC_FRAME_LENGTH] = {0};
+
+RC_ctrl_t rc_ctrl;
 static volatile uint32_t rc_frame_count = 0;
 volatile RC_sync_state_t RC_sync_state = RC_SYNC0;
 
