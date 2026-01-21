@@ -1,7 +1,7 @@
 /*
  * ibus.c
  * This file reads IBUS channel data from FlySky Radio Receivers (FS-IA6B)
- * using UART interrupts. It replaces bsp_rc.c and remote_control.c from the
+ * using normal mode DMA. It replaces bsp_rc.c and remote_control.c from the
  * DT7 code. It assumes the receiver's IBUS servo pins are connected to the
  * devboard's UART and the UART is configured as follows:
  *
@@ -18,7 +18,7 @@
 #include <string.h>
 
 RC_ctrl_t rc_ctrl;
-static uint8_t buffer[RC_FRAME_LENGTH] = {0};
+__attribute__((__section__(".dma_bss"))) static uint8_t buffer[RC_FRAME_LENGTH] = {0};
 static volatile uint32_t rc_frame_count = 0;
 volatile RC_sync_state_t RC_sync_state = RC_SYNC0;
 
@@ -34,7 +34,7 @@ uint32_t RC_GetFrameCount(void) {
 
 // Put this in your main.c initialization.
 void remote_control_init() {
-	HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+	HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
 }
 
 // Put this where you need raw buffer data
@@ -54,34 +54,34 @@ void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart) {
 		case RC_SYNC0:
 			if (buffer[0] == RC_FRAME_LENGTH) {
 				RC_sync_state = RC_SYNC1;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[1], 1);
+				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[1], 1);
 			} else {
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
 			}
 			break;
 		case RC_SYNC1:
 			if (buffer[1] == RC_COMMAND40) {
 				RC_sync_state = RC_SYNCED;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[2], RC_FRAME_LENGTH - 2);
+				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[2], RC_FRAME_LENGTH - 2);
 			} else {
 				RC_sync_state = RC_SYNC0;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
 			}
 			break;
 		case RC_SYNCED:
 			if (buffer[0] != RC_FRAME_LENGTH || buffer[1] != RC_COMMAND40 || !ibus_checksum(buffer)) {
 				RC_sync_state = RC_SYNC0;
-				HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], 1);
+				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
 				break;
 			}
 			rc_frame_count++;
 			ibus_to_rc(buffer, &rc_ctrl);
-			HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
+			HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
 			break;
 	}
 }
 
-// Put this in HAL_UART_ErrorCallback
+// Put this in HAL_UART_ErrorCallback (optional)
 void REMOTE_UART_Error_Handler(UART_HandleTypeDef *huart) {
 	// Clear overrun error
     __HAL_UART_CLEAR_OREFLAG(RC_UART);
@@ -92,7 +92,7 @@ void REMOTE_UART_Error_Handler(UART_HandleTypeDef *huart) {
     
     // Abort and restart reception
     HAL_UART_AbortReceive(RC_UART);
-    HAL_UART_Receive_IT(RC_UART, (uint8_t*) &buffer, 1);
+    HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer, 1);
 }
 
 /* Helper Functions */

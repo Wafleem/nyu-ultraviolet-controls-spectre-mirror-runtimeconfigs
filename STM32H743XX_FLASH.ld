@@ -257,4 +257,10 @@ SECTIONS
     libgcc.a:* ( * )
   }
 
+  /* DMA-Safe section */
+  .dma_bss (NOLOAD) :
+  {
+    . = ALIGN(4);
+    KEEP(*(.dma_bss))
+  } > RAM AT> FLASH
 }
