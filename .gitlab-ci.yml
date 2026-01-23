@@ -1,8 +1,8 @@
 # GitLab CI/CD Pipeline for STM32H743 Firmware Build
 # Builds Debug configuration and outputs ELF binary
 
-# Use Docker image with ARM GCC toolchain pre-installed
-image: registry.gitlab.com/arm-research/toolchains/gcc-arm-none-eabi:latest
+# Use Ubuntu base image
+image: ubuntu:22.04
 
 # Define pipeline stages
 stages:
@@ -17,6 +17,12 @@ cache:
 # Global variables
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  DEBIAN_FRONTEND: noninteractive
+
+# Install ARM toolchain and build tools before jobs
+before_script:
+  - apt-get update -qq
+  - apt-get install -y -qq gcc-arm-none-eabi cmake ninja-build
 
 # Build job for Debug configuration
 build:debug:
