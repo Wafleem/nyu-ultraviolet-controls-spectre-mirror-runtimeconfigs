@@ -42,26 +42,27 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
 )
 
-# Add sources to executable
+# Add module sources
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/imu/imu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can/can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/remote/ibus.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/message_center/message_center.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/tests/tests.c
 )
 
-# Add Core user sources
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/imu.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/can.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/ibus.c
-)
-
-# Add include paths
+# Add module include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/imu
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/remote
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/message_center
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/tests
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
+    USE_FREERTOS=1
 )
 
 # Remove wrong libob.a library dependency when using cpp files

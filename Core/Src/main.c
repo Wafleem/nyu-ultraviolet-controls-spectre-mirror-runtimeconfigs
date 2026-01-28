@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "dma.h"
 #include "fdcan.h"
 #include "i2c.h"
@@ -65,26 +66,16 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// CAN Variables defined in Core/Src/can.c
+
+/* Shared buffer for startup messages (before FreeRTOS starts) */
 char uart_buf[256];
-int iter_number;
-uint8_t tx_buf[] = {
-    0x20, 0x40, 0xDB, 0x05, 0xDC, 0x05, 0x54, 0x05,
-    0xDC, 0x05, 0xE8, 0x03, 0xD0, 0x07, 0xD2, 0x05,
-    0xE8, 0x03, 0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05,
-    0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDA, 0xF3
-};
-uint8_t rx_buf[RC_FRAME_LENGTH];
-
-// IMU Variables (defined in Core/Src/imu.c)
-
-// SPI Handles are defined in CubeMX-generated `spi.c` and declared where needed.
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MPU_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 // IMU APIs are declared in Core/Inc/imu.h
 
@@ -93,122 +84,16 @@ static void MPU_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/* CAN implementation moved to Core/Src/can.c */
-
-/* IMU implementation moved to Core/Src/imu.c */
-// Read FlySky RC data and print formatted output (uses uart_buf)
-static void Run_FlySky_Report(void)
-{
-  if (iter_number % 50 == 0) {
-    // If connected, print remote control data
-    int len = sprintf(uart_buf, "----- FLYSKY RC DATA -----\r\n");
-    if (RC_sync_state == RC_SYNCED) {
-        const RC_ctrl_t *raw_rc = get_remote_control_point();
-        len += sprintf(uart_buf + len, "Status: CONNECTED, Frame: %ld, Channels: ", RC_GetFrameCount());
-        for (uint32_t i = 0; i < RC_NUM_CHANNELS; ++i) {
-            len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.ch[i]);
-        }
-        for (uint32_t i = 0; i < RC_NUM_SWITCHES; ++i) {
-            len += sprintf(uart_buf + len, "%4d ", raw_rc->rc.s[i]);
-        }
-        len += sprintf(uart_buf + len, "\r\n");
-    }
-    // If disconnected, print debug info
-    else {
-        RC_GetLastFrame(rx_buf);
-        len += sprintf(uart_buf + len, "Status: NOT CONNECTED (Sync: %d, Header: 0x%x 0x%x, RXNE: %lu, State: %ld, ErrorCode: 0x%lX)\r\n", 
-            RC_sync_state, rx_buf[0], rx_buf[1], (UART7->ISR & USART_ISR_RXNE_RXFNE) ? 1UL : 0UL,
-            RC_UART->RxState, RC_UART->ErrorCode);
-    }
-    CDC_Transmit_FS((uint8_t*)uart_buf, len);
-    HAL_Delay(10);
-  }
-}
-
-// Run the CAN loopback test and print results (uses uart_buf)
-static void Run_CAN_Loopback(uint32_t sent_number)
-{
-  sprintf(uart_buf, "========== LOOP %lu ==========" "\r\n", sent_number);
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  HAL_Delay(10);
-
-  sprintf(uart_buf, "----- CAN TEST -----\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  HAL_Delay(10);
-
-  if (can_send_number(sent_number)) {
-    sprintf(uart_buf, "CAN1 TX: Sent %lu\r\n", sent_number);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  } else {
-    sprintf(uart_buf, "CAN1 TX: ERROR!\r\n");
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  }
-  HAL_Delay(10);
-
-  uint32_t rxval = 0;
-  if (can_check_received(&rxval)) {
-    sprintf(uart_buf, "CAN2 RX: Received %lu\r\n", rxval);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  } else {
-    sprintf(uart_buf, "CAN2 RX: TIMEOUT!\r\n");
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  }
-  HAL_Delay(10);
-}
-
-// Read/process IMU data and print formatted output (uses uart_buf)
-static void Run_IMU_Report(void)
-{
-  sprintf(uart_buf, "----- IMU DATA -----\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  HAL_Delay(10);
-
-  if (imu_initialized) {
-    System_Read_And_Process();
-
-    sprintf(uart_buf, "Accel: X=%d Y=%d Z=%d\r\n",
-        IMU_System.accel_x, IMU_System.accel_y, IMU_System.accel_z);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-
-    sprintf(uart_buf, "Gyro:  X=%d Y=%d Z=%d\r\n",
-        IMU_System.gyro_x, IMU_System.gyro_y, IMU_System.gyro_z);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-
-    sprintf(uart_buf, "Mag:   X=%d Y=%d Z=%d\r\n",
-        IMU_System.mag_x, IMU_System.mag_y, IMU_System.mag_z);
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-
-    int16_t temp_int = (int16_t)(IMU_System.temp_c * 10);
-    sprintf(uart_buf, "Temp:  %d.%d C\r\n", temp_int / 10, abs(temp_int % 10));
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-
-    int16_t roll_int = (int16_t)(IMU_System.roll * 10);
-    int16_t pitch_int = (int16_t)(IMU_System.pitch * 10);
-    sprintf(uart_buf, "Roll: %s%d.%d deg | Pitch: %s%d.%d deg\r\n",
-        (roll_int < 0) ? "-" : "", abs(roll_int) / 10, abs(roll_int % 10),
-        (pitch_int < 0) ? "-" : "", abs(pitch_int) / 10, abs(pitch_int % 10));
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-
-    int32_t mag_noise_int = (int32_t)(IMU_System.mag_noise * 1000);
-    sprintf(uart_buf, "Mag Noise: %ld.%03d\r\n", (long)(mag_noise_int / 1000), abs((int)(mag_noise_int % 1000)));
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-
-  } else {
-    sprintf(uart_buf, "IMU: Not initialized!\r\n");
-    CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-    HAL_Delay(1);
-  }
-
-  
-
-}
-
+/*
+ * Test functions have been moved to modules/tests/tests.c
+ * Available test functions:
+ *   - Test_IMU_Report()      - Full IMU data dump
+ *   - Test_CAN_Loopback(n)   - CAN TX/RX test
+ *   - Test_FlySky_Report()   - RC receiver test
+ *   - Test_IMU_PrintCompact() - Compact IMU output
+ *
+ * These can be called from FreeRTOS tasks in freertos.c
+ */
 
 /* USER CODE END 0 */
 
@@ -295,36 +180,32 @@ int main(void)
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
 
-  sprintf(uart_buf, "CAN configured. Starting main loop...\r\n\r\n");
+  sprintf(uart_buf, "Starting FreeRTOS scheduler...\r\n\r\n");
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
 
-  uint32_t sent_number = 0;
-
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //WHICHEVER TESTS YOU WANT TO RUN,COMMENT/UNCOMMENT HERE.
-    while (1)
-    {
-      //you must connect UART5 TX to UART7 RX for loopback test
-      // if (iter_number % 10 == 0) {
-      //   HAL_UART_Transmit(&huart5, tx_buf, sizeof(tx_buf), 100);
-      // }
-
-      //you must connect CAN1 TX to CAN2 RX for loopback test
-      // Run_CAN_Loopback(sent_number); //sent number gets incremented at end of loop
-      // Run_IMU_Report();
-      Run_FlySky_Report();
-
-      // sprintf(uart_buf, "\r\n");
-      // CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-
-      iter_number++; //used for logic that runs every N loops
-      sent_number++; //used in can test
-      HAL_Delay(10);
-
+  while (1)
+  {
+    /*
+     * FreeRTOS scheduler is running - this loop should never execute.
+     * If we reach here, something went wrong with osKernelStart().
+     *
+     * Test functions are now in modules/tests/tests.c and can be
+     * called from FreeRTOS tasks in Core/Src/freertos.c
+     */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -46,12 +46,12 @@ extern volatile RC_sync_state_t RC_sync_state;
 
 
 /* Functions */
-uint32_t RC_GetFrameCount();
-void remote_control_init();
+uint32_t RC_GetFrameCount(void);
+void remote_control_init(void);
 void RC_GetLastFrame(uint8_t out[RC_FRAME_LENGTH]);
-const RC_ctrl_t *get_remote_control_point();
-void REMOTE_RX_Complete_Handler();
-void REMOTE_UART_Error_Handler();
+const RC_ctrl_t *get_remote_control_point(void);
+void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart);
+void REMOTE_UART_Error_Handler(UART_HandleTypeDef *huart);
 
 
 #endif /* __IBUS_H__ */

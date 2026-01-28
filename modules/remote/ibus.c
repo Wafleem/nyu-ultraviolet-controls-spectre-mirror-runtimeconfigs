@@ -15,6 +15,7 @@
  */
 
 #include "ibus.h"
+#include "message_center.h"
 #include <string.h>
 
 // Load buffer into a custom RAM section instead of default DTCMRAM, so that
@@ -79,6 +80,10 @@ void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart) {
 			}
 			rc_frame_count++;
 			ibus_to_rc(buffer, &rc_ctrl);
+
+			/* Publish RC data to message center from ISR context */
+			MsgCenter_PublishFromISR(TOPIC_RC_UPDATE, &rc_ctrl, sizeof(rc_ctrl));
+
 			HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
 			break;
 	}
