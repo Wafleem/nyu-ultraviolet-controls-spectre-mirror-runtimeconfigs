@@ -6,6 +6,14 @@
 #include <stdio.h>
 #include <math.h>
 
+/* FreeRTOS-aware delay macro */
+#ifdef USE_FREERTOS
+#include "cmsis_os.h"
+#define IMU_DELAY(ms) osDelay(ms)
+#else
+#define IMU_DELAY(ms) HAL_Delay(ms)
+#endif
+
 IMU_System_Data_t IMU_System;
 volatile uint8_t imu_initialized = 0;
 
@@ -193,7 +201,7 @@ void System_Read_And_Process(void) {
     IMU_System.pitch = atan2f(-ax, sqrtf(ay*ay + az*az)) * 180.0f / M_PI;
 
     mlx_cmd(MLX_CMD_START_SINGLE, NULL, 0);
-    HAL_Delay(2);
+    IMU_DELAY(2);  /* FreeRTOS-aware delay for magnetometer conversion */
     uint8_t mraw[7];
     if (mlx_cmd(MLX_CMD_READ_MEAS, mraw, 7) == 0) {
         IMU_System.mag_x = (int16_t)(mraw[1]<<8 | mraw[2]) - IMU_System.mag_bias_x;
