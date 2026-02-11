@@ -39,25 +39,26 @@ add_subdirectory(cmake/stm32cubemx)
 
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined library search paths
+    Middlewares/ST/ARM/DSP/Lib
 )
 
 # Add module sources
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/imu/imu.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can/can.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/remote/ibus.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/message_center/message_center.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/tests/tests.c
+    modules/imu/imu.c
+    modules/can/can.c
+    modules/remote/ibus.c
+    modules/message_center/message_center.c
+    modules/tests/tests.c
 )
 
 # Add module include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/imu
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/remote
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/message_center
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/tests
+    modules/imu
+    modules/can
+    modules/remote
+    modules/message_center
+    modules/tests
+    Middlewares/ST/ARM/DSP/Include
 )
 
 # Add project symbols (macros)
@@ -71,6 +72,5 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
-
-    # Add user defined libraries
+    arm_cortexM7lfsp_math
 )
