@@ -38,6 +38,8 @@
 #include "usbd_cdc_if.h"
 #include "imu.h"
 #include "can.h"
+#include "can_manager.h"
+#include "robot_config.h"
 #include "ibus.h"
 
 /* USER CODE END Includes */
@@ -69,6 +71,12 @@
 
 /* Shared buffer for startup messages (before FreeRTOS starts) */
 char uart_buf[256];
+
+/* CAN Manager globals */
+CAN_Manager_t can1_manager;
+CAN_Manager_t can2_manager;
+static MotorRegistry_t can1_registry;
+static MotorRegistry_t can2_registry;
 
 /* USER CODE END PV */
 
@@ -147,8 +155,14 @@ int main(void)
   // Wait for USB to enumerate
   HAL_Delay(1000);
 
-  // Configure and start CAN
-  CAN_Config();
+  // Initialize CAN managers with robot config (replaces CAN_Config)
+  {
+      const RobotConfig_t *robot_cfg = RobotConfig_Get();
+      CAN_Manager_Init(&can1_manager, CAN_CHANNEL_1, &hfdcan1, robot_cfg, &can1_registry);
+      CAN_Manager_Init(&can2_manager, CAN_CHANNEL_2, &hfdcan2, robot_cfg, &can2_registry);
+      CAN_Manager_Start(&can1_manager);
+      CAN_Manager_Start(&can2_manager);
+  }
 
   // Initialize IMU Sensors
   sprintf(uart_buf, "\r\n===== SYSTEM STARTUP =====\r\n");

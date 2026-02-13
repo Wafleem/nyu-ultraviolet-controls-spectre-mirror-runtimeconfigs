@@ -66,21 +66,11 @@ void CAN_Config(void)
     TxHeader.MessageMarker = 0;
 }
 
-void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
-{
-    if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != 0)
-    {
-        if (hfdcan->Instance == FDCAN2)
-        {
-            if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
-            {
-                received_number = (RxData[0] << 24) | (RxData[1] << 16) | (RxData[2] << 8) | RxData[3];
-                can_rx_flag = 1;
-            }
-        }
-    }
-
-}
+/*
+ * NOTE: HAL_FDCAN_RxFifo0Callback has been moved to can_manager.c
+ * which dispatches received frames through the CAN Manager system.
+ * The old test-level callback that only handled FDCAN2 is no longer needed.
+ */
 /* EOF */
 
 bool can_send_number(uint32_t sent_number)

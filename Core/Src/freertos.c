@@ -26,6 +26,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "message_center.h"
+#include "can_comm.h"
+#include "can_manager.h"
+#include "printing.h"
 #include "imu.h"
 #include "ibus.h"
 #include "tests.h"
@@ -56,6 +59,14 @@
 /* Cached sensor data from message center callbacks */
 static IMU_System_Data_t s_last_imu;
 static RC_ctrl_t s_last_rc;
+
+/* CAN dump: last received raw frame */
+static volatile uint32_t s_can_rx_count = 0;
+static CanRxFrame s_last_can_frame;
+
+/* CAN manager globals (defined in main.c) */
+extern CAN_Manager_t can1_manager;
+extern CAN_Manager_t can2_manager;
 
 /* Output buffer for USB CDC */
 static char output_buf[512];
@@ -88,6 +99,7 @@ const osThreadAttr_t ControlTask_attributes = {
 
 static void on_imu_update(const MsgEvent *ev, void *user_data);
 static void on_rc_update(const MsgEvent *ev, void *user_data);
+static void on_can_rx(const MsgEvent *ev, void *user_data);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -126,7 +138,7 @@ void MX_FREERTOS_Init(void) {
       Error_Handler();
   }
 
-  /* Subscribe to sensor updates */
+  /* Subscribe to sensor updates (ControlTask owns these) */
   MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
   MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
   /* USER CODE END RTOS_QUEUES */
@@ -161,12 +173,38 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+
+  /* This task owns the CAN dump - subscribe to raw CAN frames here */
+  MsgCenter_Subscribe(TOPIC_CAN_RX, on_can_rx, NULL);
+
   uint32_t counter = 0;
 
   for(;;)
   {
-    /* Every 500ms (50 iterations at 10ms), print sensor data */
+    /* Every 500ms (50 iterations at 10ms), print sensor + CAN data */
     if (counter % 50 == 0) {
+        /* CAN dump: print manager stats + last received frame */
+        {
+            uint32_t rx1 = CAN_Manager_GetRxFrames(&can1_manager);
+            uint32_t rx2 = CAN_Manager_GetRxFrames(&can2_manager);
+            uint32_t cnt = s_can_rx_count;
+            int clen = sprintf(output_buf,
+                "=== CAN Dump ===\r\n"
+                "CAN1 rx=%lu last_id=0x%03lX | CAN2 rx=%lu last_id=0x%03lX | total_pub=%lu\r\n"
+                "Last frame: ID=0x%03X DLC=%u Data=[%02X %02X %02X %02X %02X %02X %02X %02X]\r\n",
+                (unsigned long)rx1,
+                (unsigned long)CAN_Manager_GetLastRxId(&can1_manager),
+                (unsigned long)rx2,
+                (unsigned long)CAN_Manager_GetLastRxId(&can2_manager),
+                (unsigned long)cnt,
+                s_last_can_frame.std_id, s_last_can_frame.dlc,
+                s_last_can_frame.data[0], s_last_can_frame.data[1],
+                s_last_can_frame.data[2], s_last_can_frame.data[3],
+                s_last_can_frame.data[4], s_last_can_frame.data[5],
+                s_last_can_frame.data[6], s_last_can_frame.data[7]);
+            CDC_Transmit_FS((uint8_t*)output_buf, clen);
+            osDelay(5);
+        }
         /* Format integer parts for display */
         int16_t temp_int = (int16_t)(s_last_imu.temp_c * 10);
         int16_t roll_int = (int16_t)(s_last_imu.roll * 10);
@@ -307,6 +345,24 @@ static void on_rc_update(const MsgEvent *ev, void *user_data)
     (void)user_data;
     if (ev->size == sizeof(RC_ctrl_t)) {
         memcpy(&s_last_rc, ev->data, sizeof(RC_ctrl_t));
+    }
+}
+
+/**
+ * @brief Callback for raw CAN frames from message center
+ * @param ev Event containing CanRxFrame
+ * @param user_data Unused
+ *
+ * Called in MsgDispatch task context whenever CAN manager receives
+ * any frame on either FDCAN bus. Caches the last frame for the
+ * defaultTask CAN dump display.
+ */
+static void on_can_rx(const MsgEvent *ev, void *user_data)
+{
+    (void)user_data;
+    if (ev->size == sizeof(CanRxFrame)) {
+        memcpy((void*)&s_last_can_frame, ev->data, sizeof(CanRxFrame));
+        s_can_rx_count++;
     }
 }
 

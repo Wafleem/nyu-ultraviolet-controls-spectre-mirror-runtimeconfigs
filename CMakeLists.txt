@@ -46,8 +46,12 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/imu/imu.c
     modules/can/can.c
+    modules/can/can_manager.c
+    modules/can/motor_registry.c
     modules/remote/ibus.c
     modules/message_center/message_center.c
+    modules/debug_print/printing.c
+    config/robot_config.c
     modules/tests/tests.c
 )
 
@@ -57,7 +61,9 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/can
     modules/remote
     modules/message_center
+    modules/debug_print
     modules/tests
+    config
     Middlewares/ST/ARM/DSP/Include
 )
 
