@@ -44,39 +44,26 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Add module sources
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # IMU
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/imu/imu.c
-
-    # CAN (existing test-level driver + new CAN manager)
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can/can.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can/can_manager.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can/motor_registry.c
-
-    # Remote control
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/remote/ibus.c
-
-    # Message center
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/message_center/message_center.c
-
-    # Debug printing
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/debug_print/printing.c
-
-    # Config
-    ${CMAKE_CURRENT_SOURCE_DIR}/config/robot_config.c
-
-    # Tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/tests/tests.c
+    modules/imu/imu.c
+    modules/can/can.c
+    modules/can/can_manager.c
+    modules/can/motor_registry.c
+    modules/remote/ibus.c
+    modules/message_center/message_center.c
+    modules/debug_print/printing.c
+    config/robot_config.c
+    modules/tests/tests.c
 )
 
 # Add module include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/imu
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/can
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/remote
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/message_center
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/debug_print
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/config
+    modules/imu
+    modules/can
+    modules/remote
+    modules/message_center
+    modules/debug_print
+    modules/tests
+    config
 )
 
 # Add project symbols (macros)
