@@ -5,7 +5,7 @@
 #include "tests.h"
 #include "imu.h"
 #include "can.h"
-#include "ibus.h"
+#include "remote_control.h"
 #include "usbd_cdc_if.h"
 #include <string.h>
 #include <stdio.h>
@@ -97,11 +97,11 @@ void Test_FlySky_Report(void)
         len += sprintf(test_buf + len, "Status: CONNECTED, Frame: %ld\r\nChannels: ",
             RC_GetFrameCount());
 
-        for (uint32_t i = 0; i < RC_NUM_CHANNELS; ++i) {
+        for (uint32_t i = 0; i < 6; ++i) {
             len += sprintf(test_buf + len, "%4d ", raw_rc->rc.ch[i]);
         }
         len += sprintf(test_buf + len, "\r\nSwitches: ");
-        for (uint32_t i = 0; i < RC_NUM_SWITCHES; ++i) {
+        for (uint32_t i = 0; i < 4; ++i) {
             len += sprintf(test_buf + len, "%4d ", raw_rc->rc.s[i]);
         }
         len += sprintf(test_buf + len, "\r\n\r\n");
