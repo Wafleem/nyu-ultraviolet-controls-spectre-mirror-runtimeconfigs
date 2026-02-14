@@ -85,39 +85,6 @@ void Test_CAN_Loopback(uint32_t sent_number)
     }
 }
 
-void Test_FlySky_Report(void)
-{
-    int len;
-    static uint8_t rx_frame[RC_FRAME_LENGTH];
-
-    len = sprintf(test_buf, "----- FLYSKY RC DATA -----\r\n");
-
-    if (RC_sync_state == RC_SYNCED) {
-        const RC_ctrl_t *raw_rc = get_remote_control_point();
-        len += sprintf(test_buf + len, "Status: CONNECTED, Frame: %ld\r\nChannels: ",
-            RC_GetFrameCount());
-
-        for (uint32_t i = 0; i < 6; ++i) {
-            len += sprintf(test_buf + len, "%4d ", raw_rc->rc.ch[i]);
-        }
-        len += sprintf(test_buf + len, "\r\nSwitches: ");
-        for (uint32_t i = 0; i < 4; ++i) {
-            len += sprintf(test_buf + len, "%4d ", raw_rc->rc.s[i]);
-        }
-        len += sprintf(test_buf + len, "\r\n\r\n");
-    } else {
-        RC_GetLastFrame(rx_frame);
-        len += sprintf(test_buf + len,
-            "Status: NOT CONNECTED\r\n"
-            "  Sync: %d, Header: 0x%02X 0x%02X\r\n"
-            "  UART State: %ld, ErrorCode: 0x%lX\r\n\r\n",
-            RC_sync_state, rx_frame[0], rx_frame[1],
-            RC_UART->RxState, RC_UART->ErrorCode);
-    }
-
-    CDC_Transmit_FS((uint8_t*)test_buf, len);
-}
-
 void Test_IMU_PrintCompact(void)
 {
     if (!imu_initialized) {
