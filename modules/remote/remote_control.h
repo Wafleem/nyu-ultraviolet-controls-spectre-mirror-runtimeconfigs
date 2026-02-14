@@ -11,11 +11,11 @@
 #include <stdbool.h>
 
 
-#define RC_UART 				(&huart7)
-#define RC_HEADER               0x0F
-#define RC_FOOTER               0x00
+#define RC_UART 		(&huart7)
 
-#define RC_FRAME_LENGTH			25u
+#define RC_BUFFER_LENGTH        50u
+
+#define RC_FRAME_LENGTH		25u
 
 #define RC_CH_VALUE_MIN         ((uint16_t)240)
 #define RC_CH_VALUE_OFFSET      ((uint16_t)1024)
@@ -68,13 +68,6 @@ typedef __PACKED_STRUCT
 
 } RC_ctrl_t;
 
-typedef enum {
-    RC_SYNC      = 0,
-    RC_SYNCED    = 1
-} RC_sync_state_t;
-
-extern volatile RC_sync_state_t RC_sync_state;
-
 /* ----------------------- Internal Data ----------------------------------- */
 
 void remote_control_init(void);
@@ -82,7 +75,7 @@ const RC_ctrl_t *get_remote_control_point(void);
 uint32_t RC_GetFrameCount(void);
 void RC_GetLastFrame(uint8_t out[RC_FRAME_LENGTH]);
 
-void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart);
+void REMOTE_IDLE_Handler(UART_HandleTypeDef *huart);
 void REMOTE_Error_Handler(UART_HandleTypeDef *huart);
 
 

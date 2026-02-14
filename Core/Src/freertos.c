@@ -220,7 +220,7 @@ void StartDefaultTask(void *argument)
             "Angles: Roll:%s%d.%d  Pitch:%s%d.%d\r\n"
             "Mag Noise: %ld.%03ld\r\n"
             "=== RC Data ===\r\n"
-            "Status: %s (frames: %lu)\r\n"
+            "Frames: %lu\r\n"
             "Sticks: RH:%4d RV:%4d LV:%4d LH:%4d\r\n"
             "Knobs:  L:%4d R:%4d\r\n"
             "Switch: %d %d %d %d\r\n\r\n",
@@ -234,7 +234,6 @@ void StartDefaultTask(void *argument)
             (pitch_int < 0) ? "-" : "", abs(pitch_int) / 10, abs(pitch_int % 10),
             (long)(noise_int / 1000), (long)abs((int)(noise_int % 1000)),
             /* RC (from message center callback) */
-            (RC_sync_state == RC_SYNCED) ? "CONNECTED" : "DISCONNECTED",
             RC_GetFrameCount(),
             s_last_rc.rc.ch[0], s_last_rc.rc.ch[1], s_last_rc.rc.ch[2], s_last_rc.rc.ch[3],
             s_last_rc.rc.ch[4], s_last_rc.rc.ch[5],

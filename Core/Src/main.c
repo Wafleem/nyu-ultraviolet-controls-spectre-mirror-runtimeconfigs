@@ -184,7 +184,7 @@ int main(void)
   }
   HAL_Delay(10);
    // Initialize FlySky RC receiver
-  sprintf(uart_buf, "Initializing FlySky iBus receiver...\r\n");
+  sprintf(uart_buf, "Initializing FlySky receiver...\r\n");
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
 
@@ -303,9 +303,9 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   if (huart == RC_UART) {
-    REMOTE_RX_Complete_Handler(huart);
+    REMOTE_IDLE_Handler(huart);
   }
 }
 

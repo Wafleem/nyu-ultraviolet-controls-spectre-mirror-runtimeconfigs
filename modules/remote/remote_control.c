@@ -16,11 +16,10 @@
 
 // Load buffer into a custom RAM section instead of default DTCMRAM, so that
 // DMA can access it (required on STM32H7)
-__attribute__((__section__(".dma_bss"))) static uint8_t buffer[RC_FRAME_LENGTH] = {0};
+__attribute__((__section__(".dma_bss"))) static uint8_t buffer[RC_BUFFER_LENGTH] = {0};
 
 RC_ctrl_t rc_ctrl;
 static volatile uint32_t rc_frame_count = 0;
-volatile RC_sync_state_t RC_sync_state = RC_SYNC;
 
 static void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl);
 
@@ -33,7 +32,7 @@ uint32_t RC_GetFrameCount(void) {
 
 // Put this in your main.c initialization.
 void remote_control_init() {
-	HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
+    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, RC_BUFFER_LENGTH);
 }
 
 // Put this where you need raw buffer data
@@ -48,31 +47,16 @@ const RC_ctrl_t *get_remote_control_point() {
 }
 
 // Put this in HAL_UART_RxCpltCallback
-void REMOTE_RX_Complete_Handler(UART_HandleTypeDef *huart) {
-	switch (RC_sync_state) {
-		case RC_SYNC:
-			if (buffer[0] == RC_HEADER) {
-				RC_sync_state = RC_SYNCED;
-				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[1], RC_FRAME_LENGTH - 1);
-			} else {
-				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
-			}
-			break;
-		case RC_SYNCED:
-			if (buffer[0] != RC_HEADER && buffer[24] != RC_FOOTER) {
-				RC_sync_state = RC_SYNC;
-				HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], 1);
-				break;
-			}
-			rc_frame_count++;
-			sbus_to_rc(buffer, &rc_ctrl);
+void REMOTE_IDLE_Handler(UART_HandleTypeDef *huart) {
+    uint16_t rx_len = RC_BUFFER_LENGTH - __HAL_DMA_GET_COUNTER(huart->hdmarx);
+    if (rx_len == RC_FRAME_LENGTH) {
+        rc_frame_count++;
+        sbus_to_rc(buffer, &rc_ctrl);
 
-			/* Publish RC data to message center from ISR context */
-			MsgCenter_PublishFromISR(TOPIC_RC_UPDATE, &rc_ctrl, sizeof(rc_ctrl));
-
-			HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer[0], RC_FRAME_LENGTH);
-			break;
-	}
+        /* Publish RC data to message center from ISR context */
+        MsgCenter_PublishFromISR(TOPIC_RC_UPDATE, &rc_ctrl, sizeof(rc_ctrl));
+    }
+    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, RC_BUFFER_LENGTH);
 }
 
 // Put this in HAL_UART_ErrorCallback
@@ -81,12 +65,10 @@ void REMOTE_Error_Handler(UART_HandleTypeDef *huart) {
     __HAL_UART_CLEAR_OREFLAG(RC_UART);
     // Clear error code
     RC_UART->ErrorCode = HAL_UART_ERROR_NONE;
-	// Reset state machine
-	RC_sync_state = RC_SYNC;
     
     // Abort and restart reception
     HAL_UART_AbortReceive(RC_UART);
-    HAL_UART_Receive_DMA(RC_UART, (uint8_t*) &buffer, 1);
+    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, RC_BUFFER_LENGTH);
 }
 
 /* Helper Functions */
