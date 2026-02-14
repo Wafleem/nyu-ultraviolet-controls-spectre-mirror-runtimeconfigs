@@ -13,7 +13,7 @@
 
 #define RC_UART 		(&huart7)
 
-#define RC_BUFFER_LENGTH        50u
+#define SBUS_RX_BUF_NUM         50u
 
 #define RC_FRAME_LENGTH		25u
 

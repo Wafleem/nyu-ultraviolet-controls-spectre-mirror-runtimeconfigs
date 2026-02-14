@@ -14,31 +14,33 @@
 #include "message_center.h"
 #include <string.h>
 
-// Load buffer into a custom RAM section instead of default DTCMRAM, so that
-// DMA can access it (required on STM32H7)
-__attribute__((__section__(".dma_bss"))) static uint8_t buffer[RC_BUFFER_LENGTH] = {0};
-
-RC_ctrl_t rc_ctrl;
-static volatile uint32_t rc_frame_count = 0;
-
 static void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl);
 
-/* Public functions */
+// remote control data
+RC_ctrl_t rc_ctrl;
 
-// Put this where you need frame count
+// Load buffer into a custom RAM section instead of default DTCMRAM, so that
+// DMA can access it (required on STM32H7)
+__attribute__((__section__(".dma_bss"))) static uint8_t buffer[SBUS_RX_BUF_NUM] = {0};
+
+// frame counter
+static volatile uint32_t rc_frame_count = 0;
+// keep a snapshot of last SBUS frame for debugging
+static uint8_t last_sbus_frame[RC_FRAME_LENGTH];
+
 uint32_t RC_GetFrameCount(void) {
   return rc_frame_count;
 }
 
 // Put this in your main.c initialization.
 void remote_control_init() {
-    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, RC_BUFFER_LENGTH);
+    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, SBUS_RX_BUF_NUM);
 }
 
 // Put this where you need raw buffer data
 void RC_GetLastFrame(uint8_t out[RC_FRAME_LENGTH]) {
     if (!out) return;
-    memcpy(out, buffer, RC_FRAME_LENGTH);
+    memcpy(out, last_sbus_frame, RC_FRAME_LENGTH);
 }
 
 // Put this where you need remote control data
@@ -48,27 +50,26 @@ const RC_ctrl_t *get_remote_control_point() {
 
 // Put this in HAL_UART_RxCpltCallback
 void REMOTE_IDLE_Handler(UART_HandleTypeDef *huart) {
-    uint16_t rx_len = RC_BUFFER_LENGTH - __HAL_DMA_GET_COUNTER(huart->hdmarx);
+    uint16_t rx_len = SBUS_RX_BUF_NUM - __HAL_DMA_GET_COUNTER(huart->hdmarx);
     if (rx_len == RC_FRAME_LENGTH) {
-        rc_frame_count++;
         sbus_to_rc(buffer, &rc_ctrl);
+        memcpy(last_sbus_frame, buffer, RC_FRAME_LENGTH);
+        rc_frame_count++;
 
         /* Publish RC data to message center from ISR context */
         MsgCenter_PublishFromISR(TOPIC_RC_UPDATE, &rc_ctrl, sizeof(rc_ctrl));
     }
-    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, RC_BUFFER_LENGTH);
+    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, SBUS_RX_BUF_NUM);
 }
 
 // Put this in HAL_UART_ErrorCallback
 void REMOTE_Error_Handler(UART_HandleTypeDef *huart) {
 	// Clear overrun error
     __HAL_UART_CLEAR_OREFLAG(RC_UART);
-    // Clear error code
-    RC_UART->ErrorCode = HAL_UART_ERROR_NONE;
     
     // Abort and restart reception
     HAL_UART_AbortReceive(RC_UART);
-    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, RC_BUFFER_LENGTH);
+    HAL_UARTEx_ReceiveToIdle_DMA(RC_UART, buffer, SBUS_RX_BUF_NUM);
 }
 
 /* Helper Functions */
