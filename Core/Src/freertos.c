@@ -30,7 +30,7 @@
 #include "can_manager.h"
 #include "printing.h"
 #include "imu.h"
-#include "ibus.h"
+#include "remote_control.h"
 #include "tests.h"
 #include "usbd_cdc_if.h"
 #include <string.h>
@@ -337,7 +337,7 @@ static void on_imu_update(const MsgEvent *ev, void *user_data)
  * @param ev Event containing RC_ctrl_t
  * @param user_data Unused
  *
- * Called in MsgDispatch task context whenever the iBus ISR
+ * Called in MsgDispatch task context whenever the ISR
  * publishes new RC data via MsgCenter_PublishFromISR().
  */
 static void on_rc_update(const MsgEvent *ev, void *user_data)

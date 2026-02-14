@@ -40,7 +40,7 @@
 #include "can.h"
 #include "can_manager.h"
 #include "robot_config.h"
-#include "ibus.h"
+#include "remote_control.h"
 
 /* USER CODE END Includes */
 
@@ -311,7 +311,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   if (huart == RC_UART) {
-    REMOTE_UART_Error_Handler(huart);
+    REMOTE_Error_Handler(huart);
   }
 }
 /* USER CODE END 4 */

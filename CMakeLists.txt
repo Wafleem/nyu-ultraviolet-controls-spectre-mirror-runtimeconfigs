@@ -48,7 +48,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/can/can.c
     modules/can/can_manager.c
     modules/can/motor_registry.c
-    modules/remote/ibus.c
+    modules/remote/remote_control.c
     modules/message_center/message_center.c
     modules/debug_print/printing.c
     config/robot_config.c
