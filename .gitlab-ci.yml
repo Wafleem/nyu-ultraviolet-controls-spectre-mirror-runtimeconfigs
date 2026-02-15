@@ -29,7 +29,6 @@ build:debug:
   stage: build
   script:
     # Display toolchain versions for debugging
-    - rm -rf build
     - echo "Verifying build environment..."
     - arm-none-eabi-gcc --version
     - cmake --version
