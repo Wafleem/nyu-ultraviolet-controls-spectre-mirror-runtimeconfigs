@@ -10,6 +10,7 @@
  * RX Inversion: Enabled
  */
 
+#include "main.h"
 #include "remote_control.h"
 #include "message_center.h"
 #include <string.h>
@@ -19,9 +20,8 @@ static void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl);
 // remote control data
 RC_ctrl_t rc_ctrl;
 
-// Load buffer into a custom RAM section instead of default DTCMRAM, so that
-// DMA can access it (required on STM32H7)
-__attribute__((__section__(".dma_bss"))) static uint8_t buffer[SBUS_RX_BUF_NUM] = {0};
+// Load buffer into DMA-accessible section instead of default DTCMRAM
+static uint8_t buffer[SBUS_RX_BUF_NUM] DMA_SECTION;
 
 // frame counter
 static volatile uint32_t rc_frame_count = 0;

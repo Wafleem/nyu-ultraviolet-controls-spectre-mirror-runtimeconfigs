@@ -65,7 +65,7 @@ void Error_Handler(void);
 #define DEBUG_GPIO_Port GPIOH
 
 /* USER CODE BEGIN Private defines */
-
+#define DMA_SECTION __attribute__((section(".dma_bss"), aligned(32)))
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
