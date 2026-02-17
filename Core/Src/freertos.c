@@ -31,6 +31,8 @@
 #include "printing.h"
 #include "imu.h"
 #include "remote_control.h"
+#include "referee.h"
+#include "ref_structs.h"
 #include "tests.h"
 #include "usbd_cdc_if.h"
 #include <string.h>
@@ -59,6 +61,7 @@
 /* Cached sensor data from message center callbacks */
 static IMU_System_Data_t s_last_imu;
 static RC_ctrl_t s_last_rc;
+static robot_status_t s_robot_status;
 
 /* CAN dump: last received raw frame */
 static volatile uint32_t s_can_rx_count = 0;
@@ -93,6 +96,13 @@ const osThreadAttr_t ControlTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for RefereeTask */
+osThreadId_t RefereeTaskHandle;
+const osThreadAttr_t RefereeTask_attributes = {
+  .name = "RefereeTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -100,12 +110,14 @@ const osThreadAttr_t ControlTask_attributes = {
 static void on_imu_update(const MsgEvent *ev, void *user_data);
 static void on_rc_update(const MsgEvent *ev, void *user_data);
 static void on_can_rx(const MsgEvent *ev, void *user_data);
+static void on_robot_status(const MsgEvent *ev, void *user_data);
 
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
 void StartMsgDispatchTask(void *argument);
 void StartControlTask(void *argument);
+void StartRefereeTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -141,6 +153,7 @@ void MX_FREERTOS_Init(void) {
   /* Subscribe to sensor updates (ControlTask owns these) */
   MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
   MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
+  MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -152,6 +165,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of ControlTask */
   ControlTaskHandle = osThreadNew(StartControlTask, NULL, &ControlTask_attributes);
+
+  /* creation of RefereeTask */
+  RefereeTaskHandle = osThreadNew(StartRefereeTask, NULL, &RefereeTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -223,7 +239,9 @@ void StartDefaultTask(void *argument)
             "Frames: %lu\r\n"
             "Sticks: RH:%4d RV:%4d LV:%4d LH:%4d\r\n"
             "Knobs:  L:%4d R:%4d\r\n"
-            "Switch: %d %d %d %d\r\n\r\n",
+            "Switch: %d %d %d %d\r\n\r\n"
+            "=== Referee ===\r\n"
+            "Robot Status: %u %hu %hu",
             /* IMU (from message center callback) */
             s_last_imu.accel_x, s_last_imu.accel_y, s_last_imu.accel_z,
             s_last_imu.gyro_x, s_last_imu.gyro_y, s_last_imu.gyro_z,
@@ -237,7 +255,8 @@ void StartDefaultTask(void *argument)
             RC_GetFrameCount(),
             s_last_rc.rc.ch[0], s_last_rc.rc.ch[1], s_last_rc.rc.ch[2], s_last_rc.rc.ch[3],
             s_last_rc.rc.ch[4], s_last_rc.rc.ch[5],
-            s_last_rc.rc.s[0], s_last_rc.rc.s[1], s_last_rc.rc.s[2], s_last_rc.rc.s[3]);
+            s_last_rc.rc.s[0], s_last_rc.rc.s[1], s_last_rc.rc.s[2], s_last_rc.rc.s[3],
+            s_robot_status.robot_id, s_robot_status.current_HP, s_robot_status.chassis_power_limit);
 
         CDC_Transmit_FS((uint8_t*)output_buf, len);
     }
@@ -311,6 +330,27 @@ void StartControlTask(void *argument)
   /* USER CODE END StartControlTask */
 }
 
+/* USER CODE BEGIN Header_StartRefereeTask */
+/**
+* @brief Function implementing the RefereeTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartRefereeTask */
+void StartRefereeTask(void *argument)
+{
+  /* USER CODE BEGIN StartRefereeTask */
+  const TickType_t xFrequency = pdMS_TO_TICKS(10);  // 10ms = 100Hz
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  
+  for(;;)
+  {
+    referee_unpack_fifo_data();
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
+  /* USER CODE END StartRefereeTask */
+}
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
@@ -362,6 +402,14 @@ static void on_can_rx(const MsgEvent *ev, void *user_data)
     if (ev->size == sizeof(CanRxFrame)) {
         memcpy((void*)&s_last_can_frame, ev->data, sizeof(CanRxFrame));
         s_can_rx_count++;
+    }
+}
+
+static void on_robot_status(const MsgEvent *ev, void *user_data)
+{
+    (void)user_data;
+    if (ev->size == sizeof(robot_status_t)) {
+        memcpy((void*)&s_robot_status, ev->data, sizeof(robot_status_t));
     }
 }
 

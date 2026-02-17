@@ -41,6 +41,7 @@
 #include "can_manager.h"
 #include "robot_config.h"
 #include "remote_control.h"
+#include "referee.h"
 
 /* USER CODE END Includes */
 
@@ -194,6 +195,17 @@ int main(void)
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
 
+  // Initialize referee interpreter
+  sprintf(uart_buf, "Initializing Referee Interpreter...\r\n");
+  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  HAL_Delay(10);
+
+  referee_init();
+
+  sprintf(uart_buf, "Referee Init: READY\r\n");
+  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  HAL_Delay(10);
+
   sprintf(uart_buf, "Starting FreeRTOS scheduler...\r\n\r\n");
   CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
   HAL_Delay(10);
@@ -307,11 +319,17 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   if (huart == RC_UART) {
     REMOTE_IDLE_Handler(huart);
   }
+  else if (huart == REFEREE_UART_HANDLE) {
+    referee_IDLE_Handler(huart);
+  }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   if (huart == RC_UART) {
     REMOTE_Error_Handler(huart);
+  }
+  else if (huart == REFEREE_UART_HANDLE) {
+    referee_Error_Handler(huart);
   }
 }
 /* USER CODE END 4 */

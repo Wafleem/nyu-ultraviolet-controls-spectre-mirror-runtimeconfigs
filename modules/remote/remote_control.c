@@ -48,7 +48,7 @@ const RC_ctrl_t *get_remote_control_point() {
 	return &rc_ctrl;
 }
 
-// Put this in HAL_UART_RxCpltCallback
+// Put this in HAL_UARTEx_RxEventCallback
 void REMOTE_IDLE_Handler(UART_HandleTypeDef *huart) {
     uint16_t rx_len = SBUS_RX_BUF_NUM - __HAL_DMA_GET_COUNTER(huart->hdmarx);
     if (rx_len == RC_FRAME_LENGTH) {
