@@ -48,6 +48,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/can/can.c
     modules/can/can_manager.c
     modules/can/motor_registry.c
+    modules/fifo/fifo.c
+    modules/referee/referee.c
+    modules/referee/ref_structs.c
+    modules/referee/ref_crc.c
     modules/remote/remote_control.c
     modules/message_center/message_center.c
     modules/debug_print/printing.c
@@ -59,6 +63,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/imu
     modules/can
+    modules/fifo
+    modules/referee
     modules/remote
     modules/message_center
     modules/debug_print
