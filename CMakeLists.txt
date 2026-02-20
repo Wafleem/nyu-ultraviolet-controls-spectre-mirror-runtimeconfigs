@@ -57,6 +57,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/debug_print/printing.c
     config/robot_config.c
     modules/tests/tests.c
+    # QSPI Flash driver
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage/w25q128jv.c
 )
 
 # Add module include paths
@@ -71,6 +73,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/tests
     config
     Middlewares/ST/ARM/DSP/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage
 )
 
 # Add project symbols (macros)
