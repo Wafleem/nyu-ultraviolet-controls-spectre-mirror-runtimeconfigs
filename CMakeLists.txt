@@ -55,6 +55,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/remote/remote_control.c
     modules/message_center/message_center.c
     modules/debug_print/printing.c
+    modules/vision_comm/vision_comm.c
+    modules/vision_comm/crc8.c
+    modules/vision_comm/crc16.c
+    modules/vision_comm/seasky_protocol.c
     config/robot_config.c
     modules/tests/tests.c
 )
@@ -68,6 +72,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/remote
     modules/message_center
     modules/debug_print
+    modules/vision_comm
     modules/tests
     config
     Middlewares/ST/ARM/DSP/Include
