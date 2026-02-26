@@ -198,24 +198,78 @@ void StartDefaultTask(void *argument) {
   uint32_t counter = 0;
 
   for (;;) {
-    /* Every 500ms (50 iterations at 10ms), print compact IMU data */
+    /* Every 500ms (50 iterations at 10ms), print sensor + CAN data */
     if (counter % 50 == 0) {
-      int16_t ekf_roll_tenths = (int16_t)(-s_last_imu.ekf_roll * 10.0f);
-      int16_t ekf_pitch_tenths = (int16_t)(-s_last_imu.ekf_pitch * 10.0f);
-      int16_t ekf_yaw_tenths = (int16_t)(s_last_imu.ekf_yaw * 10.0f);
+      /* CAN dump: print manager stats + last received frame */
+      {
+        uint32_t rx1 = CAN_Manager_GetRxFrames(&can1_manager);
+        uint32_t rx2 = CAN_Manager_GetRxFrames(&can2_manager);
+        uint32_t cnt = s_can_rx_count;
+        int clen = sprintf(
+            output_buf,
+            "=== CAN Dump ===\r\n"
+            "CAN1 rx=%lu last_id=0x%03lX | CAN2 rx=%lu last_id=0x%03lX | "
+            "total_pub=%lu\r\n"
+            "Last frame: ID=0x%03X DLC=%u Data=[%02X %02X %02X %02X %02X %02X "
+            "%02X %02X]\r\n",
+            (unsigned long)rx1,
+            (unsigned long)CAN_Manager_GetLastRxId(&can1_manager),
+            (unsigned long)rx2,
+            (unsigned long)CAN_Manager_GetLastRxId(&can2_manager),
+            (unsigned long)cnt, s_last_can_frame.std_id, s_last_can_frame.dlc,
+            s_last_can_frame.data[0], s_last_can_frame.data[1],
+            s_last_can_frame.data[2], s_last_can_frame.data[3],
+            s_last_can_frame.data[4], s_last_can_frame.data[5],
+            s_last_can_frame.data[6], s_last_can_frame.data[7]);
+        CDC_Transmit_FS((uint8_t *)output_buf, clen);
+        osDelay(5);
+      }
+      /* Format integer parts for display */
+      int16_t temp_int = (int16_t)(s_last_imu.temp_c * 10);
+      int16_t roll_int = (int16_t)(s_last_imu.roll * 10);
+      int16_t pitch_int = (int16_t)(s_last_imu.pitch * 10);
+      int16_t ekf_roll_int = (int16_t)(s_last_imu.ekf_roll * 10);
+      int16_t ekf_pitch_int = (int16_t)(s_last_imu.ekf_pitch * 10);
+      int16_t ekf_yaw_int = (int16_t)(s_last_imu.ekf_yaw * 10);
+      int32_t noise_int = (int32_t)(s_last_imu.mag_noise * 1000);
 
-      int len =
-          sprintf(output_buf,
-                  "A:%6d,%6d,%6d G:%6d,%6d,%6d M:%6d,%6d,%6d "
-                  "E:%s%d.%d,%s%d.%d,%s%d.%d\r\n",
-                  -s_last_imu.accel_x, -s_last_imu.accel_y, s_last_imu.accel_z,
-                  -s_last_imu.gyro_x, -s_last_imu.gyro_y, s_last_imu.gyro_z,
-                  -s_last_imu.mag_x, -s_last_imu.mag_y, s_last_imu.mag_z,
-                  (ekf_roll_tenths < 0) ? "-" : "", abs(ekf_roll_tenths) / 10,
-                  abs(ekf_roll_tenths % 10), (ekf_pitch_tenths < 0) ? "-" : "",
-                  abs(ekf_pitch_tenths) / 10, abs(ekf_pitch_tenths % 10),
-                  (ekf_yaw_tenths < 0) ? "-" : "", abs(ekf_yaw_tenths) / 10,
-                  abs(ekf_yaw_tenths % 10));
+      int len = sprintf(
+          output_buf,
+          "=== IMU Data ===\r\n"
+          "Accel:  X:%6d  Y:%6d  Z:%6d\r\n"
+          "Gyro:   X:%6d  Y:%6d  Z:%6d\r\n"
+          "Mag:    X:%6d  Y:%6d  Z:%6d  (bias: %d,%d,%d)\r\n"
+          "Temp:   %d.%d C\r\n"
+          "Angles: Roll:%s%d.%d  Pitch:%s%d.%d\r\n"
+          "EKF:    Roll:%s%d.%d  Pitch:%s%d.%d  Yaw:%s%d.%d\r\n"
+          "Mag Noise: %ld.%03ld\r\n"
+          "=== RC Data ===\r\n"
+          "Frames: %lu\r\n"
+          "Sticks: RH:%4d RV:%4d LV:%4d LH:%4d\r\n"
+          "Knobs:  L:%4d R:%4d\r\n"
+          "Switch: %d %d %d %d\r\n\r\n"
+          "=== Referee ===\r\n"
+          "Robot Status: %u %hu %hu",
+          /* IMU (from message center callback) */
+          s_last_imu.accel_x, s_last_imu.accel_y, s_last_imu.accel_z,
+          s_last_imu.gyro_x, s_last_imu.gyro_y, s_last_imu.gyro_z,
+          s_last_imu.mag_x, s_last_imu.mag_y, s_last_imu.mag_z,
+          s_last_imu.mag_bias_x, s_last_imu.mag_bias_y, s_last_imu.mag_bias_z,
+          temp_int / 10, abs(temp_int % 10), (roll_int < 0) ? "-" : "",
+          abs(roll_int) / 10, abs(roll_int % 10), (pitch_int < 0) ? "-" : "",
+          abs(pitch_int) / 10, abs(pitch_int % 10),
+          (ekf_roll_int < 0) ? "-" : "", abs(ekf_roll_int) / 10,
+          abs(ekf_roll_int % 10), (ekf_pitch_int < 0) ? "-" : "",
+          abs(ekf_pitch_int) / 10, abs(ekf_pitch_int % 10),
+          (ekf_yaw_int < 0) ? "-" : "", abs(ekf_yaw_int) / 10,
+          abs(ekf_yaw_int % 10), (long)(noise_int / 1000),
+          (long)abs((int)(noise_int % 1000)),
+          /* RC (from message center callback) */
+          RC_GetFrameCount(), s_last_rc.rc.ch[0], s_last_rc.rc.ch[1],
+          s_last_rc.rc.ch[2], s_last_rc.rc.ch[3], s_last_rc.rc.ch[4],
+          s_last_rc.rc.ch[5], s_last_rc.rc.s[0], s_last_rc.rc.s[1],
+          s_last_rc.rc.s[2], s_last_rc.rc.s[3], s_robot_status.robot_id,
+          s_robot_status.current_HP, s_robot_status.chassis_power_limit);
 
       CDC_Transmit_FS((uint8_t *)output_buf, len);
     }

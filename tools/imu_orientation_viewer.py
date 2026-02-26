@@ -21,12 +21,18 @@ COMPACT_RE = re.compile(
 ACCEL_RE = re.compile(r"Accel:\s*X:\s*(-?\d+)\s*Y:\s*(-?\d+)\s*Z:\s*(-?\d+)")
 GYRO_RE = re.compile(r"Gyro:\s*X:\s*(-?\d+)\s*Y:\s*(-?\d+)\s*Z:\s*(-?\d+)")
 MAG_RE = re.compile(r"Mag:\s*X:\s*(-?\d+)\s*Y:\s*(-?\d+)\s*Z:\s*(-?\d+)")
+ANGLES_RE = re.compile(
+    r"Angles:\s*Roll:\s*(-?\d+(?:\.\d+)?)\s*Pitch:\s*(-?\d+(?:\.\d+)?)"
+)
 EKF_RE = re.compile(
     r"EKF:\s*Roll:\s*(-?\d+(?:\.\d+)?)\s*Pitch:\s*(-?\d+(?:\.\d+)?)\s*Yaw:\s*(-?\d+(?:\.\d+)?)"
 )
 
 
 def parse_line(line: str, state: dict):
+    if "=== IMU Data ===" in line:
+        state.clear()
+
     m = COMPACT_RE.search(line)
     if m:
         ax, ay, az, gx, gy, gz = map(int, m.groups()[:6])
@@ -48,7 +54,7 @@ def parse_line(line: str, state: dict):
             ekf_pitch = 0.0
             ekf_yaw = 0.0
 
-        return ax, ay, az, gx, gy, gz, mx, my, mz, ekf_roll, ekf_pitch, ekf_yaw
+        return -ax, -ay, az, -gx, -gy, gz, -mx, -my, mz, -ekf_roll, -ekf_pitch, ekf_yaw
 
     m = ACCEL_RE.search(line)
     if m:
@@ -65,14 +71,18 @@ def parse_line(line: str, state: dict):
     m = EKF_RE.search(line)
     if m:
         state["ekf_roll"], state["ekf_pitch"], state["ekf_yaw"] = map(float, m.groups())
-        required = ("ax", "ay", "az", "gx", "gy", "gz", "mx", "my", "mz")
-        if all(k in state for k in required):
-            return (
-                state["ax"], state["ay"], state["az"],
-                state["gx"], state["gy"], state["gz"],
-                state["mx"], state["my"], state["mz"],
-                state["ekf_roll"], state["ekf_pitch"], state["ekf_yaw"],
+
+    required = ("ax", "ay", "az", "gx", "gy", "gz", "mx", "my", "mz")
+    if all(k in state for k in required):
+        if all(k in state for k in ("ekf_roll", "ekf_pitch", "ekf_yaw")):
+            sample = (
+                -state["ax"], -state["ay"], state["az"],
+                -state["gx"], -state["gy"], state["gz"],
+                -state["mx"], -state["my"], state["mz"],
+                -state["ekf_roll"], -state["ekf_pitch"], state["ekf_yaw"],
             )
+            state.clear()
+            return sample
 
     return None
 
