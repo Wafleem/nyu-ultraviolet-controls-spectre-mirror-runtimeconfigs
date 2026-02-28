@@ -35,13 +35,17 @@
 #include <stdlib.h>
 #include <math.h>
 #include "usb_device.h"
-#include "usbd_cdc_if.h"
+#include "printing.h"
+#include "logger.h"
+#include "robot_config.h"
 #include "imu.h"
 #include "can.h"
 #include "can_manager.h"
-#include "robot_config.h"
+#include "motor_driver.h"
 #include "remote_control.h"
+#include "message_center.h"
 #include "referee.h"
+#include "vision_comm.h"
 
 /* USER CODE END Includes */
 
@@ -54,9 +58,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-/* IMU register defines moved to Core/Inc/imu.h */
-
+#define MSG_CENTER_QUEUE_LEN 64
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -156,65 +158,80 @@ int main(void)
   // Wait for USB to enumerate
   HAL_Delay(1000);
 
-  // Initialize CAN managers with robot config (replaces CAN_Config)
-  {
-      const RobotConfig_t *robot_cfg = RobotConfig_Get();
-      CAN_Manager_Init(&can1_manager, CAN_CHANNEL_1, &hfdcan1, robot_cfg, &can1_registry);
-      CAN_Manager_Init(&can2_manager, CAN_CHANNEL_2, &hfdcan2, robot_cfg, &can2_registry);
-      CAN_Manager_Start(&can1_manager);
-      CAN_Manager_Start(&can2_manager);
-  }
+  // Initialize system
+  Debug_Printf("\r\n===== SYSTEM STARTUP =====\r\n");
+  HAL_Delay(10);
+
+  // Initialize logger
+  Logger_Init();
+  Logger_SetRate(LOG_TAG_CMD, 100);   // 10Hz for command controller CSV (SPINDBG)
+  Logger_SetRate(LOG_TAG_IMU, 100);   // 10Hz for IMU CSV data
+  Logger_SetRate(LOG_TAG_GIM, 50);    // 20Hz for gimbal PID tuning (PITCH/YAW_CSV)
+  Logger_SetRate(LOG_TAG_RC, 0);      // No rate limit for RC (full 100Hz+ output)
+  Logger_SetRate(LOG_TAG_CHA, 200);   // 5Hz for chassis status
+  Logger_SetRate(LOG_TAG_SEN, 200);   // 5Hz for sentry status
+  Logger_SetRate(LOG_TAG_SYS, 0);     // No rate limit for system messages
+  Logger_SetRate(LOG_TAG_MOT, 0);     // No rate limit for mo
+  Logger_SetRate(LOG_TAG_CAN, 0);     // No rate limit for CAN
+  Logger_SetRate(LOG_TAG_DEBUG, 0);   // No rate limit for debug
 
   // Initialize IMU Sensors
-  sprintf(uart_buf, "\r\n===== SYSTEM STARTUP =====\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  Debug_Printf("Initializing HXY ICM-42688P + MLX90393...\r\n");
   HAL_Delay(10);
-
-  sprintf(uart_buf, "Initializing HXY ICM-42688P + MLX90393...\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
-  HAL_Delay(10);
-
   if (System_Sensors_Init() == 0) {
       imu_initialized = 1;
-      sprintf(uart_buf, "IMU Init: SUCCESS\r\n");
-      CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+      Debug_Printf("IMU Init: SUCCESS\r\n");
   } else {
       imu_initialized = 0;
-      sprintf(uart_buf, "IMU Init: FAILED! Check SPI connections.\r\n");
-      CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+      Debug_Printf("IMU Init: FAILED! Check SPI connections.\r\n");
   }
   HAL_Delay(10);
-   // Initialize FlySky RC receiver
-  sprintf(uart_buf, "Initializing FlySky receiver...\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+
+  // Initialize CAN managers with robot config (replaces CAN_Config)
+  const RobotConfig_t *robot_cfg = RobotConfig_Get();
+  Debug_Printf("Initializing CAN\r\n");
+  HAL_Delay(10);
+  CAN_Manager_Init(&can1_manager, CAN_CHANNEL_1, &hfdcan1, robot_cfg, &can1_registry);
+  CAN_Manager_Init(&can2_manager, CAN_CHANNEL_2, &hfdcan2, robot_cfg, &can2_registry);
+  CAN_Manager_Start(&can1_manager);
+  CAN_Manager_Start(&can2_manager);
+  Debug_Printf("CAN Init: Success\r\n");
   HAL_Delay(10);
 
+  // Initialize FlySky RC receiver
+  USB_CDC_Printf("Initializing FlySky receiver...\r\n");
+  HAL_Delay(10);
   remote_control_init();
-
-  sprintf(uart_buf, "FlySky Init: READY (waiting for signal)\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  USB_CDC_Printf("FlySky Init: READY (waiting for signal)\r\n");
   HAL_Delay(10);
 
   // Initialize referee interpreter
-  sprintf(uart_buf, "Initializing Referee Interpreter...\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  USB_CDC_Printf("Initializing Referee Interpreter...\r\n");
   HAL_Delay(10);
-
   referee_init();
-
-  sprintf(uart_buf, "Referee Init: READY\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  USB_CDC_Printf("Referee Init: READY\r\n");
   HAL_Delay(10);
 
-  sprintf(uart_buf, "Starting FreeRTOS scheduler...\r\n\r\n");
-  CDC_Transmit_FS((uint8_t*)uart_buf, strlen(uart_buf));
+  USB_CDC_Printf("Starting FreeRTOS scheduler...\r\n\r\n");
   HAL_Delay(10);
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
   osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+
+  /* USER CODE BEGIN RTOS_INIT_AFTER_KERNEL */
+  USB_CDC_Printf("Initializing Free-RTOS dependent modules");
+  MsgCenter_Init(MSG_CENTER_QUEUE_LEN);
+  VisionComm_Init();
+  MotorDriver_ModuleInit();
+  // CmdController_Init();
+  // ChassisApp_Init();
+  // GimbalApp_Init();
+  // ShooterApp_Init();
   MX_FREERTOS_Init();
+  USB_CDC_Printf("All modules initialized");
+  /* USER CODE END RTOS_INIT_AFTER_KERNEL */
 
   /* Start scheduler */
   osKernelStart();
