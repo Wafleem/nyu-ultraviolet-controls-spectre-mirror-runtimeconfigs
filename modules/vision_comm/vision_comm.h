@@ -54,6 +54,14 @@ typedef struct
     uint8_t updated;
 } Vision_Recv_s;
 
+// Raw frame snapshot published from USART6 ISR
+typedef struct
+{
+    uint32_t seq;                    // Monotonic sequence number
+    uint16_t len;                    // Number of valid bytes in data[]
+    uint8_t  data[VISION_RECV_SIZE]; // Raw Seasky payload (little-endian)
+} Vision_RawFrameEvent;
+
 // Enemy color
 typedef enum
 {

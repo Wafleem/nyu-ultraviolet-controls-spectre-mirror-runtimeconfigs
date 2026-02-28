@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define CRC_START_16 0xFFFF
-#define CRC_POLY_16  0xA001
+#define CRC_POLY_16  0x1021
 
 /**
  * @brief 计算CRC16校验码

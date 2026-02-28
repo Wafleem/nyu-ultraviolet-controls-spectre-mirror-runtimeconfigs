@@ -1,55 +1,62 @@
-# Project-level .gitignore for STM32/CMake projects
-# Keeps generated build artifacts and local IDE files out of the repo
-# while allowing others to clone and build locally.
-
-# Build output directories
-/build/
-
-# CMake files
+# CMake build files
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-compile_commands.json
 Makefile
-build.ninja
 
-# Object files and archives
+# Build directories
+build/
+out/
+bin/
+Debug/
+Release/
+
+# Compiled object files
 *.o
 *.obj
-*.a
+*.so
+*.dll
+*.exe
+*.dylib
 
-# Linker / binary outputs
+# IDE files
+*.user
+*.suo
+*.vcxproj*
+*.xcodeproj
+*.idea/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Generated files
+*.generated.*
+
+# Embedded/ARM specific
 *.elf
 *.bin
 *.hex
 *.map
 *.lst
 *.axf
-*.srec
-
-# Dependency files
 *.d
+*.su
 
-# STM32CubeMX local files (keep .ioc but ignore user prefs)
-*.ioc.user
-*.ioc.last
+# Build outputs
+compile_commands.json
+build_log.txt
+build_output.txt
 
-# IDE/editor
-.vscode/
-*.code-workspace
-.idea/
-*.suo
-*.user
-/.vs/
-
-# Temporary files
-*.log
-*.tmp
-*~
-*.swp
-Thumbs.db
+# Mac OS
 .DS_Store
 
-# Local environment / secrets
-.env
-secrets.env
+# Windows
+Thumbs.db
+
+.claude/
+
+.venv
+
+c_cpp_properties.json
+settings.json
