@@ -33,7 +33,7 @@ STM32H7 project for the Spectre board.
 - If you want to include linker maps or `compile_commands.json` in the repo for debugging or tooling, remove them from `.gitignore` before committing.
 
 ## Opening in STM32CubeMX
-Open `spectre2_can_usb_sensor.ioc` in STM32CubeMX to inspect or regenerate peripheral configuration. Be careful when regenerating project files — keep track of intentional local changes. Remember to edit code in the sections marked user code in order to avoid cubemx overwriting it if you change something and regenerate the code
+Open `Spectre_Controls.ioc` in STM32CubeMX to inspect or regenerate peripheral configuration. Be careful when regenerating project files — keep track of intentional local changes. Remember to edit code in the sections marked user code in order to avoid cubemx overwriting it if you change something and regenerate the code
 
 ## Build & flash (summary)
 

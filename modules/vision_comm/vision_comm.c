@@ -7,7 +7,7 @@
 #include "seasky_protocol.h"
 #include "message_center.h"
 #include "gyro_data.h"
-#include "stm32f4xx_hal.h"
+#include "stm32h7xx_hal.h"
 #include "printing.h"
 #include <string.h>
 #include <stdio.h>

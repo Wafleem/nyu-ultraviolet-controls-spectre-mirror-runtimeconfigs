@@ -103,6 +103,13 @@ const osThreadAttr_t RefereeTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for IMUTask */
+osThreadId_t IMUTaskHandle;
+const osThreadAttr_t IMUTask_attributes = {
+  .name = "IMUTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -118,6 +125,7 @@ void StartDefaultTask(void *argument);
 void StartMsgDispatchTask(void *argument);
 void StartControlTask(void *argument);
 void StartRefereeTask(void *argument);
+void StartIMUTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -168,6 +176,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of RefereeTask */
   RefereeTaskHandle = osThreadNew(StartRefereeTask, NULL, &RefereeTask_attributes);
+
+  /* creation of IMUTask */
+  IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -349,6 +360,24 @@ void StartRefereeTask(void *argument)
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END StartRefereeTask */
+}
+
+/* USER CODE BEGIN Header_StartIMUTask */
+/**
+* @brief Function implementing the IMUTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartIMUTask */
+void StartIMUTask(void *argument)
+{
+  /* USER CODE BEGIN StartIMUTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartIMUTask */
 }
 
 /* Private application code --------------------------------------------------*/

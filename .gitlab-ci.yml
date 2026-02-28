@@ -44,16 +44,16 @@ build:debug:
 
     # Display memory usage information
     - echo "Firmware size information:"
-    - arm-none-eabi-size build/Debug/spectre2_can_usb_sensor.elf
+    - arm-none-eabi-size build/Debug/Spectre_Controls.elf
 
     # Verify ELF file was created
-    - test -f build/Debug/spectre2_can_usb_sensor.elf && echo "Build successful - ELF file generated"
+    - test -f build/Debug/Spectre_Controls.elf && echo "Build successful - ELF file generated"
 
   artifacts:
     name: "firmware-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
     paths:
-      - build/Debug/spectre2_can_usb_sensor.elf
-      - build/Debug/spectre2_can_usb_sensor.map
+      - build/Debug/Spectre_Controls.elf
+      - build/Debug/Spectre_Controls.map
     expire_in: 2 weeks
     reports:
       dotenv: build.env
