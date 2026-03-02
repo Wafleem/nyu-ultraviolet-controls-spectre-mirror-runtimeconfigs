@@ -187,7 +187,7 @@ Once you have done so, you should now see a USB1 there, if not, click the refres
 
 <p align="center"><sub><strong>Figure 12</strong>: USB1 Connect</sub></p>
 
-After this, please click the erasing and programming button on the left, and switch the file to the `.elf` file that was generated in your `robomasters-control/build/Debug` folder (e.g., `NYUSH_Infantry.elf`).
+After this, please click the erasing and programming button on the left, and switch the file to the `.elf` file that was generated in your `build/Debug` folder (e.g., `Spectre_Controls.elf`).
 
 ![erasing&programming](../assets/erasure&programming.png)
 
