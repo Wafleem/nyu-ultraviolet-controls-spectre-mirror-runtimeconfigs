@@ -50,7 +50,7 @@ void Test_FlySky_Report(void);
  * Lighter weight than Test_IMU_Report() - just prints current values
  * without headers or extra formatting. Suitable for continuous monitoring.
  *
- * @param imu Pointer to IMU data structure (uses IMU_System if NULL)
+ * @param imu Pointer to IMU data structure (uses Gimbal_Sensor if NULL)
  */
 void Test_IMU_PrintCompact(void);
 

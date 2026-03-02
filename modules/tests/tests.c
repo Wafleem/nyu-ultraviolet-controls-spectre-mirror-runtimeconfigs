@@ -23,34 +23,34 @@ void Test_IMU_Report(void) {
   if (imu_initialized) {
     System_Read_And_Process();
 
-    len = sprintf(test_buf, "Accel: X=%d Y=%d Z=%d\r\n", IMU_System.accel_x,
-                  IMU_System.accel_y, IMU_System.accel_z);
+    len = sprintf(test_buf, "Accel: X=%d Y=%d Z=%d\r\n", Gimbal_Sensor.accel_x,
+                  Gimbal_Sensor.accel_y, Gimbal_Sensor.accel_z);
     CDC_Transmit_FS((uint8_t *)test_buf, len);
 
-    len = sprintf(test_buf, "Gyro:  X=%d Y=%d Z=%d\r\n", IMU_System.gyro_x,
-                  IMU_System.gyro_y, IMU_System.gyro_z);
+    len = sprintf(test_buf, "Gyro:  X=%d Y=%d Z=%d\r\n", Gimbal_Sensor.gyro_x,
+                  Gimbal_Sensor.gyro_y, Gimbal_Sensor.gyro_z);
     CDC_Transmit_FS((uint8_t *)test_buf, len);
 
     len = sprintf(test_buf, "Mag:   X=%d Y=%d Z=%d (bias: %d,%d,%d)\r\n",
-                  IMU_System.mag_x, IMU_System.mag_y, IMU_System.mag_z,
-                  IMU_System.mag_bias_x, IMU_System.mag_bias_y,
-                  IMU_System.mag_bias_z);
+                  Gimbal_Sensor.mag_x, Gimbal_Sensor.mag_y, Gimbal_Sensor.mag_z,
+                  Gimbal_Sensor.mag_bias_x, Gimbal_Sensor.mag_bias_y,
+                  Gimbal_Sensor.mag_bias_z);
     CDC_Transmit_FS((uint8_t *)test_buf, len);
 
-    int16_t temp_int = (int16_t)(IMU_System.temp_c * 10);
+    int16_t temp_int = (int16_t)(Gimbal_Sensor.temp_c * 10);
     len = sprintf(test_buf, "Temp:  %d.%d C\r\n", temp_int / 10,
                   abs(temp_int % 10));
     CDC_Transmit_FS((uint8_t *)test_buf, len);
 
-    int16_t roll_int = (int16_t)(IMU_System.roll * 10);
-    int16_t pitch_int = (int16_t)(IMU_System.pitch * 10);
+    int16_t roll_int = (int16_t)(Gimbal_Sensor.roll * 10);
+    int16_t pitch_int = (int16_t)(Gimbal_Sensor.pitch * 10);
     len = sprintf(test_buf, "Roll: %s%d.%d deg | Pitch: %s%d.%d deg\r\n",
                   (roll_int < 0) ? "-" : "", abs(roll_int) / 10,
                   abs(roll_int % 10), (pitch_int < 0) ? "-" : "",
                   abs(pitch_int) / 10, abs(pitch_int % 10));
     CDC_Transmit_FS((uint8_t *)test_buf, len);
 
-    int32_t mag_noise_int = (int32_t)(IMU_System.mag_noise * 1000);
+    int32_t mag_noise_int = (int32_t)(Gimbal_Sensor.mag_noise * 1000);
     len = sprintf(test_buf, "Mag Noise: %ld.%03ld\r\n\r\n",
                   (long)(mag_noise_int / 1000),
                   (long)abs((int)(mag_noise_int % 1000)));
@@ -93,8 +93,8 @@ void Test_IMU_PrintCompact(void) {
   }
 
   int len = sprintf(test_buf, "A:%6d,%6d,%6d G:%6d,%6d,%6d\r\n",
-                    IMU_System.accel_x, IMU_System.accel_y, IMU_System.accel_z,
-                    IMU_System.gyro_x, IMU_System.gyro_y, IMU_System.gyro_z);
+                    Gimbal_Sensor.accel_x, Gimbal_Sensor.accel_y, Gimbal_Sensor.accel_z,
+                    Gimbal_Sensor.gyro_x, Gimbal_Sensor.gyro_y, Gimbal_Sensor.gyro_z);
 
   CDC_Transmit_FS((uint8_t *)test_buf, len);
 }

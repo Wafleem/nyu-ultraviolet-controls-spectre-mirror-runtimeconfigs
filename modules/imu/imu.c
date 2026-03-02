@@ -15,7 +15,7 @@
 #define IMU_DELAY(ms) HAL_Delay(ms)
 #endif
 
-IMU_System_Data_t IMU_System;
+Gimbal_Sensor_Data_t Gimbal_Sensor;
 volatile uint8_t imu_initialized = 0;
 
 // Extern uart buffer from main.c for debug messages
@@ -269,17 +269,17 @@ void Mag_Calibrate_And_Check_Noise(void) {
     sum_z += readings_z[i];
   }
 
-  IMU_System.mag_bias_x = sum_x / 50;
-  IMU_System.mag_bias_y = sum_y / 50;
-  IMU_System.mag_bias_z = sum_z / 50;
+  Gimbal_Sensor.mag_bias_x = sum_x / 50;
+  Gimbal_Sensor.mag_bias_y = sum_y / 50;
+  Gimbal_Sensor.mag_bias_z = sum_z / 50;
 
   Mag_Save_Biases_To_EPROM();
 
   float var_x = 0, var_y = 0, var_z = 0;
   for (int i = 0; i < 50; i++) {
-    float diff_x = readings_x[i] - IMU_System.mag_bias_x;
-    float diff_y = readings_y[i] - IMU_System.mag_bias_y;
-    float diff_z = readings_z[i] - IMU_System.mag_bias_z;
+    float diff_x = readings_x[i] - Gimbal_Sensor.mag_bias_x;
+    float diff_y = readings_y[i] - Gimbal_Sensor.mag_bias_y;
+    float diff_z = readings_z[i] - Gimbal_Sensor.mag_bias_z;
     var_x += diff_x * diff_x;
     var_y += diff_y * diff_y;
     var_z += diff_z * diff_z;
@@ -287,7 +287,7 @@ void Mag_Calibrate_And_Check_Noise(void) {
   var_x /= 50.0f;
   var_y /= 50.0f;
   var_z /= 50.0f;
-  IMU_System.mag_noise = sqrtf((var_x + var_y + var_z) / 3.0f);
+  Gimbal_Sensor.mag_noise = sqrtf((var_x + var_y + var_z) / 3.0f);
 }
 
 int8_t System_Sensors_Init(void) {
@@ -360,9 +360,9 @@ static void IMU_Init_QuaternionEKF(void) {
 
   IMU_QuaternionEKF_Init(init_q, 10.0f, 0.001f, 1000000.0f, 1.0f, 0.0f);
 
-  IMU_System.ekf_roll = 0.0f;
-  IMU_System.ekf_pitch = 0.0f;
-  IMU_System.ekf_yaw = 0.0f;
+  Gimbal_Sensor.ekf_roll = 0.0f;
+  Gimbal_Sensor.ekf_pitch = 0.0f;
+  Gimbal_Sensor.ekf_yaw = 0.0f;
 }
 
 void System_Read_And_Process(void) {
@@ -388,49 +388,49 @@ void System_Read_And_Process(void) {
     IMU_ApplyMountRotationXY(&accel_x, &accel_y);
     IMU_ApplyMountRotationXY(&gyro_x, &gyro_y);
 
-    IMU_System.accel_x = (int16_t)accel_x;
-    IMU_System.accel_y = (int16_t)accel_y;
-    IMU_System.accel_z = (int16_t)accel_z;
+    Gimbal_Sensor.accel_x = (int16_t)accel_x;
+    Gimbal_Sensor.accel_y = (int16_t)accel_y;
+    Gimbal_Sensor.accel_z = (int16_t)accel_z;
 
-    IMU_System.gyro_x = (int16_t)gyro_x;
-    IMU_System.gyro_y = (int16_t)gyro_y;
-    IMU_System.gyro_z = (int16_t)gyro_z;
+    Gimbal_Sensor.gyro_x = (int16_t)gyro_x;
+    Gimbal_Sensor.gyro_y = (int16_t)gyro_y;
+    Gimbal_Sensor.gyro_z = (int16_t)gyro_z;
   }
 
   if (icm_read_burst(ICM_REG_TEMP_H, temp_raw, 2) == 0) {
-    IMU_System.temp_raw = (int16_t)(temp_raw[0] << 8 | temp_raw[1]);
-    IMU_System.temp_c = (IMU_System.temp_raw / 512.0f) + 23.0f;
+    Gimbal_Sensor.temp_raw = (int16_t)(temp_raw[0] << 8 | temp_raw[1]);
+    Gimbal_Sensor.temp_c = (Gimbal_Sensor.temp_raw / 512.0f) + 23.0f;
   }
 
-  float ax = IMU_System.accel_x / 2048.0f;
-  float ay = IMU_System.accel_y / 2048.0f;
-  float az = IMU_System.accel_z / 2048.0f;
+  float ax = Gimbal_Sensor.accel_x / 2048.0f;
+  float ay = Gimbal_Sensor.accel_y / 2048.0f;
+  float az = Gimbal_Sensor.accel_z / 2048.0f;
   float accel_norm_g = sqrtf(ax * ax + ay * ay + az * az);
   float gyro_norm_dps = 0.0f;
 
   {
-    float gx_lsb = (float)IMU_System.gyro_x;
-    float gy_lsb = (float)IMU_System.gyro_y;
-    float gz_lsb = (float)IMU_System.gyro_z;
+    float gx_lsb = (float)Gimbal_Sensor.gyro_x;
+    float gy_lsb = (float)Gimbal_Sensor.gyro_y;
+    float gz_lsb = (float)Gimbal_Sensor.gyro_z;
 
-    IMU_ApplyGyroTempComp(IMU_System.temp_c, accel_norm_g, &gx_lsb, &gy_lsb,
+    IMU_ApplyGyroTempComp(Gimbal_Sensor.temp_c, accel_norm_g, &gx_lsb, &gy_lsb,
                           &gz_lsb);
 
-    IMU_System.gyro_x = (int16_t)gx_lsb;
-    IMU_System.gyro_y = (int16_t)gy_lsb;
-    IMU_System.gyro_z = (int16_t)gz_lsb;
+    Gimbal_Sensor.gyro_x = (int16_t)gx_lsb;
+    Gimbal_Sensor.gyro_y = (int16_t)gy_lsb;
+    Gimbal_Sensor.gyro_z = (int16_t)gz_lsb;
 
     gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb * gz_lsb) /
                     IMU_GYRO_LSB_PER_DPS;
   }
 
-  IMU_System.roll = atan2f(ay, az) * 180.0f / M_PI;
-  IMU_System.pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * 180.0f / M_PI;
+  Gimbal_Sensor.roll = atan2f(ay, az) * 180.0f / M_PI;
+  Gimbal_Sensor.pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * 180.0f / M_PI;
 
   {
-    float gx_rad = (IMU_System.gyro_x / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
-    float gy_rad = (IMU_System.gyro_y / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
-    float gz_rad = (IMU_System.gyro_z / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
+    float gx_rad = (Gimbal_Sensor.gyro_x / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
+    float gy_rad = (Gimbal_Sensor.gyro_y / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
+    float gz_rad = (Gimbal_Sensor.gyro_z / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
 
     float ax_mps2 = ax * IMU_GRAVITY_MPS2;
     float ay_mps2 = ay * IMU_GRAVITY_MPS2;
@@ -460,25 +460,25 @@ void System_Read_And_Process(void) {
   IMU_DELAY(2); /* FreeRTOS-aware delay for magnetometer conversion */
   uint8_t mraw[7];
   if (mlx_cmd(MLX_CMD_READ_MEAS, mraw, 7) == 0) {
-    IMU_System.mag_x =
-        (int16_t)(mraw[1] << 8 | mraw[2]) - IMU_System.mag_bias_x;
-    IMU_System.mag_y =
-        (int16_t)(mraw[3] << 8 | mraw[4]) - IMU_System.mag_bias_y;
-    IMU_System.mag_z =
-        (int16_t)(mraw[5] << 8 | mraw[6]) - IMU_System.mag_bias_z;
+    Gimbal_Sensor.mag_x =
+        (int16_t)(mraw[1] << 8 | mraw[2]) - Gimbal_Sensor.mag_bias_x;
+    Gimbal_Sensor.mag_y =
+        (int16_t)(mraw[3] << 8 | mraw[4]) - Gimbal_Sensor.mag_bias_y;
+    Gimbal_Sensor.mag_z =
+        (int16_t)(mraw[5] << 8 | mraw[6]) - Gimbal_Sensor.mag_bias_z;
 
-    Mag_Update_Noise(IMU_System.mag_x, IMU_System.mag_y, IMU_System.mag_z);
+    Mag_Update_Noise(Gimbal_Sensor.mag_x, Gimbal_Sensor.mag_y, Gimbal_Sensor.mag_z);
 
     /* Mag yaw assist (mag values intentionally not mount-rotated) */
     {
       float ekf_yaw_deg = QEKF_INS.Yaw;
-      float mag_xy_norm2 = (float)(IMU_System.mag_x * IMU_System.mag_x +
-                                   IMU_System.mag_y * IMU_System.mag_y);
+      float mag_xy_norm2 = (float)(Gimbal_Sensor.mag_x * Gimbal_Sensor.mag_x +
+                                   Gimbal_Sensor.mag_y * Gimbal_Sensor.mag_y);
 
       if (mag_xy_norm2 > 1.0f && gyro_norm_dps < IMU_MAG_ASSIST_MAX_GYRO_DPS &&
-          IMU_System.mag_noise < IMU_MAG_ASSIST_MAX_NOISE) {
+          Gimbal_Sensor.mag_noise < IMU_MAG_ASSIST_MAX_NOISE) {
         float mag_yaw_raw_deg =
-            atan2f((float)IMU_System.mag_y, (float)IMU_System.mag_x) * 180.0f /
+            atan2f((float)Gimbal_Sensor.mag_y, (float)Gimbal_Sensor.mag_x) * 180.0f /
             M_PI;
 
         if (!mag_yaw_initialized) {
@@ -521,9 +521,9 @@ void System_Read_And_Process(void) {
           IMU_AngleLerpDeg(ekf_yaw_filtered, raw_yaw, IMU_EKF_OUTPUT_ALPHA);
     }
 
-    IMU_System.ekf_roll = ekf_roll_filtered;
-    IMU_System.ekf_pitch = ekf_pitch_filtered;
-    IMU_System.ekf_yaw = ekf_yaw_filtered;
+    Gimbal_Sensor.ekf_roll = ekf_roll_filtered;
+    Gimbal_Sensor.ekf_pitch = ekf_pitch_filtered;
+    Gimbal_Sensor.ekf_yaw = ekf_yaw_filtered;
   }
 }
 void Mag_Update_Noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
@@ -572,6 +572,6 @@ void Mag_Update_Noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
   // Calculate combined standard deviation (RMS of individual std devs)
   float std_dev = sqrtf((var_x + var_y + var_z) / 3.0f);
 
-  // Update IMU_System.mag_noise
-  IMU_System.mag_noise = std_dev;
+  // Update Gimbal_Sensor.mag_noise
+  Gimbal_Sensor.mag_noise = std_dev;
 }

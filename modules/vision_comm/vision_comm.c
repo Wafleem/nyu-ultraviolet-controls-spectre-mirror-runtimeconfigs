@@ -6,7 +6,7 @@
 #include "vision_comm.h"
 #include "seasky_protocol.h"
 #include "message_center.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "stm32h7xx_hal.h"
 #include <string.h>
 #include <stdio.h>
@@ -72,17 +72,17 @@ static void on_imu_update(const MsgEvent *ev, void *user_data)
 {
     (void)user_data;
     
-    if (ev->size == sizeof(SensorData)) {
-        const SensorData *sensor_data = (const SensorData *)ev->data;
+    if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
+        const Gimbal_Sensor_Data_t *imu = (const Gimbal_Sensor_Data_t *)ev->data;
         uint32_t current_time = HAL_GetTick();
-        
+
         // Control send frequency (100Hz)
         if (current_time - last_send_time >= VISION_SEND_INTERVAL_MS) {
-            // Set attitude data from gimbal IMU
-            VisionComm_SetAltitude(sensor_data->g_gz, sensor_data->g_gx, sensor_data->g_gy);
+            // Set attitude data from gimbal IMU (EKF-fused angles)
+            VisionComm_SetAltitude(imu->ekf_yaw, imu->ekf_pitch, imu->ekf_roll);
             VisionComm_SetFlag(COLOR_BLUE, VISION_MODE_AIM, SMALL_AMU_15);
             VisionComm_Send();
-            
+
             last_send_time = current_time;
         }
     }

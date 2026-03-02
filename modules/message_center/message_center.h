@@ -91,7 +91,7 @@ typedef enum {
                               // Subscribers: cmd_controller
 
     TOPIC_IMU_UPDATE,         // IMU sensor data (gyro, accel, angles)
-                              // Data: IMU_System_Data_t or SensorData
+                              // Data: Gimbal_Sensor_Data_t
                               // Publisher: ControlTask (imu.c)
                               // Subscribers: cmd_controller, gimbal_controller
 
