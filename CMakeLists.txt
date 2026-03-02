@@ -19,7 +19,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set the project name
-set(CMAKE_PROJECT_NAME spectre2_can_usb_sensor)
+set(CMAKE_PROJECT_NAME Spectre_Controls)
 
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -55,6 +55,15 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/remote/remote_control.c
     modules/message_center/message_center.c
     modules/debug_print/printing.c
+    modules/logger/logger.c
+    modules/motor/motor_driver.c
+    modules/algorithm/kalman_filter.c
+    modules/algorithm/pid.c
+    modules/algorithm/QuaternionEKF.c
+    modules/vision_comm/vision_comm.c
+    modules/vision_comm/crc8.c
+    modules/vision_comm/crc16.c
+    modules/vision_comm/seasky_protocol.c
     config/robot_config.c
     modules/tests/tests.c
     # QSPI Flash driver
@@ -68,8 +77,12 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/fifo
     modules/referee
     modules/remote
+    modules/motor
     modules/message_center
     modules/debug_print
+    modules/logger
+    modules/algorithm
+    modules/vision_comm
     modules/tests
     config
     Middlewares/ST/ARM/DSP/Include
