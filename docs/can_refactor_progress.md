@@ -217,9 +217,9 @@ cmake --build build
 
 ### 编译测试 ✅
 ```bash
-cd /Users/pengyue/Codespace/robomaster-control
+cd /Users/pengyue/Codespace/controls_spectre
 cmake --build build
-# 输出: [100%] Built target NYUSH_Infantry
+# 输出: [100%] Built target Spectre_Controls
 # 内存: RAM 34872B (26.61%), FLASH 110092B (10.50%)
 ```
 

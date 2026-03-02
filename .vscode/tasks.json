@@ -53,8 +53,8 @@
       "args": [
         "-O",
         "binary",
-        "${command:cmake.buildDirectory}/NYUSH_Infantry.elf",
-        "${command:cmake.buildDirectory}/NYUSH_Infantry.bin"
+        "${command:cmake.buildDirectory}/Spectre_Controls.elf",
+        "${command:cmake.buildDirectory}/Spectre_Controls.bin"
       ],
       "problemMatcher": []
     },
@@ -71,7 +71,7 @@
         "-s",
         "0x08000000:leave",
         "-D",
-        "${command:cmake.buildDirectory}/NYUSH_Infantry.bin"
+        "${command:cmake.buildDirectory}/Spectre_Controls.bin"
       ],
       "problemMatcher": [],
       "group": {
@@ -92,7 +92,7 @@
         "-f",
         "target/stm32f4x.cfg",
         "-c",
-        "init; reset init; program ${command:cmake.buildDirectory}/NYUSH_Infantry.elf verify reset exit"
+        "init; reset init; program ${command:cmake.buildDirectory}/Spectre_Controls.elf verify reset exit"
       ],
       "problemMatcher": []
     }

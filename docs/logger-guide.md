@@ -300,7 +300,7 @@ Solutions:
 
 ```bash
 # Terminal 1: Flash firmware
-dfu-util -a 0 -s 0x08000000:leave -D build/NYUSH_Infantry.bin
+dfu-util -a 0 -s 0x08000000:leave -D build/Spectre_Controls.bin
 
 # Terminal 2: Monitor gimbal
 python3 script/smart_logger.py --tags GIM --save gimbal_session.csv

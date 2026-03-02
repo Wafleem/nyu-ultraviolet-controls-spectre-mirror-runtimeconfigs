@@ -37,6 +37,7 @@
 #include "ref_structs.h"
 #include "tests.h"
 #include "logger.h"
+#include "cmd_controller.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -328,7 +329,7 @@ void StartControlTask(void *argument)
 
   for(;;)
   {
-    // CmdController_Task(HAL_GetTick());
+    CmdController_Task(HAL_GetTick());
     // vTaskDelayUntil ensures consistent period even if execution time varies
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
