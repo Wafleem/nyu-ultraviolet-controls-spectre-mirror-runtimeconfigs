@@ -25,6 +25,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "w25q128jv.h"
+#include "quadspi.h"
 #include "message_center.h"
 #include "can_comm.h"
 #include "can_manager.h"
@@ -179,6 +181,63 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+  /* -------- QSPI Flash Test -------- */
+  uint8_t qspi_test_passed = 0;
+
+  uint8_t qspi_write_buf[] = "Hello from QSPI Flash!\r\n";
+
+  uint8_t qspi_read_buf[64] = {0};
+
+// Step 1: Initialize the QSPI flash (reset chip, configure quad mode)
+if (CSP_QUADSPI_Init() != HAL_OK) {
+    // Init failed -- check pin config, clock, QSPI parameters
+    Error_Handler();
+  }
+
+// Step 2: Read status registers (sanity check -- chip is alive)
+uint8_t qspi_status[3];
+
+if (QSPI_ReadStatus(qspi_status) != HAL_OK) {
+
+    Error_Handler();
+
+}
+
+// Step 3: Erase the first 64KB block (flash must be erased before writing)
+if (CSP_QSPI_EraseBlock(0) != HAL_OK) Error_Handler();
+
+if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
+
+// Step 4: Write test string at address 0
+if (CSP_QSPI_WriteMemory(qspi_write_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
+
+    Error_Handler();
+
+}
+
+// Step 5: Read it back
+if (CSP_QSPI_Read(qspi_read_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
+
+    Error_Handler();
+
+}
+
+// Step 6: Verify
+if (memcmp(qspi_write_buf, qspi_read_buf, sizeof(qspi_write_buf)) == 0) {
+
+    qspi_test_passed = 1;
+
+}
+// After this, you can read flash via pointer: volatile uint8_t *p = (uint8_t*)0x90000000;
+
+// WARNING: Once in memory-mapped mode, you can't use the other QSPI functions anymore
+
+//          until you re-init. Only enable this if you're done with direct read/write.
+
+// if (CSP_QSPI_EnableMemoryMappedMode() != HAL_OK) Error_Handler();
+
+
+if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
 
   // Small delay for USB to stabilize
   osDelay(100);
