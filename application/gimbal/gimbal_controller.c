@@ -108,7 +108,20 @@ int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Senso
     yaw->angle_target = (float)test_target;
 #else
     // Joystick control
-    yaw->angle_target += 50.0f * rate_normalized;
+    //yaw->angle_target += 50.0f * rate_normalized;
+    // Time-scaled stick control
+    static uint32_t last_tick = 0;
+    uint32_t now = HAL_GetTick();
+    float dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
+    last_tick = now;
+
+    // Max target velocity (ticks per second), tune 
+    float max_ticks_per_sec = 4000.0f;
+
+    // Update angle target based on joystick input and dt
+    //yaw->angle_target += rate_normalized * max_ticks_per_sec * dt;
+    yaw->angle_target += powf(rate_normalized, 3.0f) * max_ticks_per_sec * dt; // cubic joystick shaping
+
 #endif
 
     // Wrap target into encoder range

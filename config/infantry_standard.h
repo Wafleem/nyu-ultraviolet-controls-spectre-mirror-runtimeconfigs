@@ -100,7 +100,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
             .gravity_compensation = 0.0f,
             .initial_angle = -1.0f //4096.0f  // Center position (needs calibration) Currently set to -1 to skip
         },
-        .pid_outer = { 0.40f, 0.0f, 0.03f, 300.0f, 300.0f },    // Yaw angle PID
+        .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // Yaw angle PID
         .pid_inner = { 20.0f, 0.0f, 3.0f, 30000.0f, 4000.0f }    // Yaw speed PID
     },
 
@@ -120,7 +120,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
             .gravity_compensation = 5000.0f,  // Gravity compensation for pitch
             .initial_angle = 2500.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 20.0f, 0.0f, 2.0f, 30000.0f, 25000.0f },  // Pitch PID
+        .pid_outer = { 31.0f, 0.0f, 3.22f, 30000.0f, 25000.0f },  // Pitch PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
