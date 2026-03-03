@@ -59,7 +59,7 @@
 /* USER CODE BEGIN Variables */
 
 /* Cached sensor data from message center callbacks */
-static IMU_System_Data_t s_last_imu;
+static Gimbal_Sensor_Data_t s_last_imu;
 static RC_ctrl_t s_last_rc;
 static robot_status_t s_robot_status;
 
@@ -324,13 +324,13 @@ void StartControlTask(void *argument) {
        * 2. Calculate roll/pitch from accelerometer
        * 3. Read magnetometer via SPI (MLX90393)
        * 4. Apply bias correction to mag values
-       * 5. Call Mag_Update_Noise() which updates IMU_System.mag_noise
+       * 5. Call Mag_Update_Noise() which updates Gimbal_Sensor.mag_noise
        *    using a 100-sample circular buffer RMS calculation
        */
       System_Read_And_Process();
 
       /* Publish complete IMU data including noise estimate to message center */
-      MsgCenter_Publish(TOPIC_IMU_UPDATE, &IMU_System, sizeof(IMU_System), 0);
+      MsgCenter_Publish(TOPIC_IMU_UPDATE, &Gimbal_Sensor, sizeof(Gimbal_Sensor), 0);
     }
 
     /* Precise 200Hz timing */
@@ -363,7 +363,7 @@ void StartRefereeTask(void *argument) {
 
 /**
  * @brief Callback for IMU data updates from message center
- * @param ev Event containing IMU_System_Data_t
+ * @param ev Event containing Gimbal_Sensor_Data_t
  * @param user_data Unused
  *
  * Called in MsgDispatch task context (not ISR) whenever ControlTask
@@ -372,8 +372,8 @@ void StartRefereeTask(void *argument) {
  */
 static void on_imu_update(const MsgEvent *ev, void *user_data) {
   (void)user_data;
-  if (ev->size == sizeof(IMU_System_Data_t)) {
-    memcpy(&s_last_imu, ev->data, sizeof(IMU_System_Data_t));
+  if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
+    memcpy(&s_last_imu, ev->data, sizeof(Gimbal_Sensor_Data_t));
   }
 }
 
