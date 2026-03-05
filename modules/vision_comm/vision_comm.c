@@ -6,7 +6,7 @@
 #include "vision_comm.h"
 #include "seasky_protocol.h"
 #include "message_center.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "stm32h7xx_hal.h"
 #include "printing.h"
 #include <string.h>
@@ -96,32 +96,16 @@ static void on_imu_update(const MsgEvent *ev, void *user_data)
 {
     (void)user_data;
     
-    if (ev->size == sizeof(SensorData)) {
-        const SensorData *sensor_data = (const SensorData *)ev->data;
+    if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
+        const Gimbal_Sensor_Data_t *imu = (const Gimbal_Sensor_Data_t *)ev->data;
         uint32_t current_time = HAL_GetTick();
-        
+
         // Control send frequency (100Hz)
         if (current_time - last_send_time >= VISION_SEND_INTERVAL_MS) {
-            // Set attitude data from gimbal IMU (EKF Euler angles in degrees).
-            // NOTE: Previously this was g_gz/g_gx/g_gy which are gyro angular
-            // velocities (rad/s), NOT orientation. The Jetson needs actual
-            // orientation angles for auto-aim prediction to work.
-            VisionComm_SetAltitude(sensor_data->yaw, sensor_data->pitch, sensor_data->roll);
+            // Set attitude data from gimbal IMU (EKF-fused angles)
+            VisionComm_SetAltitude(imu->ekf_yaw, imu->ekf_pitch, imu->ekf_roll);
             VisionComm_SetFlag(COLOR_BLUE, VISION_MODE_AIM, SMALL_AMU_15);
             VisionComm_Send();
-            USB_CDC_Printf("[VISION] Sent attitude: yaw=%.2f, pitch=%.2f, roll=%.2f\r\n",
-                           sensor_data->yaw, sensor_data->pitch, sensor_data->roll);
-            dbg_attitude_sent++;
-
-            /* VISDBG disabled for clean vision testing
-            static uint32_t last_dbg_print = 0;
-            if (current_time - last_dbg_print >= 1000) {
-                last_dbg_print = current_time;
-                USB_CDC_Printf("VISDBG: rx=%lu ok=%lu fail=%lu len_err=%lu att_sent=%lu | last: fm=%d ts=%d pt=%.4f yw=%.4f\r\n",
-                               dbg_rx_count, dbg_parse_ok, dbg_parse_fail, dbg_len_fail, dbg_attitude_sent,
-                               recv_data.fire_mode, recv_data.target_state,
-                               recv_data.pitch, recv_data.yaw);
-            } */
 
             last_send_time = current_time;
         }

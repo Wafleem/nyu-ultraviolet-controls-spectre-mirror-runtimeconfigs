@@ -346,6 +346,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   else if (huart == REFEREE_UART_HANDLE) {
     referee_IDLE_Handler(huart);
   }
+  else if (huart == &VISION_UART_HANDLE) {
+    extern void VisionComm_RxCallback(uint8_t *buf, uint32_t len);
+    extern uint8_t uart_recv_buff[18];
+    //dbg_rxevent_u5_count++;
+    VisionComm_RxCallback(uart_recv_buff, Size);
+  }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {

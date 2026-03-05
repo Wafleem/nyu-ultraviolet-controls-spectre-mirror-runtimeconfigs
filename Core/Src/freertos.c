@@ -1,46 +1,48 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * File Name          : freertos.c
-  * Description        : Code for freertos applications
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * File Name          : freertos.c
+ * Description        : Code for freertos applications
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "w25q128jv.h"
 #include "quadspi.h"
-#include "message_center.h"
 #include "can_comm.h"
 #include "can_manager.h"
-#include "printing.h"
 #include "imu.h"
-#include "remote_control.h"
-#include "referee.h"
+#include "message_center.h"
+#include "printing.h"
 #include "ref_structs.h"
+#include "referee.h"
+#include "remote_control.h"
 #include "tests.h"
+#include "usbd_cdc_if.h"
 #include "logger.h"
 #include "cmd_controller.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,30 +71,30 @@ extern CAN_Manager_t can2_manager;
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+    .name = "defaultTask",
+    .stack_size = 512 * 4,
+    .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for MsgDispatch */
 osThreadId_t MsgDispatchHandle;
 const osThreadAttr_t MsgDispatch_attributes = {
-  .name = "MsgDispatch",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityAboveNormal7,
+    .name = "MsgDispatch",
+    .stack_size = 512 * 4,
+    .priority = (osPriority_t)osPriorityAboveNormal7,
 };
 /* Definitions for ControlTask */
 osThreadId_t ControlTaskHandle;
 const osThreadAttr_t ControlTask_attributes = {
-  .name = "ControlTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+    .name = "ControlTask",
+    .stack_size = 512 * 4,
+    .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for RefereeTask */
 osThreadId_t RefereeTaskHandle;
 const osThreadAttr_t RefereeTask_attributes = {
-  .name = "RefereeTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+    .name = "RefereeTask",
+    .stack_size = 512 * 4,
+    .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
@@ -116,10 +118,10 @@ void StartIMUTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -138,26 +140,27 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  /* Initialize message center with 64 event queue depth */
-  // if (MsgCenter_Init(64) != 0) {
-  //     /* Message center failed to initialize - halt */
-  //     Error_Handler();
-  // }
-
+  /* Message center is initialized in main.c before MX_FREERTOS_Init(),
+   * along with VisionComm_Init() which subscribes to topics.
+   * Do NOT re-init here or subscriptions will be wiped. */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle =
+      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* creation of MsgDispatch */
-  MsgDispatchHandle = osThreadNew(StartMsgDispatchTask, NULL, &MsgDispatch_attributes);
+  MsgDispatchHandle =
+      osThreadNew(StartMsgDispatchTask, NULL, &MsgDispatch_attributes);
 
   /* creation of ControlTask */
-  ControlTaskHandle = osThreadNew(StartControlTask, NULL, &ControlTask_attributes);
+  ControlTaskHandle =
+      osThreadNew(StartControlTask, NULL, &ControlTask_attributes);
 
   /* creation of RefereeTask */
-  RefereeTaskHandle = osThreadNew(StartRefereeTask, NULL, &RefereeTask_attributes);
+  RefereeTaskHandle =
+      osThreadNew(StartRefereeTask, NULL, &RefereeTask_attributes);
 
   /* creation of IMUTask */
   IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
@@ -169,18 +172,16 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the defaultTask thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* USER CODE BEGIN StartDefaultTask */
   /* -------- QSPI Flash Test -------- */
   uint8_t qspi_test_passed = 0;
@@ -287,13 +288,12 @@ if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
 
 /* USER CODE BEGIN Header_StartMsgDispatchTask */
 /**
-* @brief Function implementing the MsgDispatch thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the MsgDispatch thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartMsgDispatchTask */
-void StartMsgDispatchTask(void *argument)
-{
+void StartMsgDispatchTask(void *argument) {
   /* USER CODE BEGIN StartMsgDispatchTask */
   /*
    * This task processes all message center events.
@@ -303,8 +303,7 @@ void StartMsgDispatchTask(void *argument)
   MsgCenter_DispatcherTask(argument);
 
   /* Should never reach here - dispatcher runs forever */
-  for(;;)
-  {
+  for (;;) {
     osDelay(1000);
   }
   /* USER CODE END StartMsgDispatchTask */
@@ -312,13 +311,12 @@ void StartMsgDispatchTask(void *argument)
 
 /* USER CODE BEGIN Header_StartControlTask */
 /**
-* @brief Function implementing the ControlTask thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the ControlTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument)
-{
+void StartControlTask(void *argument) {
   /* USER CODE BEGIN StartControlTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(5);  // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -338,19 +336,17 @@ void StartControlTask(void *argument)
 
 /* USER CODE BEGIN Header_StartRefereeTask */
 /**
-* @brief Function implementing the RefereeTask thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the RefereeTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartRefereeTask */
-void StartRefereeTask(void *argument)
-{
+void StartRefereeTask(void *argument) {
   /* USER CODE BEGIN StartRefereeTask */
-  const TickType_t xFrequency = pdMS_TO_TICKS(10);  // 10ms = 100Hz
+  const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10ms = 100Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  
-  for(;;)
-  {
+
+  for (;;) {
     referee_unpack_fifo_data();
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
@@ -380,13 +376,13 @@ void StartIMUTask(void *argument)
          * 2. Calculate roll/pitch from accelerometer
          * 3. Read magnetometer via SPI (MLX90393)
          * 4. Apply bias correction to mag values
-         * 5. Call Mag_Update_Noise() which updates IMU_System.mag_noise
+         * 5. Call Mag_Update_Noise() which updates Gimbal_Sensor.mag_noise
          *    using a 100-sample circular buffer RMS calculation
          */
         System_Read_And_Process();
 
         /* Publish complete IMU data including noise estimate to message center */
-        MsgCenter_Publish(TOPIC_IMU_UPDATE, &IMU_System, sizeof(IMU_System), 0);
+        MsgCenter_Publish(TOPIC_IMU_UPDATE, &Gimbal_Sensor, sizeof(Gimbal_Sensor), 0);
     }
 
     /* Precise 200Hz timing */
@@ -399,4 +395,3 @@ void StartIMUTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-

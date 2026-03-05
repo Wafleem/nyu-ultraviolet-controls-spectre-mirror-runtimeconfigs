@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 // Vision communication UART handle
-#define VISION_UART_HANDLE huart8
+#define VISION_UART_HANDLE huart5
 
 #define VISION_RECV_SIZE 18u
 #define VISION_SEND_SIZE 36u
