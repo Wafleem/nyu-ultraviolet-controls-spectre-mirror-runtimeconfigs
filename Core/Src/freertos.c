@@ -38,6 +38,12 @@
 #include "tests.h"
 #include "usbd_cdc_if.h"
 #include "logger.h"
+#include "motor_driver.h"
+#include "vision_comm.h"
+#include "app_subscriptions.h"
+#include "chassis_controller.h"
+#include "shooter_controller.h"
+#include "gimbal_controller.h"
 #include "cmd_controller.h"
 #include <string.h>
 #include <stdio.h>
@@ -52,7 +58,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define MSG_CENTER_QUEUE_LEN 64
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -140,9 +146,12 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  /* Message center is initialized in main.c before MX_FREERTOS_Init(),
-   * along with VisionComm_Init() which subscribes to topics.
-   * Do NOT re-init here or subscriptions will be wiped. */
+  /* Initialize message center */
+  if (MsgCenter_Init(MSG_CENTER_QUEUE_LEN) != 0) {
+      /* Message center failed to initialize - halt */
+      Error_Handler();
+  }
+
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -190,56 +199,56 @@ void StartDefaultTask(void *argument) {
 
   uint8_t qspi_read_buf[64] = {0};
 
-// Step 1: Initialize the QSPI flash (reset chip, configure quad mode)
-if (CSP_QUADSPI_Init() != HAL_OK) {
-    // Init failed -- check pin config, clock, QSPI parameters
-    Error_Handler();
+  // Step 1: Initialize the QSPI flash (reset chip, configure quad mode)
+  if (CSP_QUADSPI_Init() != HAL_OK) {
+      // Init failed -- check pin config, clock, QSPI parameters
+      Error_Handler();
+    }
+
+  // Step 2: Read status registers (sanity check -- chip is alive)
+  uint8_t qspi_status[3];
+
+  if (QSPI_ReadStatus(qspi_status) != HAL_OK) {
+
+      Error_Handler();
+
   }
 
-// Step 2: Read status registers (sanity check -- chip is alive)
-uint8_t qspi_status[3];
+  // Step 3: Erase the first 64KB block (flash must be erased before writing)
+  if (CSP_QSPI_EraseBlock(0) != HAL_OK) Error_Handler();
 
-if (QSPI_ReadStatus(qspi_status) != HAL_OK) {
+  if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
 
-    Error_Handler();
+  // Step 4: Write test string at address 0
+  if (CSP_QSPI_WriteMemory(qspi_write_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
 
-}
+      Error_Handler();
 
-// Step 3: Erase the first 64KB block (flash must be erased before writing)
-if (CSP_QSPI_EraseBlock(0) != HAL_OK) Error_Handler();
+  }
 
-if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
+  // Step 5: Read it back
+  if (CSP_QSPI_Read(qspi_read_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
 
-// Step 4: Write test string at address 0
-if (CSP_QSPI_WriteMemory(qspi_write_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
+      Error_Handler();
 
-    Error_Handler();
+  }
 
-}
+  // Step 6: Verify
+  if (memcmp(qspi_write_buf, qspi_read_buf, sizeof(qspi_write_buf)) == 0) {
 
-// Step 5: Read it back
-if (CSP_QSPI_Read(qspi_read_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
+      qspi_test_passed = 1;
 
-    Error_Handler();
+  }
+  // After this, you can read flash via pointer: volatile uint8_t *p = (uint8_t*)0x90000000;
 
-}
+  // WARNING: Once in memory-mapped mode, you can't use the other QSPI functions anymore
 
-// Step 6: Verify
-if (memcmp(qspi_write_buf, qspi_read_buf, sizeof(qspi_write_buf)) == 0) {
+  //          until you re-init. Only enable this if you're done with direct read/write.
 
-    qspi_test_passed = 1;
-
-}
-// After this, you can read flash via pointer: volatile uint8_t *p = (uint8_t*)0x90000000;
-
-// WARNING: Once in memory-mapped mode, you can't use the other QSPI functions anymore
-
-//          until you re-init. Only enable this if you're done with direct read/write.
-
-// if (CSP_QSPI_EnableMemoryMappedMode() != HAL_OK) Error_Handler();
+  // if (CSP_QSPI_EnableMemoryMappedMode() != HAL_OK) Error_Handler();
 
 
-if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
+  if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
 
   // Small delay for USB to stabilize
   osDelay(100);
@@ -255,17 +264,17 @@ if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
   extern CAN_Manager_t can2_manager;
 
   uint32_t heartbeat_counter = 0;
-  // uint8_t led_state = 0;
+  uint8_t led_state = 0;
 
   for(;;)
   {
     heartbeat_counter++;
 
-    // Toggle green LED every 500ms as heartbeat (1Hz blink)
-    // if (heartbeat_counter % 500 == 0) {
-    //   led_state = !led_state;
-    //   HAL_GPIO_WritePin(GPIOH, GPIO_PIN_11, led_state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    // }
+    // Toggle LED every 500ms as heartbeat (1Hz blink)
+    if (heartbeat_counter % 500 == 0) {
+      led_state = !led_state;
+      HAL_GPIO_WritePin(GPIOH, GPIO_PIN_11, led_state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    }
 
     // Print system status every 2 seconds
     if (heartbeat_counter % 2000 == 0) {
@@ -320,6 +329,14 @@ void StartControlTask(void *argument) {
   /* USER CODE BEGIN StartControlTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(5);  // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
+
+  // Initialize modules that subscribe to topics
+  VisionComm_Init();
+  MotorDriver_ModuleInit();
+  CmdController_Init();
+  ChassisApp_Init();
+  GimbalApp_Init();
+  ShooterApp_Init();
 
   // Wait for USB and other tasks to stabilize
   osDelay(1500);
