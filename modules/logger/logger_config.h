@@ -16,7 +16,7 @@
 #define LOG_ENABLE_CMD    0  // Command controller
 #define LOG_ENABLE_CHA    0  // Chassis controller
 #define LOG_ENABLE_GIM    0  // Gimbal controller - ENABLED for YAW plotting
-#define LOG_ENABLE_SHO    1  // Shooter controller
+#define LOG_ENABLE_SHO    0  // Shooter controller
 #define LOG_ENABLE_SEN    0  // Sentry controller
 #define LOG_ENABLE_MOT    0  // Motor driver
 #define LOG_ENABLE_IMU    0  // IMU sensors

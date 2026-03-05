@@ -42,16 +42,10 @@
 #include "imu.h"
 #include "can.h"
 #include "can_manager.h"
-#include "motor_driver.h"
 #include "remote_control.h"
 #include "message_center.h"
-#include "referee.h"
 #include "vision_comm.h"
-#include "app_subscriptions.h"
-#include "chassis_controller.h"
-#include "shooter_controller.h"
-#include "gimbal_controller.h"
-#include "cmd_controller.h"
+#include "referee.h"
 
 /* USER CODE END Includes */
 
@@ -64,7 +58,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MSG_CENTER_QUEUE_LEN 64
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -225,20 +219,9 @@ int main(void)
   /* USER CODE END 2 */
 
   /* Init scheduler */
-  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
-
-  /* USER CODE BEGIN RTOS_INIT_AFTER_KERNEL */
-  USB_CDC_Printf("Initializing Free-RTOS dependent modules");
-  MsgCenter_Init(MSG_CENTER_QUEUE_LEN);
-  VisionComm_Init();
-  MotorDriver_ModuleInit();
-  CmdController_Init();
-  ChassisApp_Init();
-  GimbalApp_Init();
-  ShooterApp_Init();
+  osKernelInitialize();
+  /* Call init function for freertos objects (in cmsis_os2.c) */
   MX_FREERTOS_Init();
-  USB_CDC_Printf("All modules initialized");
-  /* USER CODE END RTOS_INIT_AFTER_KERNEL */
 
   /* Start scheduler */
   osKernelStart();
