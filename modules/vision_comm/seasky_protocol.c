@@ -68,7 +68,8 @@ void get_protocol_send_data(uint16_t send_id,        // 信号id
     uint16_t crc16;
     uint16_t data_len;
 
-    data_len = float_length * 4 + 2;
+    // data_length includes cmd_id(2) + flags(2) + floats to match Jetson convention
+    data_len = float_length * 4 + 4;
     /*帧头部分*/
     tx_buf[0] = PROTOCOL_CMD_ID;
     tx_buf[1] = data_len & 0xff;        // 低位在前
@@ -89,12 +90,12 @@ void get_protocol_send_data(uint16_t send_id,        // 信号id
         tx_buf[i + 8] = ((uint8_t *)(&tx_data[i / 4]))[i % 4];
     }
 
-    /*整包校验*/
-    crc16 = crc_16(&tx_buf[0], data_len + 6);
-    tx_buf[data_len + 6] = crc16 & 0xff;
-    tx_buf[data_len + 7] = (crc16 >> 8) & 0xff;
+    /*整包校验: CRC16 covers header(4) + data(data_len) = data_len+4 bytes */
+    crc16 = crc_16(&tx_buf[0], data_len + 4);
+    tx_buf[data_len + 4] = crc16 & 0xff;
+    tx_buf[data_len + 5] = (crc16 >> 8) & 0xff;
 
-    *tx_buf_len = data_len + 8;
+    *tx_buf_len = data_len + 6;
 }
 
 /*
@@ -111,11 +112,14 @@ uint16_t get_protocol_info(uint8_t *rx_buf,          // 接收到的原始数据
 
     if (protocol_heade_Check(&pro, rx_buf))
     {
-        date_length = OFFSET_BYTE + pro.header.data_length;
+        // Total frame = header(4) + data_length + CRC16(2)
+        // Jetson convention: data_length includes cmd_id(2)+flags(2)+floats
+        date_length = pro.header.data_length + 6;
         if (CRC16_Check_Sum(&rx_buf[0], date_length))
         {
             *flags_register = (rx_buf[7] << 8) | rx_buf[6];
-            memcpy(rx_data, rx_buf + 8, pro.header.data_length - 2);
+            // Float data starts at offset 8, length = data_length - cmd_id(2) - flags(2)
+            memcpy(rx_data, rx_buf + 8, pro.header.data_length - 4);
             return pro.cmd_id;
         }
     }

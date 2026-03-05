@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define CRC_START_8 0x00
+#define CRC_START_8 0xFF
 
 /**
  * @brief 计算CRC8校验码

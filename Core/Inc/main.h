@@ -61,8 +61,14 @@ void Error_Handler(void);
 #define IMU_CS_GPIO_Port GPIOI
 #define MAG_CS_Pin GPIO_PIN_1
 #define MAG_CS_GPIO_Port GPIOK
+#define DataLine2_Pin GPIO_PIN_9
+#define DataLine2_GPIO_Port GPIOE
 #define DEBUG_Pin GPIO_PIN_11
 #define DEBUG_GPIO_Port GPIOH
+#define DataLine1_Pin GPIO_PIN_8
+#define DataLine1_GPIO_Port GPIOE
+#define QUADSPI_BK2_IO0_Pin GPIO_PIN_7
+#define QUADSPI_BK2_IO0_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 #define DMA_SECTION __attribute__((section(".dma_bss"), aligned(32)))
