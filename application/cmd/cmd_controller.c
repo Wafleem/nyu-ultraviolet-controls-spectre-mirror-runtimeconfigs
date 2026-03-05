@@ -1,7 +1,7 @@
 #include "cmd_controller.h"
 #include "message_center.h"
 #include "remote_control.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "vision_comm.h"
 #include "referee.h"
 #include "ref_structs.h"
@@ -54,7 +54,7 @@ static uint32_t s_last_spin_dbg_tick = 0; // rate limiter for SPINDBG prints (ta
 
 // Local state storage
 static RC_ctrl_t s_last_rc;
-static SensorData s_last_sensor;
+static Gimbal_Sensor_Data_t s_last_sensor;
 static Vision_Recv_s s_last_vision;
 static CanRxFrame s_last_can;
 static bool s_initialized = false;
@@ -138,8 +138,8 @@ static void on_rc_update(const MsgEvent *ev, void *user_data) {
 // Callback for IMU update
 static void on_imu_update(const MsgEvent *ev, void *user_data) {
     (void)user_data;
-    if (ev->size == sizeof(SensorData)) {
-        memcpy(&s_last_sensor, ev->data, sizeof(SensorData));
+    if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
+        memcpy(&s_last_sensor, ev->data, sizeof(Gimbal_Sensor_Data_t));
     }
 }
 
@@ -173,7 +173,7 @@ static int16_t apply_deadband(int16_t value, int16_t deadband) {
 }
 
 // Process chassis control commands
-static void process_chassis_command(const RC_ctrl_t *rc, const SensorData *sensor, bool spin_mode, bool gimbal_follow_mode) {
+static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data_t *sensor, bool spin_mode, bool gimbal_follow_mode) {
     if (rc == NULL) {
         // RC disconnected, stop chassis
         s_chassis_cmd.vx = 0.0f;
@@ -202,10 +202,10 @@ static void process_chassis_command(const RC_ctrl_t *rc, const SensorData *senso
         // Need to convert joystick input from gimbal frame to chassis frame.
 
         // Calculate offset angle: chassis yaw - gimbal yaw
-        // Both angles need to be normalized to same range for correct subtraction
-        float gimbal_yaw_norm = normalize_angle_180(sensor->yaw_total_angle);
-        float chassis_yaw_norm = normalize_angle_180(sensor->c_yaw);
-        float offset_angle = normalize_angle_180(chassis_yaw_norm - gimbal_yaw_norm);
+        // No separate chassis IMU on this hardware, so offset is 0
+        // (chassis frame == gimbal frame for field-oriented control)
+        float gimbal_yaw_norm = normalize_angle_180(sensor->ekf_yaw);
+        float offset_angle = normalize_angle_180(0.0f - gimbal_yaw_norm);
 
         // Rotate joystick input from gimbal frame to chassis frame
         float vx_c = 0.0f, vy_c = 0.0f;
@@ -270,7 +270,7 @@ static void process_shooter_command(const RC_ctrl_t *rc) {
 }
 
 // Process gimbal control commands
-static void process_gimbal_command(const RC_ctrl_t *rc, const SensorData *sensor, bool spin_mode) {
+static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data_t *sensor, bool spin_mode) {
     if (rc == NULL) {
         // RC disconnected, disable gimbal
         s_gimbal_cmd.enabled = false;
@@ -346,7 +346,7 @@ void CmdController_Init(void) {
         return;
     }
     memset(&s_last_rc, 0, sizeof(s_last_rc));
-    memset(&s_last_sensor, 0, sizeof(s_last_sensor));
+    memset(&s_last_sensor, 0, sizeof(Gimbal_Sensor_Data_t));
     memset(&s_last_vision, 0, sizeof(s_last_vision));
     memset(&s_chassis_cmd, 0, sizeof(s_chassis_cmd));
     memset(&s_shoot_cmd, 0, sizeof(s_shoot_cmd));
@@ -463,7 +463,7 @@ void CmdController_Task(uint32_t current_tick) {
     // Spin mode rising edge: latch current gimbal absolute yaw as hold target
     if (spin_now && !s_spin_mode)
     {
-        s_spin_hold_yaw_deg = s_last_sensor.yaw_total_angle;
+        s_spin_hold_yaw_deg = s_last_sensor.ekf_yaw;
     }
 
     s_gimbal_follow_mode = gimbal_follow_now;
@@ -478,14 +478,14 @@ void CmdController_Task(uint32_t current_tick) {
     if (HAL_GetTick() - s_last_spin_dbg_tick >= 100) {
         s_last_spin_dbg_tick = HAL_GetTick();
 
-        float yaw_err_deg = s_spin_hold_yaw_deg - s_last_sensor.yaw_total_angle;
+        float yaw_err_deg = s_spin_hold_yaw_deg - s_last_sensor.ekf_yaw;
         LOG_CSV(LOG_TAG_CMD, "SPINDBG,%lu,%u,%u,%u,%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f\r\n",
                        (unsigned long)s_last_spin_dbg_tick,
                        (unsigned int)(s_spin_mode ? 1U : 0U),
                        (unsigned int)((uint8_t)s_last_rc.rc.s[0]),
                        (unsigned int)((uint8_t)s_last_rc.rc.s[1]),
-                       s_last_sensor.c_yaw,
-                       s_last_sensor.yaw_total_angle,
+                       0.0f /* no chassis IMU */,
+                       s_last_sensor.ekf_yaw,
                        s_spin_hold_yaw_deg,
                        yaw_err_deg,
                        s_gimbal_cmd.yaw_rate,
