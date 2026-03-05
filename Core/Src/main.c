@@ -47,6 +47,11 @@
 #include "message_center.h"
 #include "referee.h"
 #include "vision_comm.h"
+#include "app_subscriptions.h"
+#include "chassis_controller.h"
+#include "shooter_controller.h"
+#include "gimbal_controller.h"
+#include "cmd_controller.h"
 
 /* USER CODE END Includes */
 
@@ -227,10 +232,10 @@ int main(void)
   MsgCenter_Init(MSG_CENTER_QUEUE_LEN);
   VisionComm_Init();
   MotorDriver_ModuleInit();
-  // CmdController_Init();
-  // ChassisApp_Init();
-  // GimbalApp_Init();
-  // ShooterApp_Init();
+  CmdController_Init();
+  ChassisApp_Init();
+  GimbalApp_Init();
+  ShooterApp_Init();
   MX_FREERTOS_Init();
   USB_CDC_Printf("All modules initialized");
   /* USER CODE END RTOS_INIT_AFTER_KERNEL */

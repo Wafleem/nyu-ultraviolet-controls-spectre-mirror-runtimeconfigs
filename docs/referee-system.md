@@ -24,6 +24,31 @@ RoboMaster provides server software we can run to simulate a match and manipulat
 
 ## Tools
 RoboMaster provides a Tools program to configure and update referee components. To run it:
-1. Download and extract Tools from [here](https://bbs.robomaster.com/wiki/20204847/811111?source=7) if you haven't already. If you don't see the download button, scroll right on the downloads table. 
-2. Open the folder you extracted and double-click `RoboMaster Tool 2.exe`
-3. TODO
+1. Download and extract Tools from [here](https://bbs.robomaster.com/wiki/20204847/811111?source=7) if you haven't already. If you don't see the download button, scroll right on the downloads table.
+2. If you don't have a robot, wire the following together:
+    - Power Management Module (PMM) to Battery using XT60 port
+    - PMM to Main Control Module (MCM) using aviation cable port labeled "Main Control"
+    - PMM to other referee components you want to configure using any other aviation cable port
+    - MCM to your laptop using micro USB cable
+3. Turn on your robot or circuit battery.
+4. Open the folder you extracted and double-click `RoboMaster Tool 2.exe`
+5. At the bottom left, click the dropdown, select the COM port the MCM is connected to on your laptop, and click the submit connect button next to the dropdown.
+6. Click the tabs on the left sidebar
+
+## Assistant
+RoboMaster provides an Assistant program to configure motor speed controllers (C620, GM6020). To run it:
+1. Download and extract Assistant from [here](https://bbs.robomaster.com/wiki/20204847/810714?source=7) if you haven't already. If you don't see the download button, scroll right on the downloads table. 
+2. If you don't have a robot, wire the following together:
+    - Power Management Module (PMM) to Battery using XT60 port
+    - PMM to speed controller you want to configure using XT30 port labeled mini-PC
+    - Speed Controller to laptop using 3-pin JST to jumper wires to USB-to-TTL adapter. Connect GND to GND, RX to TX, and TX to RX.
+3. Turn on your robot or circuit battery.
+4. Open the folder you extracted and double-click `RoboMaster Assistant.exe`. You should see the following, except with your speed controller type highlighted. If you don't try restarting your speed controller and re-check your wiring. ![rm_assistant_start](./assets/rm_assistant_start.png)
+5. Click your speed controller type. At the bottom-left, you can select your language in the dropdown.
+6. If you want to change speed controller settings, click "Parameter Setting" in the left sidebar. Some settings you can change include:
+   - Motor Direction (PWM Mode)
+   - Motor PID (PWM Mode)
+   - Feedback Rate (CAN Mode)
+![rm_assistant_esc](./assets/rm_assistant_esc.png)
+7. Save your settings by clicking "Settings" at the bottom right. It is a mistranslation of "Save".
+8. If you want to configure another speed controller, wire the 3-pin JST to the speed controller and restart the Assistant software to ensure you are communicating with the new speed controller.

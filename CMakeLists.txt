@@ -21,6 +21,28 @@ endif()
 # Set the project name
 set(CMAKE_PROJECT_NAME Spectre_Controls)
 
+# ------------------------------------------------------------
+# Robot configuration type
+# (Override from CLI or VS Code task with -DROBOT_TYPE=...)
+# ------------------------------------------------------------
+set(ROBOT_TYPE "infantry_standard" CACHE STRING "Robot configuration type")
+
+# Optional: show available values in GUIs (ccmake/cmake-gui)
+set_property(CACHE ROBOT_TYPE PROPERTY STRINGS
+    infantry_standard
+    sentry_swerve
+    some_other_robot
+)
+
+# Optional: validate to fail fast on typos
+set(_valid_robot_types infantry_standard sentry_swerve some_other_robot)
+list(FIND _valid_robot_types "${ROBOT_TYPE}" _robot_type_idx)
+if(_robot_type_idx EQUAL -1)
+    message(FATAL_ERROR "Invalid ROBOT_TYPE='${ROBOT_TYPE}'. Valid: ${_valid_robot_types}")
+endif()
+
+message(STATUS "Selected ROBOT_TYPE: ${ROBOT_TYPE}")
+
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
@@ -33,6 +55,11 @@ enable_language(C ASM)
 
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
+
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+    -Wl,-u,_printf_float
+    -mthumb
+)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -64,6 +91,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/vision_comm/crc8.c
     modules/vision_comm/crc16.c
     modules/vision_comm/seasky_protocol.c
+    application/chassis/chassis_controller.c
+    application/cmd/cmd_controller.c
+    application/gimbal/gimbal_controller.c
+    application/shoot/shooter_controller.c
     config/robot_config.c
     modules/tests/tests.c
     # QSPI Flash driver
@@ -84,6 +115,11 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/algorithm
     modules/vision_comm
     modules/tests
+    application
+    application/chassis
+    application/cmd
+    application/gimbal
+    application/shoot
     config
     Middlewares/ST/ARM/DSP/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage
@@ -92,6 +128,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     USE_FREERTOS=1
+    ROBOT_TYPE_${ROBOT_TYPE}
 )
 
 # Remove wrong libob.a library dependency when using cpp files
