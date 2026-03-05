@@ -19,9 +19,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -77,30 +77,30 @@ extern CAN_Manager_t can2_manager;
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .stack_size = 512 * 4,
-    .priority = (osPriority_t)osPriorityNormal,
+  .name = "defaultTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for MsgDispatch */
 osThreadId_t MsgDispatchHandle;
 const osThreadAttr_t MsgDispatch_attributes = {
-    .name = "MsgDispatch",
-    .stack_size = 512 * 4,
-    .priority = (osPriority_t)osPriorityAboveNormal7,
+  .name = "MsgDispatch",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal7,
 };
 /* Definitions for ControlTask */
 osThreadId_t ControlTaskHandle;
 const osThreadAttr_t ControlTask_attributes = {
-    .name = "ControlTask",
-    .stack_size = 512 * 4,
-    .priority = (osPriority_t)osPriorityNormal,
+  .name = "ControlTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for RefereeTask */
 osThreadId_t RefereeTaskHandle;
 const osThreadAttr_t RefereeTask_attributes = {
-    .name = "RefereeTask",
-    .stack_size = 512 * 4,
-    .priority = (osPriority_t)osPriorityNormal,
+  .name = "RefereeTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
@@ -124,10 +124,10 @@ void StartIMUTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -156,20 +156,16 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle =
-      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* creation of MsgDispatch */
-  MsgDispatchHandle =
-      osThreadNew(StartMsgDispatchTask, NULL, &MsgDispatch_attributes);
+  MsgDispatchHandle = osThreadNew(StartMsgDispatchTask, NULL, &MsgDispatch_attributes);
 
   /* creation of ControlTask */
-  ControlTaskHandle =
-      osThreadNew(StartControlTask, NULL, &ControlTask_attributes);
+  ControlTaskHandle = osThreadNew(StartControlTask, NULL, &ControlTask_attributes);
 
   /* creation of RefereeTask */
-  RefereeTaskHandle =
-      osThreadNew(StartRefereeTask, NULL, &RefereeTask_attributes);
+  RefereeTaskHandle = osThreadNew(StartRefereeTask, NULL, &RefereeTask_attributes);
 
   /* creation of IMUTask */
   IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
@@ -181,6 +177,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
+
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -190,7 +187,8 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
   /* USER CODE BEGIN StartDefaultTask */
   /* -------- QSPI Flash Test -------- */
   uint8_t qspi_test_passed = 0;
@@ -302,7 +300,8 @@ void StartDefaultTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartMsgDispatchTask */
-void StartMsgDispatchTask(void *argument) {
+void StartMsgDispatchTask(void *argument)
+{
   /* USER CODE BEGIN StartMsgDispatchTask */
   /*
    * This task processes all message center events.
@@ -325,7 +324,8 @@ void StartMsgDispatchTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument) {
+void StartControlTask(void *argument)
+{
   /* USER CODE BEGIN StartControlTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(5);  // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -358,7 +358,8 @@ void StartControlTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartRefereeTask */
-void StartRefereeTask(void *argument) {
+void StartRefereeTask(void *argument)
+{
   /* USER CODE BEGIN StartRefereeTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10ms = 100Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -412,3 +413,4 @@ void StartIMUTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
+
