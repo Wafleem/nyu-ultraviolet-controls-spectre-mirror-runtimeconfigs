@@ -109,19 +109,14 @@ int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Senso
 #else
     // Joystick control
     //yaw->angle_target += 50.0f * rate_normalized;
+
     // Time-scaled stick control
     static uint32_t last_tick = 0;
     uint32_t now = HAL_GetTick();
     float dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
     last_tick = now;
-
-    // Max target velocity (ticks per second), tune 
-    float max_ticks_per_sec = 4000.0f;
-
     // Update angle target based on joystick input and dt
-    //yaw->angle_target += rate_normalized * max_ticks_per_sec * dt;
-    yaw->angle_target += powf(rate_normalized, 3.0f) * max_ticks_per_sec * dt; // cubic joystick shaping
-
+    yaw->angle_target += powf(rate_normalized, 3.0f) * MAX_YAW_TICKS_PER_SEC * dt; // cubic joystick shaping
 #endif
 
     // Wrap target into encoder range
@@ -147,12 +142,9 @@ int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Senso
     // ==========================
     float cmd_angle_to_speed = PID_Calculate(&yaw->pid_outer, 0.0f, -angle_error);
 
-    // Speed limit for yaw control stability (from working commit 22e9ff0e7a)
-    float rpm_limit = 440.0f;
-
-    // Apply signed clamp
-    if (cmd_angle_to_speed >  rpm_limit) cmd_angle_to_speed =  rpm_limit;
-    if (cmd_angle_to_speed < -rpm_limit) cmd_angle_to_speed = -rpm_limit;
+    // Clamp speed limit for yaw control stability (from working commit 22e9ff0e7a)
+    if (cmd_angle_to_speed >  MAX_YAW_RPM) cmd_angle_to_speed =  MAX_YAW_RPM;
+    if (cmd_angle_to_speed < -MAX_YAW_RPM) cmd_angle_to_speed = -MAX_YAW_RPM;
 
     // Speed feedback source selection:
     // - Spin mode: Use IMU gyro for absolute yaw stability

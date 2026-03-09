@@ -94,7 +94,7 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
                      ctx->config->pid_outer.integral_max);
-            controller->directions[3] = ctx->config->direction;
+            controller->directions[2] = ctx->config->direction;
         }
     }
 }
@@ -108,11 +108,11 @@ void ShooterController_Update(ShooterController *controller, SensorData* sensor_
     controller->enabled = s_last_cmd.friction_enabled;
     
     // Set turntable target (only feed when feed_enabled)
-    float turntable_target = s_last_cmd.feed_enabled ? MOTOR5_CONST_SPEED * controller->directions[0] : 0.0f;
+    float turntable_target = s_last_cmd.feed_enabled ? TURNTABLE_CONST_SPEED * controller->directions[0] : 0.0f;
     
     // Set shooter wheel targets
     float shooter1_target = s_last_cmd.friction_enabled ? SHOOTER_CONST_SPEED * controller->directions[1] : 0.0f;
-    float shooter2_target = s_last_cmd.friction_enabled ? SHOOTER_CONST_SPEED * controller->directions[3] : 0.0f;
+    float shooter2_target = s_last_cmd.friction_enabled ? SHOOTER_CONST_SPEED * controller->directions[2] : 0.0f;
     
     // Apply ramping
     controller->ramped_turntable = RampTowards(controller->ramped_turntable, turntable_target, SHOOTER_RAMP_STEP);
@@ -127,8 +127,8 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
     // Compute currents for each shooter motor
     controller->output_currents[0] = ComputeSingleMotorCurrent(&controller->turntable_pid, controller->ramped_turntable, &controller->turntable_feedback, current_tick);
     controller->output_currents[1] = ComputeSingleMotorCurrent(&controller->shooter1_pid, controller->ramped_shooter1, &controller->shooter1_feedback, current_tick);
-    controller->output_currents[2] = 0;  // Not used
-    controller->output_currents[3] = ComputeSingleMotorCurrent(&controller->shooter2_pid, controller->ramped_shooter2, &controller->shooter2_feedback, current_tick);
+    controller->output_currents[2] = ComputeSingleMotorCurrent(&controller->shooter2_pid, controller->ramped_shooter2, &controller->shooter2_feedback, current_tick);
+    controller->output_currents[3] = 0;  // Not used
 
     // Send motor currents (module layer handles CAN)
     if (s_feed_motor_id != 0xFF) {
@@ -138,7 +138,7 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
         MotorDriver_SendCurrent(s_friction1_motor_id, controller->output_currents[1]);
     }
     if (s_friction2_motor_id != 0xFF) {
-        MotorDriver_SendCurrent(s_friction2_motor_id, controller->output_currents[3]);
+        MotorDriver_SendCurrent(s_friction2_motor_id, controller->output_currents[2]);
     }
 
     // Flush all pending motor commands
@@ -154,7 +154,7 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
 
         LOG_INFO(LOG_TAG_SHO, "Shooter speeds: actual %d %d %d, target %.2f %.2f %.2f, currents %d %d",
             s1, s2, s3, controller->ramped_shooter1, controller->ramped_shooter2, controller->ramped_turntable,
-            controller->output_currents[1], controller->output_currents[3]);
+            controller->output_currents[1], controller->output_currents[2]);
         
     }
 }

@@ -162,11 +162,13 @@ void ref_structs_solve(uint8_t *frame)
         case SHOOT_DATA_CMD_ID:
         {
             memcpy(&shoot_data, frame + index, sizeof(shoot_data_t));
+            (void)MsgCenter_Publish(TOPIC_SHOOT_DATA, &shoot_data, sizeof(shoot_data), 0);
         }
         break;
         case PROJECTILE_ALLOWANCE_CMD_ID:
         {
             memcpy(&projectile_allowance, frame + index, sizeof(projectile_allowance_t));
+            (void)MsgCenter_Publish(TOPIC_PROJECTILE_ALLOWANCE, &projectile_allowance, sizeof(projectile_allowance), 0);
         }
         break;
         case RFID_STATE_CMD_ID:
@@ -213,7 +215,6 @@ void ref_structs_solve(uint8_t *frame)
         case REMOTE_CONTROL_CMD_ID:
         {
             memcpy(&remote_control, frame + index, sizeof(remote_control_t));
-            (void)MsgCenter_Publish(TOPIC_VTM_RC, &remote_control, sizeof(remote_control), 0);
         }
         break;
         case MAP_ROBOT_CMD_ID:
