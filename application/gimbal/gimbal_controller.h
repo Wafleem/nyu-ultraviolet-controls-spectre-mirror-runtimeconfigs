@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#define MAX_PITCH_TICKS_PER_SEC 2000.0f
 #define MAX_YAW_TICKS_PER_SEC 4000.0f
 #define MAX_YAW_RPM 440.0f
 

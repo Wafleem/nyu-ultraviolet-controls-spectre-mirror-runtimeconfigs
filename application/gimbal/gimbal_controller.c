@@ -25,6 +25,8 @@ static uint8_t s_yaw_motor_id = 0xFF;
 static GimbalCmd s_last_cmd;
 static SensorData s_last_sensor;
 static bool s_initialized = false;
+static uint32_t last_tick = 0;
+static float dt = 0.0f;
 
 int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, SensorData* sensor_data)
 {
@@ -34,9 +36,8 @@ int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, SensorD
         return 0;
     }
 
-    // Joystick control with sensitivity scaling
-    float sensitivity = 40.0f;
-    c->angle_target += c->config->direction * sensitivity * rate_normalized;
+    // Update angle target based on joystick input and dt
+    c->angle_target += c->config->direction * MAX_PITCH_TICKS_PER_SEC * powf(rate_normalized, 3.0f) * dt; // cubic joystick shaping
 
     // Determine if this is pitch motor (has angle limits)
     bool is_pitch_motor = (c->role == MOTOR_ROLE_GIMBAL_PITCH);
@@ -110,13 +111,8 @@ int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Senso
     // Joystick control
     //yaw->angle_target += 50.0f * rate_normalized;
 
-    // Time-scaled stick control
-    static uint32_t last_tick = 0;
-    uint32_t now = HAL_GetTick();
-    float dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
-    last_tick = now;
     // Update angle target based on joystick input and dt
-    yaw->angle_target += powf(rate_normalized, 3.0f) * MAX_YAW_TICKS_PER_SEC * dt; // cubic joystick shaping
+    yaw->angle_target += yaw->config->direction * powf(rate_normalized, 3.0f) * MAX_YAW_TICKS_PER_SEC * dt; // cubic joystick shaping
 #endif
 
     // Wrap target into encoder range
@@ -279,6 +275,11 @@ static void on_gimbal_cmd(const MsgEvent *ev, void *user) {
             } else {
                 s_yaw_spin_hold_active = false;
             }
+
+            // Update dt
+            uint32_t now = HAL_GetTick();
+            dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
+            last_tick = now;
 
             int16_t pitch_current = GimbalController_PitchControl(
                 s_pitch_motor_id,

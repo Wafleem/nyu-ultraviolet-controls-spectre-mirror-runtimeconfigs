@@ -115,12 +115,12 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .tx_slot = 1,        // Motor 2 -> slot 1 (motor_id - 1)
         .direction = -1,     // Pitch direction correction
         .limits.gm6020 = {
-            .angle_min = 1000.0f,
-            .angle_max = 4000.0f,
-            .gravity_compensation = 5000.0f,  // Gravity compensation for pitch
-            .initial_angle = 2500.0f  // Center position (needs calibration)
+            .angle_min = 6700.0f,
+            .angle_max = 7900.0f,
+            .gravity_compensation = 10000.0f,  // Gravity compensation for pitch
+            .initial_angle = 7400.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 31.0f, 0.0f, 3.22f, 30000.0f, 25000.0f },  // Pitch PID
+        .pid_outer = { 90.0f, 5.0f, 3.22f, 30000.0f, 25000.0f },  // Pitch PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
