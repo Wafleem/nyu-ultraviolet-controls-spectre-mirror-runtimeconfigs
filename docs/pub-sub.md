@@ -27,18 +27,19 @@ All topics are defined in `message_center_rtos.h`:
 
 ```c
 typedef enum {
-    TOPIC_RC_UPDATE = 0,    // Remote control data
-    TOPIC_IMU_UPDATE,       // IMU sensor data (gyro, accel)
-    TOPIC_CAN_RX,           // Raw CAN messages received
-    TOPIC_MOTOR_FEEDBACK,   // Motor feedback (M3508 chassis motors)
-    TOPIC_GM6020_FEEDBACK,  // GM6020 motor feedback (gimbal)
-    TOPIC_CHASSIS_CMD,      // Chassis movement commands
-    TOPIC_SHOOT_CMD,        // Shooter commands
-    TOPIC_GIMBAL_CMD,       // Gimbal commands
-    TOPIC_BARREL_HEAT,      // Barrel heat data
-    TOPIC_ROBOT_STATUS,     // Robot status data
-    TOPIC_VTM_RC,           // VTM remote controller data
-    TOPIC_VISION_DATA,      // Vision system data
+    TOPIC_RC_UPDATE = 0,        // Remote control data
+    TOPIC_IMU_UPDATE,           // IMU sensor data (gyro, accel)
+    TOPIC_CAN_RX,               // Raw CAN messages received
+    TOPIC_MOTOR_FEEDBACK,       // Motor feedback (M3508 chassis motors)
+    TOPIC_GM6020_FEEDBACK,      // GM6020 motor feedback (gimbal)
+    TOPIC_CHASSIS_CMD,          // Chassis movement commands
+    TOPIC_SHOOT_CMD,            // Shooter commands
+    TOPIC_GIMBAL_CMD,           // Gimbal commands
+    TOPIC_BARREL_HEAT,          // Barrel heat data
+    TOPIC_ROBOT_STATUS,         // Robot status data
+    TOPIC_SHOOT_DATA,           // Shoot data
+    TOPIC_PROJECTILE_ALLOWANCE, // Projectile allowance data
+    TOPIC_VISION_DATA,          // Vision system data
     TOPIC_NUM_TOPICS
 } MsgTopic;
 ```

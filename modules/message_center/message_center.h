@@ -137,15 +137,18 @@ typedef enum {
      * REFEREE TOPICS (Referee Task -> Motor Controllers)
      * These are published by the referee task at 100 Hz
      * ------------------------------------------------------------------------- */
-    TOPIC_BARREL_HEAT,        // Barrel heat data
-                              // Data: power_heat_data_t
-                              // Publisher: referee (10Hz)
-    TOPIC_ROBOT_STATUS,       // Robot status data
-                              // Data: robot_status_t
-                              // Publisher: referee (10Hz)
-    TOPIC_VTM_RC,             // VTM remote control data
-                              // Data: remote_control_t
-                              // Publisher: referee (30Hz)
+    TOPIC_BARREL_HEAT,          // Barrel heat data
+                                // Data: power_heat_data_t
+                                // Publisher: referee (10Hz)
+    TOPIC_ROBOT_STATUS,         // Robot status data
+                                // Data: robot_status_t
+                                // Publisher: referee (10Hz)
+    TOPIC_SHOOT_DATA,           // Shoot data
+                                // Data: shoot_data_t
+                                // Publisher: referee (on projectile shot)
+    TOPIC_PROJECTILE_ALLOWANCE, // Projectile allowance data
+                                // Data: projectile_allowance_t
+                                // Publisher: referee (10Hz)
 
     /* -------------------------------------------------------------------------
      * VISION TOPICS (External -> Gimbal)

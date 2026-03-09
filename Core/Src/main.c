@@ -174,6 +174,7 @@ int main(void)
   Logger_SetRate(LOG_TAG_GIM, 50);    // 20Hz for gimbal PID tuning (PITCH/YAW_CSV)
   Logger_SetRate(LOG_TAG_RC, 0);      // No rate limit for RC (full 100Hz+ output)
   Logger_SetRate(LOG_TAG_CHA, 200);   // 5Hz for chassis status
+  Logger_SetRate(LOG_TAG_VIS, 200);   // 5Hz for vision
   Logger_SetRate(LOG_TAG_SEN, 200);   // 5Hz for sentry status
   Logger_SetRate(LOG_TAG_SYS, 0);     // No rate limit for system messages
   Logger_SetRate(LOG_TAG_MOT, 0);     // No rate limit for mo

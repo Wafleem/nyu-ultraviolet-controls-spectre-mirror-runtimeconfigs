@@ -9,6 +9,9 @@
 extern "C" {
 #endif
 
+#define MAX_YAW_TICKS_PER_SEC 4000.0f
+#define MAX_YAW_RPM 440.0f
+
 // Gimbal command structure
 typedef struct {
     bool enabled;              // Gimbal control enabled

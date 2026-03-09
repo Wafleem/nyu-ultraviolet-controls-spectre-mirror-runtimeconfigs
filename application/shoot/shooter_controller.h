@@ -13,7 +13,7 @@
 #define SHOOTER_MOTOR_COUNT 4
 
 // Shooter system parameters
-#define MOTOR5_CONST_SPEED 5000      // Turntable speed
+#define TURNTABLE_CONST_SPEED 5000      // Turntable speed
 #define SHOOTER_CONST_SPEED 7500     // Shooter wheel speed
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
 
@@ -29,7 +29,6 @@ typedef struct {
     float shooter2_target;
     float ramped_shooter1;
     float ramped_shooter2;
-    float ramped_yaw;
     
     // Running state
     bool enabled;
@@ -38,7 +37,6 @@ typedef struct {
     PID_Controller turntable_pid;
     PID_Controller shooter1_pid;
     PID_Controller shooter2_pid;
-    PID_Controller yaw_pid;
     
     // Motor feedbacks (turntable and shooter wheels)
     Motor_Feedback turntable_feedback;

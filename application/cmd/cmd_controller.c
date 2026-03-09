@@ -58,6 +58,8 @@ static Gimbal_Sensor_Data_t s_last_sensor;
 static Vision_Recv_s s_last_vision;
 static CanRxFrame s_last_can;
 static bool s_initialized = false;
+static projectile_allowance_t s_last_allowance;
+static int shoot_count = 0;
 
 // RC health tracking
 static uint32_t s_last_rc_update_time = 0;
@@ -148,6 +150,21 @@ static void on_vision_update(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(Vision_Recv_s)) {
         memcpy(&s_last_vision, ev->data, sizeof(Vision_Recv_s));
+    }
+}
+
+static void on_shoot_data(const MsgEvent *ev, void *user) {
+    (void)user;
+    if (ev->size == sizeof(shoot_data_t)) {
+        shoot_count++;
+        LOG_INFO(LOG_TAG_DEBUG, "Projectiles Shot: %d", shoot_count);
+    }
+}
+
+static void on_projectile_allowance(const MsgEvent *ev, void *user) {
+    (void)user;
+    if (ev->size == sizeof(projectile_allowance_t)) {
+        memcpy(&s_last_allowance, ev->data, sizeof(projectile_allowance_t));
     }
 }
 
@@ -319,14 +336,17 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
         s_gimbal_cmd.yaw_rate_memo = 0.0f;
         s_gimbal_cmd.yaw_target_memo = 0.0f;
     }
-    
-    if (s_last_vision.updated) {
-        s_last_vision.updated = 0;
+    yaw_storage = yaw_raw;
+}
+
+static void process_vision_command(Vision_Recv_s* vision) {
+    if (vision->updated) {
+        vision->updated = 0;
         s_gimbal_cmd.vision_ts_ms = HAL_GetTick();
-        if (s_last_vision.target_state != NO_TARGET) {
+        if (vision->target_state != NO_TARGET) {
             s_gimbal_cmd.vision_valid = true;
-            s_gimbal_cmd.vision_yaw_err_rad = s_last_vision.yaw;
-            s_gimbal_cmd.vision_pitch_err_rad = s_last_vision.pitch;
+            s_gimbal_cmd.vision_yaw_err_rad = vision->yaw;
+            s_gimbal_cmd.vision_pitch_err_rad = vision->pitch;
         } else {
             s_gimbal_cmd.vision_valid = false;
             s_gimbal_cmd.vision_yaw_err_rad = 0.0f;
@@ -338,7 +358,6 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
             s_gimbal_cmd.vision_valid = false;
         }
     }
-    yaw_storage = yaw_raw;
 }
 
 void CmdController_Init(void) {
@@ -355,6 +374,8 @@ void CmdController_Init(void) {
     (void)MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
     (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
     (void)MsgCenter_Subscribe(TOPIC_VISION_DATA, on_vision_update, NULL);
+    (void)MsgCenter_Subscribe(TOPIC_SHOOT_DATA, on_shoot_data, NULL);
+    (void)MsgCenter_Subscribe(TOPIC_PROJECTILE_ALLOWANCE, on_projectile_allowance, NULL);
     // Avoid subscription overhead if CAN logger is disabled
     if (LOG_ENABLE_CAN) {
         (void)MsgCenter_Subscribe(TOPIC_CAN_RX, on_can_rx, NULL);
@@ -397,60 +418,39 @@ void CmdController_Task(uint32_t current_tick) {
 
     // If RC is unhealthy, disable all modes and pass NULL (robot stops)
     if (!rc_healthy) {
-    s_spin_mode = false;
-    s_gimbal_follow_mode = false;
+        s_spin_mode = false;
+        s_gimbal_follow_mode = false;
 
-    // Disable chassis and shooter (no RC = no movement/shooting)
-    s_chassis_cmd.vx = 0.0f;
-    s_chassis_cmd.vy = 0.0f;
-    s_chassis_cmd.wz = 0.0f;
-    s_chassis_cmd.enabled = false;
-    s_shoot_cmd.friction_enabled = false;
-    s_shoot_cmd.feed_enabled = false;
+        // Disable chassis and shooter (no RC = no movement/shooting)
+        s_chassis_cmd.vx = 0.0f;
+        s_chassis_cmd.vy = 0.0f;
+        s_chassis_cmd.wz = 0.0f;
+        s_chassis_cmd.enabled = false;
+        s_shoot_cmd.friction_enabled = false;
+        s_shoot_cmd.feed_enabled = false;
 
-    // But still allow vision to drive the gimbal
-    s_gimbal_cmd.enabled = true;
-    s_gimbal_cmd.pitch_rate = 0.0f;
-    s_gimbal_cmd.yaw_rate = 0.0f;
-    s_gimbal_cmd.yaw_rate_memo = 0.0f;
-    s_gimbal_cmd.yaw_target_memo = 0.0f;
+        // But still allow vision to drive the gimbal
+        s_gimbal_cmd.enabled = true;
+        s_gimbal_cmd.pitch_rate = 0.0f;
+        s_gimbal_cmd.yaw_rate = 0.0f;
+        s_gimbal_cmd.yaw_rate_memo = 0.0f;
+        s_gimbal_cmd.yaw_target_memo = 0.0f;
 
-    // Process vision data even without RC
-    if (s_last_vision.updated) {
-        s_last_vision.updated = 0;
-        s_gimbal_cmd.vision_ts_ms = HAL_GetTick();
-        if (s_last_vision.target_state != NO_TARGET) {
-            s_gimbal_cmd.vision_valid = true;
-            s_gimbal_cmd.vision_yaw_err_rad = s_last_vision.yaw;
-            s_gimbal_cmd.vision_pitch_err_rad = s_last_vision.pitch;
-        } else {
-            s_gimbal_cmd.vision_valid = false;
-            s_gimbal_cmd.vision_yaw_err_rad = 0.0f;
-            s_gimbal_cmd.vision_pitch_err_rad = 0.0f;
-        }
-    } else {
-        uint32_t now = HAL_GetTick();
-        if (s_gimbal_cmd.vision_valid && (now - s_gimbal_cmd.vision_ts_ms > VISION_CMD_TIMEOUT_MS)) {
-            s_gimbal_cmd.vision_valid = false;
-        }
+        // Process vision data even without RC
+        process_vision_command(&s_last_vision);
+        LOG_INFO(LOG_TAG_VIS, "VIS,%d,%d,%d,%.4f,%.4f,v=%d\r\n",
+                s_last_vision.fire_mode,
+                s_last_vision.target_state,
+                s_last_vision.target_type,
+                s_last_vision.pitch,
+                s_last_vision.yaw,
+                s_gimbal_cmd.vision_valid);
+
+        (void)MsgCenter_Publish(TOPIC_CHASSIS_CMD, &s_chassis_cmd, sizeof(s_chassis_cmd), 0);
+        (void)MsgCenter_Publish(TOPIC_SHOOT_CMD, &s_shoot_cmd, sizeof(s_shoot_cmd), 0);
+        (void)MsgCenter_Publish(TOPIC_GIMBAL_CMD, &s_gimbal_cmd, sizeof(s_gimbal_cmd), 0);
+        return;
     }
-    static uint32_t last_vis_dbg = 0;
-    if (HAL_GetTick() - last_vis_dbg >= 200) {  // 5Hz
-        last_vis_dbg = HAL_GetTick();
-        USB_CDC_Printf("VIS,%d,%d,%d,%.4f,%.4f,v=%d\r\n",
-                    s_last_vision.fire_mode,
-                    s_last_vision.target_state,
-                    s_last_vision.target_type,
-                    s_last_vision.pitch,
-                    s_last_vision.yaw,
-                    s_gimbal_cmd.vision_valid);
-}
-
-    (void)MsgCenter_Publish(TOPIC_CHASSIS_CMD, &s_chassis_cmd, sizeof(s_chassis_cmd), 0);
-    (void)MsgCenter_Publish(TOPIC_SHOOT_CMD, &s_shoot_cmd, sizeof(s_shoot_cmd), 0);
-    (void)MsgCenter_Publish(TOPIC_GIMBAL_CMD, &s_gimbal_cmd, sizeof(s_gimbal_cmd), 0);
-    return;
-}
 
     // ========== NORMAL OPERATION (RC HEALTHY) ==========
     // Mode selection based on left switch positions:
@@ -473,8 +473,9 @@ void CmdController_Task(uint32_t current_tick) {
     process_chassis_command(rc_ptr, &s_last_sensor, s_spin_mode, s_gimbal_follow_mode);
     process_shooter_command(rc_ptr);
     process_gimbal_command(rc_ptr, &s_last_sensor, s_spin_mode);
+    process_vision_command(&s_last_vision);
 
-    // Debug output for spin mode (every 100ms)
+    // Debug output
     if (HAL_GetTick() - s_last_spin_dbg_tick >= 100) {
         s_last_spin_dbg_tick = HAL_GetTick();
 
@@ -498,7 +499,4 @@ void CmdController_Task(uint32_t current_tick) {
     (void)MsgCenter_Publish(TOPIC_CHASSIS_CMD, &s_chassis_cmd, sizeof(s_chassis_cmd), 0);
     (void)MsgCenter_Publish(TOPIC_SHOOT_CMD, &s_shoot_cmd, sizeof(s_shoot_cmd), 0);
     (void)MsgCenter_Publish(TOPIC_GIMBAL_CMD, &s_gimbal_cmd, sizeof(s_gimbal_cmd), 0);
-
-    
 }
-
