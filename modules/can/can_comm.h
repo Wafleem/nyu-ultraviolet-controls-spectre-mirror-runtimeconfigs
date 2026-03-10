@@ -32,6 +32,14 @@ typedef struct {
     float power;    // watts
 } PowerFeedbackEvent;
 
+typedef struct {
+    int16_t roll;
+    int16_t pitch;
+    int16_t yaw;
+} ChassisIMUFeedbackEvent;
+
+typedef struct {
+    float offset[3];
+    float normal[3];
+} ChassisCalibEvent;
 #endif // CAN_COMM_H
-
-

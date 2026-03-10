@@ -54,7 +54,9 @@ static uint32_t s_last_spin_dbg_tick = 0; // rate limiter for SPINDBG prints (ta
 
 // Local state storage
 static RC_ctrl_t s_last_rc;
-static Gimbal_Sensor_Data_t s_last_sensor;
+static Gimbal_Sensor_Data_t s_gimbal_imu;
+static ChassisIMUFeedbackEvent s_chassis_imu;
+static ChassisCalibEvent s_chassis_calib;
 static Vision_Recv_s s_last_vision;
 static CanRxFrame s_last_can;
 static bool s_initialized = false;
@@ -136,12 +138,26 @@ static void on_rc_update(const MsgEvent *ev, void *user_data) {
         }
     }
 }
-
+static void on_chassis_imu(const MsgEvent *ev, void *user_data) {
+    (void)user_data;
+    if (ev->size == sizeof(ChassisIMUFeedbackEvent)) {
+        memcpy(&s_chassis_imu, ev->data, sizeof(ChassisIMUFeedbackEvent));
+    }
+}
+static void on_chassis_calib(const MsgEvent *ev, void *user_data) {
+    (void)user_data;
+    if (ev->size == sizeof(ChassisCalibEvent)) {
+        memcpy(&s_chassis_calib, ev->data, sizeof(ChassisCalibEvent));
+        USB_CDC_Printf("CALIB,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\r\n",
+            s_chassis_calib.offset[0], s_chassis_calib.offset[1], s_chassis_calib.offset[2],
+            s_chassis_calib.normal[0], s_chassis_calib.normal[1], s_chassis_calib.normal[2]);
+    }
+}
 // Callback for IMU update
-static void on_imu_update(const MsgEvent *ev, void *user_data) {
+static void on_gimbal_imu(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
-        memcpy(&s_last_sensor, ev->data, sizeof(Gimbal_Sensor_Data_t));
+        memcpy(&s_gimbal_imu, ev->data, sizeof(Gimbal_Sensor_Data_t));
     }
 }
 
@@ -365,14 +381,16 @@ void CmdController_Init(void) {
         return;
     }
     memset(&s_last_rc, 0, sizeof(s_last_rc));
-    memset(&s_last_sensor, 0, sizeof(Gimbal_Sensor_Data_t));
+    memset(&s_gimbal_imu, 0, sizeof(Gimbal_Sensor_Data_t));
+    memset(&s_chassis_imu, 0, sizeof(ChassisIMUFeedbackEvent));
     memset(&s_last_vision, 0, sizeof(s_last_vision));
     memset(&s_chassis_cmd, 0, sizeof(s_chassis_cmd));
     memset(&s_shoot_cmd, 0, sizeof(s_shoot_cmd));
     memset(&s_gimbal_cmd, 0, sizeof(s_gimbal_cmd));
-
+    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_IMU, on_chassis_imu, NULL);
+    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CALIB, on_chassis_calib, NULL);
     (void)MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_gimbal_imu, NULL);
     (void)MsgCenter_Subscribe(TOPIC_VISION_DATA, on_vision_update, NULL);
     (void)MsgCenter_Subscribe(TOPIC_SHOOT_DATA, on_shoot_data, NULL);
     (void)MsgCenter_Subscribe(TOPIC_PROJECTILE_ALLOWANCE, on_projectile_allowance, NULL);
@@ -463,30 +481,39 @@ void CmdController_Task(uint32_t current_tick) {
     // Spin mode rising edge: latch current gimbal absolute yaw as hold target
     if (spin_now && !s_spin_mode)
     {
-        s_spin_hold_yaw_deg = s_last_sensor.ekf_yaw;
+        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw;
     }
 
     s_gimbal_follow_mode = gimbal_follow_now;
     s_spin_mode = spin_now;
 
     // Process control input (rc_ptr is guaranteed non-NULL here)
-    process_chassis_command(rc_ptr, &s_last_sensor, s_spin_mode, s_gimbal_follow_mode);
+    process_chassis_command(rc_ptr, &s_gimbal_imu, s_spin_mode, s_gimbal_follow_mode);
     process_shooter_command(rc_ptr);
-    process_gimbal_command(rc_ptr, &s_last_sensor, s_spin_mode);
+    process_gimbal_command(rc_ptr, &s_gimbal_imu, s_spin_mode);
     process_vision_command(&s_last_vision);
 
     // Debug output
+    LOG_INFO(LOG_TAG_IMU, "IMU,%.2f,%.2f,%.2f,%d,%d,%d,%.2f\r\n",
+        s_gimbal_imu.ekf_yaw,
+        s_gimbal_imu.ekf_pitch,
+        s_gimbal_imu.ekf_roll,
+        s_chassis_imu.yaw,
+        s_chassis_imu.pitch,
+        s_chassis_imu.roll,
+        s_gimbal_imu.ekf_yaw - (float)s_chassis_imu.yaw
+    );
     if (HAL_GetTick() - s_last_spin_dbg_tick >= 100) {
         s_last_spin_dbg_tick = HAL_GetTick();
 
-        float yaw_err_deg = s_spin_hold_yaw_deg - s_last_sensor.ekf_yaw;
+        float yaw_err_deg = s_spin_hold_yaw_deg - s_gimbal_imu.ekf_yaw;
         LOG_CSV(LOG_TAG_CMD, "SPINDBG,%lu,%u,%u,%u,%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f\r\n",
                        (unsigned long)s_last_spin_dbg_tick,
                        (unsigned int)(s_spin_mode ? 1U : 0U),
                        (unsigned int)((uint8_t)s_last_rc.rc.s[0]),
                        (unsigned int)((uint8_t)s_last_rc.rc.s[1]),
                        0.0f /* no chassis IMU */,
-                       s_last_sensor.ekf_yaw,
+                       s_gimbal_imu.ekf_yaw,
                        s_spin_hold_yaw_deg,
                        yaw_err_deg,
                        s_gimbal_cmd.yaw_rate,

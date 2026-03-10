@@ -94,6 +94,8 @@ typedef enum {
                               // Data: Gimbal_Sensor_Data_t
                               // Publisher: ControlTask (imu.c)
                               // Subscribers: cmd_controller, gimbal_controller
+    TOPIC_CHASSIS_IMU,        //chassis imu data
+    TOPIC_CHASSIS_CALIB,
 
     TOPIC_CAN_RX,             // Raw CAN frame received (for debugging)
                               // Data: CanRxFrame (12 bytes)
