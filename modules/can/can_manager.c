@@ -15,7 +15,6 @@
  *   rx.DLC (raw uint8) -> rx.DataLength (FDCAN_DLC_BYTES_* enum)
  *   rx.IDE == CAN_ID_STD -> rx.IdType == FDCAN_STANDARD_ID
  */
-
 #include "can_manager.h"
 #include "motor_registry.h"
 #include "robot_config.h"
@@ -25,6 +24,9 @@
 
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
+
+static ChassisCalibEvent s_calib_buf = {};
+static uint8_t s_calib_received = 0;
 
 /*DLC conversion helpers (from existing can.c)*/
 
@@ -183,12 +185,45 @@ void CAN_Manager_ProcessCallback(CAN_Manager_t *manager, FDCAN_HandleTypeDef *hf
         };
         (void)MsgCenter_PublishFromISR(TOPIC_CHASSIS_POWER, &pev, sizeof(pev));
     }
-
     /* Only process standard ID frames with 8 bytes */
     if (rx.IdType != FDCAN_STANDARD_ID || dlc != 8) {
         return;
     }
+    // Receive chassis IMU calibration values
+    if (0x42E <= rx.Identifier  && rx.Identifier <= 0x430) {
+        int index = 0x430 - rx.Identifier;
+        uint32_t offset_bytes = ((uint32_t)d[0] << 24)
+                              | ((uint32_t)d[1] << 16)
+                              | ((uint32_t)d[2] << 8)
+                              | ((uint32_t)d[3]);
+        float offset_value;
+        memcpy(&offset_value, &offset_bytes, sizeof(float));
+        s_calib_buf.offset[index] = offset_value;
 
+        uint32_t normal_bytes = ((uint32_t)d[4] << 24)
+                              | ((uint32_t)d[5] << 16)
+                              | ((uint32_t)d[6] << 8)
+                              | ((uint32_t)d[7]);
+        float normal_value;
+        memcpy(&normal_value, &normal_bytes, sizeof(float));
+        s_calib_buf.normal[index] = normal_value;
+        s_calib_received |= (1 << index);
+    }
+    if (s_calib_received == 0x07) {
+        s_calib_received = 0;
+        (void)MsgCenter_PublishFromISR(TOPIC_CHASSIS_CALIB, &s_calib_buf, sizeof(s_calib_buf));
+    }
+    // Receive chassis IMU attitude data
+    if (rx.Identifier == 0x434) {
+        int16_t raw_roll  = (int16_t)((d[0] << 8) | d[1]);
+        int16_t raw_pitch = (int16_t)((d[2] << 8) | d[3]);
+        int16_t raw_yaw   = (int16_t)((d[4] << 8) | d[5]);
+        ChassisIMUFeedbackEvent yev;
+        memcpy(&yev.roll,  &raw_roll,  sizeof(raw_roll));
+        memcpy(&yev.pitch, &raw_pitch, sizeof(raw_pitch));
+        memcpy(&yev.yaw,   &raw_yaw,   sizeof(raw_yaw));
+        (void)MsgCenter_PublishFromISR(TOPIC_CHASSIS_IMU, &yev, sizeof(yev));
+    }
     /* Dynamic motor feedback processing using registry */
     const MotorConfig_t *motor = MotorRegistry_FindByRxId(manager->registry, rx.Identifier);
     if (motor == NULL) {
