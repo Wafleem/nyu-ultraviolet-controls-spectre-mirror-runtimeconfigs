@@ -12,6 +12,7 @@
 
 typedef enum
 {
+    UNKNOWN         = 0,
     RED_HERO        = 1,
     RED_ENGINEER    = 2,
     RED_STANDARD_1  = 3,

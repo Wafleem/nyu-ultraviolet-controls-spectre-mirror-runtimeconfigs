@@ -194,7 +194,7 @@ int main(void)
   HAL_Delay(10);
 
   // Initialize CAN managers with robot config (replaces CAN_Config)
-  const RobotConfig_t *robot_cfg = RobotConfig_Get();
+  const RobotConfig_t *robot_cfg = RobotConfig_Get(0);
   Debug_Printf("Initializing CAN\r\n");
   HAL_Delay(10);
   CAN_Manager_Init(&can1_manager, CAN_CHANNEL_1, &hfdcan1, robot_cfg, &can1_registry);

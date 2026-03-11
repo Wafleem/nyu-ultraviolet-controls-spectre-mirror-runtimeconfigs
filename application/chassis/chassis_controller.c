@@ -21,6 +21,7 @@ static SensorData s_last_sensor;
 static ChassisController s_ctrl;
 static PowerFeedbackEvent s_last_power;
 static robot_status_t s_last_robot_status;
+static bool s_initialized = false;
 
 // Chassis motor configuration (dynamically assigned during init)
 static uint8_t s_chassis_motor_ids[CHASSIS_MOTOR_COUNT];
@@ -226,15 +227,16 @@ void ChassisApp_Init(void) {
     // Initialize chassis controller (module layer handles config)
     ChassisController_Init(&s_ctrl);
 
-    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CMD, on_chassis_cmd, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_POWER, on_chassis_power_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
+    if (!s_initialized) {
+        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CMD, on_chassis_cmd, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_POWER, on_chassis_power_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
+    }
+    s_initialized = true;
 }
 
 ChassisController* ChassisApp_GetController(void) {
     return &s_ctrl;
 }
-
-

@@ -28,42 +28,27 @@ static void on_motor_feedback(const MsgEvent *ev, void *user);
 /**
  * @brief Initialize motor driver module
  */
-void MotorDriver_ModuleInit(void)
+void MotorDriver_ModuleInit(robot_id_t robot_id)
 {
-    if (g_module_initialized) {
-        return;  // Already initialized
-    }
-
-    // Clear all motor contexts
-    memset(g_motor_contexts, 0, sizeof(g_motor_contexts));
-
     // Get robot configuration
-    g_robot_config = RobotConfig_Get();
+    g_robot_config = RobotConfig_Get(robot_id);
 
     // Initialize all motors from configuration
     if (g_robot_config != NULL) {
-        USB_CDC_Printf("[MotorDriver] Initializing %d motors from config '%s'...\r\n",
-                      g_robot_config->total_motor_count, g_robot_config->name);
+        // Clear all motor contexts
+        memset(g_motor_contexts, 0, sizeof(g_motor_contexts));              
 
         for (uint8_t i = 0; i < g_robot_config->total_motor_count; i++) {
             const MotorConfig_t *motor_cfg = &g_robot_config->motor_configs[i];
             MotorDriver_Init(motor_cfg->motor_id, motor_cfg);
-
-            USB_CDC_Printf("[MotorDriver]   Motor %d: type=%d role=%d CAN=%d init=%d\r\n",
-                          motor_cfg->motor_id,
-                          motor_cfg->type,
-                          motor_cfg->role,
-                          motor_cfg->can_channel,
-                          g_motor_contexts[motor_cfg->motor_id].initialized);
         }
-        USB_CDC_Printf("[MotorDriver] All motors initialized.\r\n");
-    } else {
-        USB_CDC_Printf("[MotorDriver] ERROR: g_robot_config is NULL!\r\n");
     }
 
     // Subscribe to CAN feedback topics
-    (void)MsgCenter_Subscribe(TOPIC_GM6020_FEEDBACK, on_gm6020_feedback, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+    if (!g_module_initialized) {
+        (void)MsgCenter_Subscribe(TOPIC_GM6020_FEEDBACK, on_gm6020_feedback, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+    }
 
     g_module_initialized = true;
 }

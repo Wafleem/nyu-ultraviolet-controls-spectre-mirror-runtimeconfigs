@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "config_types.h"
 #include "pid.h"
+#include "ref_structs.h"
 
 /**
  * @brief Generic Motor Driver Module
@@ -74,7 +75,7 @@ typedef struct {
  * It loads the robot configuration and sets up all motors.
  * Application layer does not need to access configuration directly.
  */
-void MotorDriver_ModuleInit(void);
+void MotorDriver_ModuleInit(robot_id_t robot_id);
 
 /**
  * @brief Initialize a motor from configuration
