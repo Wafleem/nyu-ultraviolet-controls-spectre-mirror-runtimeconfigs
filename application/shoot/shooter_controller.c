@@ -18,6 +18,7 @@ static uint32_t s_last_print_ms = 0;
 static ShootCmd s_last_cmd;
 static SensorData s_last_sensor;
 static ShooterController s_ctrl;
+static bool s_initialized = false;
 
 // Shooter motor configuration (dynamically assigned during init)
 static uint8_t s_feed_motor_id = 0xFF;      // Turntable/feed motor
@@ -255,9 +256,12 @@ void ShooterApp_Init(void) {
     // Initialize shooter controller (module layer handles config)
     ShooterController_Init(&s_ctrl);
 
-    (void)MsgCenter_Subscribe(TOPIC_SHOOT_CMD, on_shoot_cmd, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+    if (!s_initialized) {
+        (void)MsgCenter_Subscribe(TOPIC_SHOOT_CMD, on_shoot_cmd, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+    }
+    s_initialized = true;
 }
 
 ShooterController* ShooterApp_GetController(void) {

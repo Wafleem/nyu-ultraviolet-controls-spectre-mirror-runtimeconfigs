@@ -331,10 +331,6 @@ static void on_imu_update(const MsgEvent *ev, void *user) {
 }
 
 void GimbalApp_Init(void) {
-    if (s_initialized) {
-        return;
-    }
-
     memset(&s_last_cmd, 0, sizeof(s_last_cmd));
     memset(&s_last_sensor, 0, sizeof(s_last_sensor));
 
@@ -351,8 +347,10 @@ void GimbalApp_Init(void) {
     }
 
     // Subscribe to messages
-    (void)MsgCenter_Subscribe(TOPIC_GIMBAL_CMD, on_gimbal_cmd, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+    if (!s_initialized) {
+        (void)MsgCenter_Subscribe(TOPIC_GIMBAL_CMD, on_gimbal_cmd, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+    }
 
     s_initialized = true;
 }

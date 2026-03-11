@@ -40,6 +40,7 @@
 #include "logger.h"
 #include "motor_driver.h"
 #include "vision_comm.h"
+#include "robot_config.h"
 #include "app_subscriptions.h"
 #include "chassis_controller.h"
 #include "shooter_controller.h"
@@ -72,6 +73,10 @@
 /* CAN manager globals */
 extern CAN_Manager_t can1_manager;
 extern CAN_Manager_t can2_manager;
+
+/* Robot config */
+static robot_id_t s_robot_id;
+static robot_status_t s_robot_status;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -112,7 +117,7 @@ const osThreadAttr_t IMUTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+static void on_robot_status(const MsgEvent *ev, void *user_data);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -330,9 +335,14 @@ void StartControlTask(void *argument)
   const TickType_t xFrequency = pdMS_TO_TICKS(5);  // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
+  // Initialize robot ID tracking
+  s_robot_id = 0;
+  memset(&s_robot_status, 0, sizeof(robot_status_t));
+  (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
+
   // Initialize modules that subscribe to topics
+  MotorDriver_ModuleInit(s_robot_id);
   VisionComm_Init();
-  MotorDriver_ModuleInit();
   CmdController_Init();
   ChassisApp_Init();
   GimbalApp_Init();
@@ -411,6 +421,29 @@ void StartIMUTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+
+// If robot ID changes, restart ControlTask with new robot config
+static void on_robot_status(const MsgEvent *ev, void *user_data) {
+    (void)user_data;
+    if (ev->size == sizeof(robot_status_t)) {
+        memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
+        if (s_robot_status.robot_id != s_robot_id) {
+            const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
+            s_robot_id = s_robot_status.robot_id;
+            LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
+
+            // Restart motor registries used in CAN managers
+            MotorRegistry_Init(can1_manager.registry, robot_cfg, can1_manager.channel);
+            MotorRegistry_Init(can2_manager.registry, robot_cfg, can2_manager.channel);
+
+            // Restart Controls modules and applications
+            MotorDriver_ModuleInit(s_robot_status.robot_id);
+            ChassisApp_Init();
+            GimbalApp_Init();
+            ShooterApp_Init();
+        }
+    }
+}
 
 /* USER CODE END Application */
 

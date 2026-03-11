@@ -1,0 +1,19 @@
+#ifndef UNKNOWN_H
+#define UNKNOWN_H
+
+#include "config_types.h"
+#include <stddef.h>
+
+/**
+ * @brief Unknown Robot Configuration
+ */
+
+// Robot configuration structure
+static const RobotConfig_t g_robot_config_unknown = {
+    .name = "Unknown",
+    .motor_configs = NULL,
+    .total_motor_count = 0,
+    .enable_imu_calibration = 0
+};
+
+#endif // UNKNOWN_H

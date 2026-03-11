@@ -1,10 +1,10 @@
-#ifndef INFANTRY_H
-#define INFANTRY_H
+#ifndef HERO_H
+#define HERO_H
 
 #include "config_types.h"
 
 /**
- * @brief Standard Infantry Robot Configuration
+ * @brief Hero Robot Configuration
  *
  * Current configuration:
  * - 4x M3508 chassis motors (mecanum wheels) on CAN1
@@ -13,7 +13,7 @@
  */
 
 // Motor configuration array
-static const MotorConfig_t g_motor_configs_infantry_standard[] = {
+static const MotorConfig_t g_motor_configs_hero[] = {
     // ========== CHASSIS MOTORS (4x M3508) on CAN1 ==========
     // Front-left chassis motor (ID 0)
     {
@@ -28,7 +28,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },  // Speed PID
+        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },  // Speed PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }           // Not used
     },
 
@@ -45,7 +45,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
+        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
@@ -62,7 +62,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
+        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
@@ -79,7 +79,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
+        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
@@ -176,14 +176,14 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
 };
 
 // Robot configuration structure
-static const RobotConfig_t g_robot_config_infantry_standard = {
-    .name = "Infantry",
+static const RobotConfig_t g_robot_config_hero = {
+    .name = "Hero",
     .chassis_motor_count = 4,
     .gimbal_motor_count = 2,
     .shooter_motor_count = 3,
-    .motor_configs = g_motor_configs_infantry_standard,
+    .motor_configs = g_motor_configs_hero,
     .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
     .enable_imu_calibration = 0
 };
 
-#endif // INFANTRY_H
+#endif // HERO_H

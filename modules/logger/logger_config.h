@@ -23,7 +23,7 @@
 #define LOG_ENABLE_CAN    0  // CAN communication
 #define LOG_ENABLE_VIS    0  // Vision communication
 #define LOG_ENABLE_RC     0  // Remote control
-#define LOG_ENABLE_DEBUG  1  // General debug
+#define LOG_ENABLE_DEBUG  0  // General debug
 
 // ============================================================================
 // Default Rate Limits (milliseconds)

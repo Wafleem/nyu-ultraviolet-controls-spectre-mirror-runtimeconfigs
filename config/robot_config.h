@@ -2,16 +2,12 @@
 #define ROBOT_CONFIG_H
 
 #include "config_types.h"
-#include "infantry_standard.h"
+#include "ref_structs.h"
 
 /**
  * @brief Get the active robot configuration
  * @return Pointer to the active robot configuration structure
- *
- * Currently hardcoded to infantry_standard.
- * To add ROBOT_TYPE CMake selection later, use the pattern from NYUSH:
- *   cmake -S . -B build -DROBOT_TYPE=infantry_standard
  */
-const RobotConfig_t* RobotConfig_Get(void);
+const RobotConfig_t* RobotConfig_Get(robot_id_t robot_id);
 
 #endif // ROBOT_CONFIG_H
