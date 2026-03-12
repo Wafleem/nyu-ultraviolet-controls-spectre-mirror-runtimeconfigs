@@ -3,15 +3,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "gyro_data.h"
+#include "imu.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MAX_PITCH_TICKS_PER_SEC 2000.0f
-#define MAX_YAW_TICKS_PER_SEC 4000.0f
-#define MAX_YAW_RPM 440.0f
+#define MAX_YAW_ANGLE           360.0f
+#define MAX_PITCH_ANGLE_PER_SEC 2000.0f
+#define MAX_YAW_ANGLE_PER_SEC   100.0f
+#define MAX_YAW_RPM             440.0f
 
 // Gimbal command structure
 typedef struct {
@@ -36,7 +37,7 @@ void last_data(float last_yaw_rate, float last_yaw_target);
  * @return Motor current command
  */
 
-int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, SensorData* sensor_data);
+int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Yaw control with compensation (chassis rotation + gyro feedback)
@@ -45,13 +46,13 @@ int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, SensorD
  * @param use_imu_feedback Use IMU gyro for speed feedback (true for spin mode, false for encoder)
  * @return Motor current command
  */
-int16_t GimbalController_YawControlWithCompensation(float rate_normalized, SensorData* sensor_data, bool use_imu_feedback);
+int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Gimbal_Sensor_Data_t* sensor_data, bool use_imu_feedback);
 
 /**
  * @brief Target angle correction for yaw (chassis compensation)
  * @param sensor_data Sensor data pointer
  */
-void GimbalController_TargetAngleCorrection(SensorData* sensor_data);
+void GimbalController_TargetAngleCorrection(Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Initialize gimbal application (message subscriptions and control)
