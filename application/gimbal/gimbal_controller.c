@@ -113,7 +113,12 @@ int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Gimba
     else if (yaw->angle_target < 0)
         yaw->angle_target += MAX_YAW_ANGLE;
 
-    float current = sensor_data->ekf_yaw;
+    float current;
+    if (USE_GM6020_YAW) {
+        current = yaw->angle_raw;
+    } else {
+        current = sensor_data->ekf_yaw;
+    }
     float angle_error = yaw->angle_target - current;
 
     // small deadband
@@ -184,16 +189,22 @@ static void on_gimbal_cmd(const MsgEvent *ev, void *user) {
             bool use_vision_target = s_last_cmd.vision_valid;
             bool use_spin_hold = (!use_vision_target) && (s_last_cmd.yaw_rate_memo > 0.5f);
 
+            MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
+            MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
+
+            float current_yaw;
+            if (USE_GM6020_YAW) {
+                current_yaw = (float)yaw->angle_raw;
+            } else {
+                current_yaw = s_last_sensor.ekf_yaw;
+            }
             // Continuous angle control: update target angle every cycle when vision is valid
             if (use_vision_target) {
-                MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
-                MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
-
                 if (yaw && yaw->angle_initialized) {
                     const float angles_per_rad = MAX_YAW_ANGLE / (2.0f * (float)M_PI);
                     float err_ticks = s_last_cmd.vision_yaw_err_rad * angles_per_rad;
                     // Update target angle continuously based on current angle + vision error
-                    yaw->angle_target = (float)s_last_sensor.ekf_yaw + err_ticks;
+                    yaw->angle_target = (float)current_yaw + err_ticks;
                     while (yaw->angle_target >= MAX_YAW_ANGLE) yaw->angle_target -= MAX_YAW_ANGLE;
                     while (yaw->angle_target < 0.0f) yaw->angle_target += MAX_YAW_ANGLE;
 
@@ -233,10 +244,9 @@ static void on_gimbal_cmd(const MsgEvent *ev, void *user) {
             // Spin-hold mode: hold gimbal absolute yaw (deg) using gimbal IMU yaw_total_angle.
             // Target is carried via yaw_target_memo; enable flag via yaw_rate_memo.
             if (use_spin_hold) {
-                MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
                 if (yaw && yaw->angle_initialized) {
                     // Calculate angle error with proper wrapping to [-180, 180] range
-                    float yaw_err_deg = s_last_cmd.yaw_target_memo - s_last_sensor.ekf_yaw;
+                    float yaw_err_deg = s_last_cmd.yaw_target_memo - current_yaw;
 
                     // Wrap error to shortest path
                     while (yaw_err_deg > 180.0f) yaw_err_deg -= 360.0f;
@@ -247,7 +257,7 @@ static void on_gimbal_cmd(const MsgEvent *ev, void *user) {
                     float err_ticks = yaw_err_deg * angles_per_deg;
 
                     // Set target angle in encoder space
-                    yaw->angle_target = (float)s_last_sensor.ekf_yaw + err_ticks;
+                    yaw->angle_target = (float)current_yaw + err_ticks;
                     while (yaw->angle_target >= MAX_YAW_ANGLE) yaw->angle_target -= MAX_YAW_ANGLE;
                     while (yaw->angle_target < 0.0f) yaw->angle_target += MAX_YAW_ANGLE;
 
@@ -384,7 +394,7 @@ void Gimbal_WaitForAlignment(void)
         MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
 
         if (yaw && pitch && yaw->angle_initialized && pitch->angle_initialized) {
-            float yaw_error = fabsf(yaw->angle_target - (float)s_last_sensor.ekf_yaw);
+            float yaw_error = fabsf(yaw->angle_target - (float)yaw->angle_raw);
             float pitch_error = fabsf(pitch->angle_target - (float)pitch->angle_raw);
 
             // Handle yaw wraparound (0-MAX/2 range)
