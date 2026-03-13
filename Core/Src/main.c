@@ -24,6 +24,7 @@
 #include "fdcan.h"
 #include "i2c.h"
 #include "quadspi.h"
+#include "sdmmc.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -157,6 +158,7 @@ int main(void)
   MX_SPI5_Init();
   MX_UART5_Init();
   MX_QUADSPI_Init();
+  MX_SDMMC2_SD_Init();
   /* USER CODE BEGIN 2 */
   MX_USB_DEVICE_Init();
 
