@@ -61,11 +61,12 @@ static Vision_Recv_s s_last_vision;
 static CanRxFrame s_last_can;
 static bool s_initialized = false;
 static projectile_allowance_t s_last_allowance;
-static int shoot_count = 0;
+static int s_shoot_count = 0;
 
 // RC health tracking
 static uint32_t s_last_rc_update_time = 0;
 static bool s_rc_ever_connected = false;  // Track if we've ever received valid RC data
+static bool s_waiting_for_neutral = true;     // Track if the stick had reached neutral position at least once
 #define RC_TIMEOUT_MS 100  // 100ms timeout (DR16 sends at ~100Hz = 10ms, so ~10 missed frames)
 
 // Command messages to publish
@@ -172,8 +173,8 @@ static void on_vision_update(const MsgEvent *ev, void *user_data) {
 static void on_shoot_data(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(shoot_data_t)) {
-        shoot_count++;
-        LOG_INFO(LOG_TAG_DEBUG, "Projectiles Shot: %d", shoot_count);
+        s_shoot_count++;
+        LOG_INFO(LOG_TAG_DEBUG, "Projectiles Shot: %d", s_shoot_count);
     }
 }
 
@@ -414,13 +415,29 @@ void CmdController_Task(uint32_t current_tick) {
     uint32_t time_since_last_rc = HAL_GetTick() - s_last_rc_update_time;
     bool rc_timeout = (s_rc_ever_connected && time_since_last_rc > RC_TIMEOUT_MS);
     bool rc_invalid_data = !is_rc_data_valid(&s_last_rc);
-    bool rc_healthy = s_rc_ever_connected && !rc_timeout;
+    bool rc_healthy = s_rc_ever_connected && !rc_timeout && !s_last_rc.rc.failsafe_active;
 
     // If RC is unhealthy, pass NULL to stop robot gracefully
     const RC_ctrl_t *rc_ptr = rc_healthy ? &s_last_rc : NULL;
 
     // Log RC state changes
     static bool last_rc_healthy = false;
+    static bool prev_rc_failsafe_active = false;
+
+    // If RC turns on, wait for its sticks to be in neutral
+    if (!s_last_rc.rc.failsafe_active && prev_rc_failsafe_active){
+        s_waiting_for_neutral = true;
+    }
+    // If sticks are in neutral, stop waiting. Otherwise, mark RC as unhealthy
+    if (!s_last_rc.rc.failsafe_active && s_waiting_for_neutral){
+        if (-JOYSTICK_DEADBAND <= s_last_rc.rc.ch[2] && s_last_rc.rc.ch[2] <= JOYSTICK_DEADBAND){
+            s_waiting_for_neutral = false;
+        } else {
+            rc_healthy = false;
+            s_waiting_for_neutral = true;
+        }
+    }
+    
     if (rc_healthy != last_rc_healthy) {
         if (!rc_healthy) {
             if (rc_timeout) {
@@ -432,6 +449,7 @@ void CmdController_Task(uint32_t current_tick) {
             USB_CDC_Printf("[RC] Signal restored - Robot active\r\n");
         }
         last_rc_healthy = rc_healthy;
+        prev_rc_failsafe_active = s_last_rc.rc.failsafe_active;
     }
 
     // If RC is unhealthy, disable all modes and pass NULL (robot stops)

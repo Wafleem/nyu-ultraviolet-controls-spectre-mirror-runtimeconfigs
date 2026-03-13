@@ -115,5 +115,11 @@ static void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl) {
 
         // Go to the next 11-bit channel
         bit_index += 11;
+
+        if(sbus_buf[23] & (1 << 3)){
+            rc_ctrl->rc.failsafe_active = 1;
+        } else {
+            rc_ctrl->rc.failsafe_active = 0;
+        }
     }
 }
