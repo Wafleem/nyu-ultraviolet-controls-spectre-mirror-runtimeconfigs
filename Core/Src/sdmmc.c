@@ -32,7 +32,10 @@ void MX_SDMMC2_SD_Init(void)
 {
 
   /* USER CODE BEGIN SDMMC2_Init 0 */
-
+  /* Skip init entirely if no SD card detected (PB7 high = no card) */
+  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) != GPIO_PIN_RESET) {
+      return;
+  }
   /* USER CODE END SDMMC2_Init 0 */
 
   /* USER CODE BEGIN SDMMC2_Init 1 */
