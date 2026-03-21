@@ -97,6 +97,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     application/shoot/shooter_controller.c
     config/robot_config.c
     modules/tests/tests.c
+    modules/sdcard/sdcard.c
     # QSPI Flash driver
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage/w25q128jv.c
 )
@@ -115,6 +116,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/algorithm
     modules/vision_comm
     modules/tests
+    modules/sdcard
     application
     application/chassis
     application/cmd
