@@ -197,19 +197,19 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
 
-  // Give the SD card a moment to initialize after power-up
-  osDelay(100);
-
-  /* -------- SD Card Init & Test -------- */
-  if (SDCard_Init() == 0) {
-      if (SDCard_Open("spectre_log.txt") == 0) {
-          SDCard_Writeln("Spectre boot OK, tick=%lu", (unsigned long)HAL_GetTick());
-          SDCard_Flush();
-          Debug_Printf("[SD] Write test PASS\r\n");
-          // Leave file open for runtime logging, or close if not needed:
-          // SDCard_Close();
-      }
-  }
+  // // Give the SD card a moment to initialize after power-up
+  // osDelay(100);
+  //
+  // /* -------- SD Card Init & Test -------- */
+  // if (SDCard_Init() == 0) {
+  //     if (SDCard_Open("spectre_log.txt") == 0) {
+  //         SDCard_Writeln("Spectre boot OK, tick=%lu", (unsigned long)HAL_GetTick());
+  //         SDCard_Flush();
+  //         Debug_Printf("[SD] Write test PASS\r\n");
+  //         // Leave file open for runtime logging, or close if not needed:
+  //         // SDCard_Close();
+  //     }
+  // }
 
   // Print boot banner
   Debug_Printf("========================================\r\n");
