@@ -21,6 +21,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "dma.h"
+#include "fatfs.h"
 #include "fdcan.h"
 #include "i2c.h"
 #include "quadspi.h"
@@ -158,7 +159,11 @@ int main(void)
   MX_SPI5_Init();
   MX_UART5_Init();
   MX_QUADSPI_Init();
-  MX_SDMMC2_SD_Init();
+  /* Only init SDMMC if card is physically present (PB7 low = inserted) */
+  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_RESET) {
+      MX_SDMMC2_SD_Init();
+      MX_FATFS_Init();
+  }
   /* USER CODE BEGIN 2 */
   MX_USB_DEVICE_Init();
 
