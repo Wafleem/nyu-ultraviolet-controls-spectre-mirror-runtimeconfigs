@@ -160,10 +160,10 @@ int main(void)
   MX_UART5_Init();
   MX_QUADSPI_Init();
   /* Only init SDMMC if card is physically present (PB7 low = inserted) */
-  // if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_RESET) {
-  //     MX_SDMMC2_SD_Init();
-  //     MX_FATFS_Init();
-  // }
+  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_RESET) {
+      MX_SDMMC2_SD_Init();
+      MX_FATFS_Init();
+  }
   /* USER CODE BEGIN 2 */
   MX_USB_DEVICE_Init();
 
