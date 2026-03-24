@@ -160,6 +160,12 @@ int main(void)
   MX_QUADSPI_Init();
   /* USER CODE BEGIN 2 */
   MX_USB_DEVICE_Init();
+  
+  /* Only init SDMMC if card is physically present (PB7 low = inserted) */
+  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_RESET) {
+      MX_SDMMC2_SD_Init();
+      MX_FATFS_Init();
+  }
 
   // Wait for USB to enumerate
   HAL_Delay(1000);
