@@ -16,7 +16,8 @@
 #define TURNTABLE_CONST_SPEED 5000      // Turntable speed
 #define SHOOTER_CONST_SPEED 7500     // Shooter wheel speed
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
-
+#define PUSHER_EXTENDED (int32_t)(2.5f * 8192.0f)
+#define PUSHER_RETRACTED 0
 
 // Shooter controller structure
 typedef struct {
@@ -29,6 +30,12 @@ typedef struct {
     float shooter2_target;
     float ramped_shooter1;
     float ramped_shooter2;
+
+    // Pusher targets
+    float pusher_target;
+    int32_t pusher_total_angle;
+    uint16_t pusher_last_angle;
+    bool pusher_initialized;
     
     // Running state
     bool enabled;
@@ -37,11 +44,13 @@ typedef struct {
     PID_Controller turntable_pid;
     PID_Controller shooter1_pid;
     PID_Controller shooter2_pid;
+    PID_Controller pusher_pid;
     
     // Motor feedbacks (turntable and shooter wheels)
     Motor_Feedback turntable_feedback;
     Motor_Feedback shooter1_feedback;
     Motor_Feedback shooter2_feedback;
+    Motor_Feedback pusher_feedback;
     
     // Output currents
     int16_t output_currents[SHOOTER_MOTOR_COUNT];
