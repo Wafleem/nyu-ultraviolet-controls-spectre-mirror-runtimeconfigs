@@ -220,10 +220,7 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
     // Extract joystick values with deadband
     int16_t vx_raw = apply_deadband((int16_t)(rc->rc.ch[2]), JOYSTICK_DEADBAND);
     int16_t vy_raw = apply_deadband((int16_t)(rc->rc.ch[3]), JOYSTICK_DEADBAND);
-    int16_t wz_raw = apply_deadband((int16_t)(rc->rc.ch[4]), JOYSTICK_DEADBAND);
-
-    // Disabling rotation for now in case people don't know about knob controls
-    wz_raw = 0;
+    int16_t wz_raw = 0;  // Chassis rotate is not mapped to keybind
 
     // Convert to normalized values (-1.0 to 1.0)
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);

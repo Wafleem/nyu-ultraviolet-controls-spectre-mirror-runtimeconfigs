@@ -84,10 +84,10 @@ void ChassisController_Update(ChassisController *controller, Gimbal_Sensor_Data_
     // So we directly use the vx/vy from command without additional transformation
     float vx = vx_norm * scale;
     float vy = -vy_norm * scale;  // Negate vy to fix direction - Safal 1-17-2026. 
-    controller->target_speeds[0] = s_motor_directions[0] * (vx - vy + omega);
-    controller->target_speeds[1] = s_motor_directions[1] * (vx + vy - omega);
-    controller->target_speeds[2] = s_motor_directions[2] * (vx - vy - omega);
-    controller->target_speeds[3] = s_motor_directions[3] * (vx + vy + omega);
+    controller->target_speeds[0] = s_motor_directions[0] * (vx - vy - omega);
+    controller->target_speeds[1] = s_motor_directions[1] * (vx + vy + omega);
+    controller->target_speeds[2] = s_motor_directions[2] * (vx + vy - omega);
+    controller->target_speeds[3] = s_motor_directions[3] * (vx - vy + omega);
 
     controller->running = s_last_cmd.enabled;
 }
