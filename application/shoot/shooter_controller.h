@@ -6,7 +6,7 @@
 #include "pid.h"
 #include "remote_control.h"
 #include "motor_feedback.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "config_types.h"
 
 // Shooter system motor count
@@ -68,7 +68,7 @@ void ShooterController_Init(ShooterController *controller);
  * @param controller Shooter controller pointer
  * @param sensor_data Sensor data pointer
  */
-void ShooterController_Update(ShooterController *controller, SensorData *sensor_data);
+void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_t *sensor_data);
 
 /**
  * @brief Compute shooter system motor currents

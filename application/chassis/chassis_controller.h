@@ -7,7 +7,7 @@
 #include "main.h"
 #include "remote_control.h"
 #include "motor_feedback.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "config_types.h"
 
 // Chassis motor count
@@ -57,7 +57,7 @@ void ChassisController_Init(ChassisController *controller);
  * @param controller Chassis controller pointer
  * @param sensor_data Sensor data pointer
  */
-void ChassisController_Update(ChassisController *controller, SensorData* sensor_data);
+void ChassisController_Update(ChassisController *controller, Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Compute chassis motor currents

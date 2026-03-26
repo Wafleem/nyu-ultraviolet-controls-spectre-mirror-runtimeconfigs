@@ -9,7 +9,6 @@
 #include <math.h>
 #include "message_center.h"
 #include "remote_control.h"
-#include "gyro_data.h"
 #include "can_comm.h"
 #include "printing.h"
 #include "cmd_controller.h"
@@ -24,7 +23,7 @@
 
 // Static variables for app wrapper
 static ChassisCmd s_last_cmd;
-static SensorData s_last_sensor;
+static Gimbal_Sensor_Data_t s_last_sensor;
 static ChassisController s_ctrl;
 
 // Motor configuration (dynamically assigned during init)
@@ -131,7 +130,7 @@ void ChassisController_Init(ChassisController *controller)
     }
 }
 
-void ChassisController_Update(ChassisController *controller, SensorData *sensor_data)
+void ChassisController_Update(ChassisController *controller, Gimbal_Sensor_Data_t *sensor_data)
 {
     (void)sensor_data;
     if (controller == NULL) return;
@@ -399,8 +398,8 @@ static void on_chassis_cmd(const MsgEvent *ev, void *user)
 static void on_imu_update(const MsgEvent *ev, void *user)
 {
     (void)user;
-    if (ev->size == sizeof(SensorData)) {
-        memcpy(&s_last_sensor, ev->data, sizeof(SensorData));
+    if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
+        memcpy(&s_last_sensor, ev->data, sizeof(Gimbal_Sensor_Data_t));
     }
 }
 

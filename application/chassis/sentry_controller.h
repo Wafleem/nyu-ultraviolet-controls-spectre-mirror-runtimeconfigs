@@ -8,7 +8,7 @@
 #include "main.h"
 #include "remote_control.h"
 #include "motor_feedback.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "config_types.h"
 
 #define SENTRY_DRIVE_MOTOR_COUNT 4
@@ -39,7 +39,7 @@ typedef struct {
 } SentryController;
 
 void SentryController_Init(SentryController *controller);
-void SentryController_Update(SentryController *controller, SensorData *sensor_data);
+void SentryController_Update(SentryController *controller, Gimbal_Sensor_Data_t *sensor_data);
 void SentryController_ComputeCurrents(SentryController *controller, uint32_t current_tick);
 
 void SentryController_SetDriveTargetSpeeds(SentryController *controller, const float speeds[SENTRY_DRIVE_MOTOR_COUNT]);

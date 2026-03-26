@@ -3,7 +3,6 @@
 #include <string.h>
 #include "message_center.h"
 #include "remote_control.h"
-#include "gyro_data.h"
 #include "can_comm.h"
 #include "cmd_controller.h"
 #include "printing.h"
@@ -16,7 +15,7 @@ static uint32_t s_last_print_ms = 0;
 
 // Static variables for app wrapper
 static ShootCmd s_last_cmd;
-static SensorData s_last_sensor;
+static Gimbal_Sensor_Data_t s_last_sensor;
 static ShooterController s_ctrl;
 static bool s_initialized = false;
 
@@ -135,7 +134,7 @@ void ShooterController_Init(ShooterController *controller)
 
 }
 
-void ShooterController_Update(ShooterController *controller, SensorData* sensor_data)
+void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_t* sensor_data)
 {
     if (controller == NULL) return;
     (void)sensor_data;  // Not needed anymore
@@ -295,8 +294,8 @@ static void on_shoot_cmd(const MsgEvent *ev, void *user) {
 
 static void on_imu_update(const MsgEvent *ev, void *user) {
     (void)user;
-    if (ev->size == sizeof(SensorData)) {
-        memcpy(&s_last_sensor, ev->data, sizeof(SensorData));
+    if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
+        memcpy(&s_last_sensor, ev->data, sizeof(Gimbal_Sensor_Data_t));
     }
 }
 
