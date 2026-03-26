@@ -133,7 +133,7 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
     static bool s_yaw_vision_active = false;
     static bool s_pitch_vision_active = false;
     static bool s_yaw_spin_hold_active = false;
-    bool use_vision_target = cmd->vision_valid;
+    bool use_vision_target = cmd->vision_valid && cmd->aimbot_mode;
     bool use_spin_hold = (!use_vision_target) && (cmd->yaw_rate_memo > 0.5f);
 
     // Don't do anything if yaw or pitch are null

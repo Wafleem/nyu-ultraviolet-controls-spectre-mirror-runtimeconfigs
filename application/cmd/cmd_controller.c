@@ -304,13 +304,14 @@ static void process_shooter_command(const RC_ctrl_t *rc) {
 }
 
 // Process gimbal control commands
-static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data_t *sensor, bool spin_mode) {
+static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data_t *sensor, bool spin_mode, bool aimbot_mode) {
     if (rc == NULL) {
         // RC disconnected, disable gimbal
         s_gimbal_cmd.enabled = false;
         s_gimbal_cmd.pitch_rate = 0.0f;
         s_gimbal_cmd.yaw_rate = 0.0f;
         s_gimbal_cmd.vision_valid = false;
+        s_gimbal_cmd.aimbot_mode = false;
         s_gimbal_cmd.vision_yaw_err_rad = 0.0f;
         s_gimbal_cmd.vision_pitch_err_rad = 0.0f;
         s_gimbal_cmd.vision_ts_ms = 0;
@@ -353,6 +354,7 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
         s_gimbal_cmd.yaw_rate_memo = 0.0f;
         s_gimbal_cmd.yaw_target_memo = 0.0f;
     }
+    s_gimbal_cmd.aimbot_mode = aimbot_mode;
     yaw_storage = yaw_raw;
 }
 
@@ -495,6 +497,7 @@ void CmdController_Task(uint32_t current_tick) {
     // Both up -> Normal mode (chassis frame movement)
     bool gimbal_follow_now = switch_is_down(s_last_rc.rc.s[0]);
     bool spin_now = switch_is_down(s_last_rc.rc.s[1]);
+    bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
     // Spin mode rising edge: latch current gimbal absolute yaw as hold target
     if (spin_now && !s_spin_mode)
@@ -508,7 +511,7 @@ void CmdController_Task(uint32_t current_tick) {
     // Process control input (rc_ptr is guaranteed non-NULL here)
     process_chassis_command(rc_ptr, &s_gimbal_imu, s_spin_mode, s_gimbal_follow_mode);
     process_shooter_command(rc_ptr);
-    process_gimbal_command(rc_ptr, &s_gimbal_imu, s_spin_mode);
+    process_gimbal_command(rc_ptr, &s_gimbal_imu, s_spin_mode, aimbot_now);
     process_vision_command(&s_last_vision);
 
     // Debug output
