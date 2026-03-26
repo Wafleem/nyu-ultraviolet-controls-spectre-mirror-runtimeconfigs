@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "motor_driver.h"
 #include "imu.h"
 
 #ifdef __cplusplus
@@ -46,7 +47,7 @@ void last_data(float last_yaw_rate, float last_yaw_target);
  * @return Motor current command
  */
 
-int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, Gimbal_Sensor_Data_t* sensor_data);
+int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Yaw control with compensation (chassis rotation + gyro feedback)
@@ -55,7 +56,12 @@ int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, Gimbal_
  * @param use_imu_feedback Use IMU gyro for speed feedback (true for spin mode, false for encoder)
  * @return Motor current command
  */
-int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Gimbal_Sensor_Data_t* sensor_data, bool use_imu_feedback);
+int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor_data, bool use_imu_feedback);
+
+/**
+ * @brief Update gimbal targets using gimbal cmd data
+ */
+void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorContext_t *pitch);
 
 /**
  * @brief Target angle correction for yaw (chassis compensation)
