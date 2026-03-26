@@ -59,6 +59,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define IMU_CS_Pin GPIO_PIN_0
 #define IMU_CS_GPIO_Port GPIOI
+#define EEPROM0_Pin GPIO_PIN_2
+#define EEPROM0_GPIO_Port GPIOF
+#define EEPROM0F3_Pin GPIO_PIN_3
+#define EEPROM0F3_GPIO_Port GPIOF
 #define MAG_CS_Pin GPIO_PIN_1
 #define MAG_CS_GPIO_Port GPIOK
 #define DataLine2_Pin GPIO_PIN_9
@@ -72,6 +76,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 #define DMA_SECTION __attribute__((section(".dma_bss"), aligned(32)))
+#define EEPROM0_ADDR 0xA2
+#define EEPROM1_ADDR 0xA0
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -50,6 +50,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "m24c64_w.h"
+#include "i2c.h"
+#include "usbd_cdc_if.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -151,6 +155,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
+  LOG_INFO(LOG_TAG_SYS, "Boot step 1\r\n");
   /* Initialize message center */
   if (MsgCenter_Init(MSG_CENTER_QUEUE_LEN) != 0) {
       /* Message center failed to initialize - halt */
@@ -195,104 +200,88 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
-  /* -------- QSPI Flash Test -------- */
-  uint8_t qspi_test_passed = 0;
-
+  // --- Containers ---
+  char qspi_status_msg[64] = "Not started";
+  char ee_status_msg[64] = "Not Started";
+  uint8_t qspi_fail_stage = 0;
+  uint8_t ee_fail_stage = 0;
+  
   uint8_t qspi_write_buf[] = "Hello from QSPI Flash!\r\n";
-
   uint8_t qspi_read_buf[64] = {0};
-
-  // Step 1: Initialize the QSPI flash (reset chip, configure quad mode)
-  if (CSP_QUADSPI_Init() != HAL_OK) {
-      // Init failed -- check pin config, clock, QSPI parameters
-      Error_Handler();
-    }
-
-  // Step 2: Read status registers (sanity check -- chip is alive)
   uint8_t qspi_status[3];
 
-  if (QSPI_ReadStatus(qspi_status) != HAL_OK) {
+  uint8_t ee_write_buf[] = "Hello EEPROM!";
+  uint8_t ee_read_buf[32] = {0};
 
-      Error_Handler();
+  /* -------- QSPI Flash Test (Aggressive Debug) -------- */
+  if (CSP_QUADSPI_Init() != HAL_OK) {
+      qspi_fail_stage = 1;
+      snprintf(qspi_status_msg, sizeof(qspi_status_msg), "INIT_FAIL");
+  } else {
+      // FORCE A RESET & SANE STATE
+      CSP_QSPI_EraseBlock(0); 
+      QSPI_AutoPollingMemReady();
 
+      // Attempt the write
+      if (CSP_QSPI_WriteMemory(qspi_write_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
+          qspi_fail_stage = 4;
+          snprintf(qspi_status_msg, sizeof(qspi_status_msg), "WRITE_FUNC_RETURNED_ERR");
+      } else {
+          osDelay(10); // Give the controller a moment
+          if (CSP_QSPI_Read(qspi_read_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
+              qspi_fail_stage = 5;
+              snprintf(qspi_status_msg, sizeof(qspi_status_msg), "READ_FUNC_RETURNED_ERR");
+          } else if (memcmp(qspi_write_buf, qspi_read_buf, sizeof(qspi_write_buf)) != 0) {
+              qspi_fail_stage = 6;
+              // Check if it's all FFs (Erase worked, Write failed) or 00s (Bus dead)
+              snprintf(qspi_status_msg, sizeof(qspi_status_msg), "VAL[0]=%02X VAL[1]=%02X", qspi_read_buf[0], qspi_read_buf[1]);
+          } else {
+              snprintf(qspi_status_msg, sizeof(qspi_status_msg), "SUCCESS");
+          }
+      }
   }
 
-  // Step 3: Erase the first 64KB block (flash must be erased before writing)
-  if (CSP_QSPI_EraseBlock(0) != HAL_OK) Error_Handler();
+  /* -------- EEPROM Test (Anti-Hang + Bus Check) -------- */
+  // Hardware Pin Check
+  HAL_GPIO_WritePin(EEPROM0_GPIO_Port, EEPROM0_Pin, GPIO_PIN_RESET);
+  osDelay(10);
 
-  if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
-
-  // Step 4: Write test string at address 0
-  if (CSP_QSPI_WriteMemory(qspi_write_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
-
-      Error_Handler();
-
+  // Bus Check: If the bus is busy here, the I2C peripheral is misconfigured or lacks pull-ups
+  if (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY)) {
+      ee_fail_stage = 99;
+      snprintf(ee_status_msg, sizeof(ee_status_msg), "I2C_BUSY_LINE_STUCK");
+  } else {
+      // Attempt Write with a very short timeout so we don't freeze the CPU
+      if (HAL_I2C_Mem_Write(&hi2c2, EEPROM1_ADDR, 0x0000, I2C_MEMADD_SIZE_16BIT, 
+                            ee_write_buf, sizeof(ee_write_buf), 20) != HAL_OK) {
+          ee_fail_stage = 1;
+          snprintf(ee_status_msg, sizeof(ee_status_msg), "WR_ERR_CODE_%lu", (unsigned long)hi2c2.ErrorCode);
+      } else {
+          osDelay(15); // Wait for EEPROM internal write
+          if (HAL_I2C_Mem_Read(&hi2c2, EEPROM1_ADDR, 0x0000, I2C_MEMADD_SIZE_16BIT, 
+                               ee_read_buf, sizeof(ee_write_buf), 20) != HAL_OK) {
+              ee_fail_stage = 2;
+              snprintf(ee_status_msg, sizeof(ee_status_msg), "RD_ERR_CODE_%lu", (unsigned long)hi2c2.ErrorCode);
+          } else if (memcmp(ee_write_buf, ee_read_buf, sizeof(ee_write_buf)) != 0) {
+              ee_fail_stage = 3;
+              snprintf(ee_status_msg, sizeof(ee_status_msg), "DATA_MISMATCH");
+          } else {
+              snprintf(ee_status_msg, sizeof(ee_status_msg), "SUCCESS");
+          }
+      }
   }
+  HAL_GPIO_WritePin(EEPROM0_GPIO_Port, EEPROM0_Pin, GPIO_PIN_SET);
 
-  // Step 5: Read it back
-  if (CSP_QSPI_Read(qspi_read_buf, 0, sizeof(qspi_write_buf)) != HAL_OK) {
-
-      Error_Handler();
-
-  }
-
-  // Step 6: Verify
-  if (memcmp(qspi_write_buf, qspi_read_buf, sizeof(qspi_write_buf)) == 0) {
-
-      qspi_test_passed = 1;
-
-  }
-  // After this, you can read flash via pointer: volatile uint8_t *p = (uint8_t*)0x90000000;
-
-  // WARNING: Once in memory-mapped mode, you can't use the other QSPI functions anymore
-
-  //          until you re-init. Only enable this if you're done with direct read/write.
-
-  // if (CSP_QSPI_EnableMemoryMappedMode() != HAL_OK) Error_Handler();
-
-
-  if (QSPI_AutoPollingMemReady() != HAL_OK) Error_Handler();
-
-  // Small delay for USB to stabilize
-  osDelay(100);
-
-  // Print boot banner - FreeRTOS scheduler is now running!
-  Debug_Printf("========================================\r\n");
-  Debug_Printf("   FreeRTOS Started Successfully!\r\n");
-  Debug_Printf("========================================\r\n");
-  Debug_Printf("[DefaultTask] Running!\r\n");
-
-  // External CAN managers for status reporting
-  extern CAN_Manager_t can1_manager;
-  extern CAN_Manager_t can2_manager;
-
-  uint32_t heartbeat_counter = 0;
-  uint8_t led_state = 0;
-
-  for(;;)
-  {
-    heartbeat_counter++;
-
-    // Toggle LED every 500ms as heartbeat (1Hz blink)
-    if (heartbeat_counter % 500 == 0) {
-      led_state = !led_state;
-      HAL_GPIO_WritePin(GPIOH, GPIO_PIN_11, led_state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    }
-
-    // Print system status every 2 seconds
-    if (heartbeat_counter % 2000 == 0) {
-      uint32_t rc_frames = RC_GetFrameCount();
-      uint32_t can1_rx = CAN_Manager_GetRxFrames(&can1_manager);
-      uint32_t can2_rx = CAN_Manager_GetRxFrames(&can2_manager);
-
-      LOG_INFO(LOG_TAG_SYS, "tick=%lu RC_frames=%lu CAN1_rx=%lu CAN2_rx=%lu\r\n",
-              (unsigned long)HAL_GetTick(),
-              (unsigned long)rc_frames,
-              (unsigned long)can1_rx,
-              (unsigned long)can2_rx);
-    }
-
-    osDelay(1);
+  /* -------- Loop Section -------- */
+  uint32_t last_log_time = 0;
+  for(;;) {
+      if (HAL_GetTick() - last_log_time >= 2000) {
+          last_log_time = HAL_GetTick();
+          LOG_INFO(LOG_TAG_SYS, "--- DIAGNOSTICS ---");
+          LOG_INFO(LOG_TAG_SYS, "[QSPI]   %s (Stage: %d)", qspi_status_msg, qspi_fail_stage);
+          LOG_INFO(LOG_TAG_SYS, "[EEPROM] %s (Stage: %d)", ee_status_msg, ee_fail_stage);
+      }
+      osDelay(100);
   }
 
   /* USER CODE END StartDefaultTask */
