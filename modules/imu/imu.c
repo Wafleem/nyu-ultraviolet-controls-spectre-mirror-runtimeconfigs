@@ -367,8 +367,8 @@ static void IMU_Init_QuaternionEKF(void) {
 
 void System_Read_And_Process(void) {
   static uint32_t last_update_tick = 0;
-  static uint8_t mag_yaw_initialized = 0;
-  static float mag_yaw_filtered_deg = 0.0f;
+  // static uint8_t mag_yaw_initialized = 0;
+  // static float mag_yaw_filtered_deg = 0.0f;
   static uint8_t ekf_output_initialized = 0;
   static float ekf_roll_filtered = 0.0f;
   static float ekf_pitch_filtered = 0.0f;
@@ -406,7 +406,7 @@ void System_Read_And_Process(void) {
   float ay = Gimbal_Sensor.accel_y / 2048.0f;
   float az = Gimbal_Sensor.accel_z / 2048.0f;
   float accel_norm_g = sqrtf(ax * ax + ay * ay + az * az);
-  float gyro_norm_dps = 0.0f;
+  // float gyro_norm_dps = 0.0f;
 
   {
     float gx_lsb = (float)Gimbal_Sensor.gyro_x;
@@ -420,8 +420,8 @@ void System_Read_And_Process(void) {
     Gimbal_Sensor.gyro_y = (int16_t)gy_lsb;
     Gimbal_Sensor.gyro_z = (int16_t)gz_lsb;
 
-    gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb * gz_lsb) /
-                    IMU_GYRO_LSB_PER_DPS;
+    // gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb * gz_lsb) /
+    //                 IMU_GYRO_LSB_PER_DPS;
   }
 
   Gimbal_Sensor.roll = atan2f(ay, az) * 180.0f / M_PI;
@@ -456,8 +456,8 @@ void System_Read_And_Process(void) {
                              dt);
   }
 
-  mlx_cmd(MLX_CMD_START_SINGLE, NULL, 0);
-  IMU_DELAY(2); /* FreeRTOS-aware delay for magnetometer conversion */
+  /*mlx_cmd(MLX_CMD_START_SINGLE, NULL, 0);
+  IMU_DELAY(2);
   uint8_t mraw[7];
   if (mlx_cmd(MLX_CMD_READ_MEAS, mraw, 7) == 0) {
     Gimbal_Sensor.mag_x =
@@ -469,7 +469,7 @@ void System_Read_And_Process(void) {
 
     Mag_Update_Noise(Gimbal_Sensor.mag_x, Gimbal_Sensor.mag_y, Gimbal_Sensor.mag_z);
 
-    /* Mag yaw assist (mag values intentionally not mount-rotated) */
+    // Mag yaw assist (mag values intentionally not mount-rotated)
     {
       float ekf_yaw_deg = QEKF_INS.Yaw;
       float mag_xy_norm2 = (float)(Gimbal_Sensor.mag_x * Gimbal_Sensor.mag_x +
@@ -500,7 +500,7 @@ void System_Read_And_Process(void) {
         QEKF_INS.Yaw = ekf_yaw_deg;
       }
     }
-  }
+  }*/
 
   {
     float raw_roll = QEKF_INS.Pitch;
