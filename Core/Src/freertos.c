@@ -19,38 +19,39 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "w25q128jv.h"
-#include "quadspi.h"
+#include "app_subscriptions.h"
 #include "can_comm.h"
 #include "can_manager.h"
+#include "chassis_controller.h"
+#include "cmd_controller.h"
+#include "fatfs.h"
+#include "gimbal_controller.h"
 #include "imu.h"
+#include "logger.h"
 #include "message_center.h"
+#include "motor_driver.h"
 #include "printing.h"
+#include "quadspi.h"
 #include "ref_structs.h"
 #include "referee.h"
 #include "remote_control.h"
-#include "tests.h"
-#include "usbd_cdc_if.h"
-#include "logger.h"
-#include "motor_driver.h"
-#include "vision_comm.h"
 #include "robot_config.h"
-#include "app_subscriptions.h"
-#include "chassis_controller.h"
-#include "shooter_controller.h"
-#include "gimbal_controller.h"
-#include "cmd_controller.h"
-#include "fatfs.h"
 #include "sdcard.h"
-#include <string.h>
+#include "shooter_controller.h"
+#include "tests.h"
+#include "tof_sensor.h"
+#include "usbd_cdc_if.h"
+#include "vision_comm.h"
+#include "w25q128jv.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -85,35 +86,42 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for MsgDispatch */
 osThreadId_t MsgDispatchHandle;
 const osThreadAttr_t MsgDispatch_attributes = {
   .name = "MsgDispatch",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityAboveNormal7,
+  .priority = (osPriority_t)osPriorityAboveNormal7,
 };
 /* Definitions for ControlTask */
 osThreadId_t ControlTaskHandle;
 const osThreadAttr_t ControlTask_attributes = {
   .name = "ControlTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for RefereeTask */
 osThreadId_t RefereeTaskHandle;
 const osThreadAttr_t RefereeTask_attributes = {
   .name = "RefereeTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t)osPriorityNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
 const osThreadAttr_t IMUTask_attributes = {
   .name = "IMUTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t)osPriorityNormal,
+};
+/* Definitions for ToFTask */
+osThreadId_t ToFTaskHandle;
+const osThreadAttr_t ToFTask_attributes = {
+  .name = "ToFTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t)osPriorityNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -126,6 +134,7 @@ void StartMsgDispatchTask(void *argument);
 void StartControlTask(void *argument);
 void StartRefereeTask(void *argument);
 void StartIMUTask(void *argument);
+void StartToFTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -154,8 +163,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_QUEUES */
   /* Initialize message center */
   if (MsgCenter_Init(MSG_CENTER_QUEUE_LEN) != 0) {
-      /* Message center failed to initialize - halt */
-      Error_Handler();
+    /* Message center failed to initialize - halt */
+    Error_Handler();
   }
 
   /* USER CODE END RTOS_QUEUES */
@@ -176,6 +185,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of IMUTask */
   IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
 
+  /* creation of ToFTask */
+  ToFTaskHandle = osThreadNew(StartToFTask, NULL, &ToFTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -193,8 +205,7 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* USER CODE BEGIN StartDefaultTask */
 
   // // Give the SD card a moment to initialize after power-up
@@ -203,9 +214,9 @@ void StartDefaultTask(void *argument)
   // /* -------- SD Card Init & Test -------- */
   // if (SDCard_Init() == 0) {
   //     if (SDCard_Open("spectre_log.txt") == 0) {
-  //         SDCard_Writeln("Spectre boot OK, tick=%lu", (unsigned long)HAL_GetTick());
-  //         SDCard_Flush();
-  //         Debug_Printf("[SD] Write test PASS\r\n");
+  //         SDCard_Writeln("Spectre boot OK, tick=%lu", (unsigned
+  //         long)HAL_GetTick()); SDCard_Flush(); Debug_Printf("[SD] Write test
+  //         PASS\r\n");
   //         // Leave file open for runtime logging, or close if not needed:
   //         // SDCard_Close();
   //     }
@@ -224,8 +235,7 @@ void StartDefaultTask(void *argument)
   uint32_t heartbeat_counter = 0;
   uint8_t led_state = 0;
 
-  for(;;)
-  {
+  for (;;) {
     heartbeat_counter++;
 
     // Toggle LED every 500ms as heartbeat (1Hz blink)
@@ -240,11 +250,10 @@ void StartDefaultTask(void *argument)
       uint32_t can1_rx = CAN_Manager_GetRxFrames(&can1_manager);
       uint32_t can2_rx = CAN_Manager_GetRxFrames(&can2_manager);
 
-      LOG_INFO(LOG_TAG_SYS, "tick=%lu RC_frames=%lu CAN1_rx=%lu CAN2_rx=%lu\r\n",
-              (unsigned long)HAL_GetTick(),
-              (unsigned long)rc_frames,
-              (unsigned long)can1_rx,
-              (unsigned long)can2_rx);
+      LOG_INFO(LOG_TAG_SYS,
+               "tick=%lu RC_frames=%lu CAN1_rx=%lu CAN2_rx=%lu\r\n",
+               (unsigned long)HAL_GetTick(), (unsigned long)rc_frames,
+               (unsigned long)can1_rx, (unsigned long)can2_rx);
     }
 
     osDelay(1);
@@ -260,8 +269,7 @@ void StartDefaultTask(void *argument)
  * @retval None
  */
 /* USER CODE END Header_StartMsgDispatchTask */
-void StartMsgDispatchTask(void *argument)
-{
+void StartMsgDispatchTask(void *argument) {
   /* USER CODE BEGIN StartMsgDispatchTask */
   /*
    * This task processes all message center events.
@@ -284,10 +292,9 @@ void StartMsgDispatchTask(void *argument)
  * @retval None
  */
 /* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument)
-{
+void StartControlTask(void *argument) {
   /* USER CODE BEGIN StartControlTask */
-  const TickType_t xFrequency = pdMS_TO_TICKS(5);  // 5ms = 200Hz
+  const TickType_t xFrequency = pdMS_TO_TICKS(5); // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   // Initialize robot ID tracking
@@ -307,8 +314,7 @@ void StartControlTask(void *argument)
   osDelay(1500);
   Debug_Printf("[ControlTask] Started - running at 200Hz\r\n");
 
-  for(;;)
-  {
+  for (;;) {
     CmdController_Task(HAL_GetTick());
     // vTaskDelayUntil ensures consistent period even if execution time varies
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -323,8 +329,7 @@ void StartControlTask(void *argument)
  * @retval None
  */
 /* USER CODE END Header_StartRefereeTask */
-void StartRefereeTask(void *argument)
-{
+void StartRefereeTask(void *argument) {
   /* USER CODE BEGIN StartRefereeTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10ms = 100Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -338,34 +343,32 @@ void StartRefereeTask(void *argument)
 
 /* USER CODE BEGIN Header_StartIMUTask */
 /**
-* @brief Function implementing the IMUTask thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the IMUTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartIMUTask */
-void StartIMUTask(void *argument)
-{
+void StartIMUTask(void *argument) {
   /* USER CODE BEGIN StartIMUTask */
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xFrequency = pdMS_TO_TICKS(5);  /* 5ms = 200Hz */
+  const TickType_t xFrequency = pdMS_TO_TICKS(5); /* 5ms = 200Hz */
 
-  for(;;)
-  {
+  for (;;) {
     /* Read all IMU sensors (ICM-42688P accel/gyro + MLX90393 magnetometer) */
     if (imu_initialized) {
-        /*
-         * System_Read_And_Process() does:
-         * 1. Read accel/gyro via SPI (ICM-42688P)
-         * 2. Calculate roll/pitch from accelerometer
-         * 3. Read magnetometer via SPI (MLX90393)
-         * 4. Apply bias correction to mag values
-         * 5. Call Mag_Update_Noise() which updates Gimbal_Sensor.mag_noise
-         *    using a 100-sample circular buffer RMS calculation
-         */
-        System_Read_And_Process();
+      /*
+       * System_Read_And_Process() does:
+       * 1. Read accel/gyro via SPI (ICM-42688P)
+       * 2. Calculate roll/pitch from accelerometer
+       * 3. Read magnetometer via SPI (MLX90393)
+       * 4. Apply bias correction to mag values
+       * 5. Call Mag_Update_Noise() which updates Gimbal_Sensor.mag_noise
+       *    using a 100-sample circular buffer RMS calculation
+       */
+      System_Read_And_Process();
 
-        /* Publish complete IMU data including noise estimate to message center */
-        MsgCenter_Publish(TOPIC_IMU_UPDATE, &Gimbal_Sensor, sizeof(Gimbal_Sensor), 0);
+      /* Publish complete IMU data including noise estimate to message center */
+      MsgCenter_Publish(TOPIC_IMU_UPDATE, &Gimbal_Sensor, sizeof(Gimbal_Sensor), 0);
     }
 
     /* Precise 200Hz timing */
@@ -374,31 +377,61 @@ void StartIMUTask(void *argument)
   /* USER CODE END StartIMUTask */
 }
 
+void StartToFTask(void *argument) {
+  /* USER CODE BEGIN StartToFTask */
+  const TickType_t xFrequency = pdMS_TO_TICKS(50); /* 50ms = 20Hz */
+  TickType_t xLastWakeTime;
+
+  /* Wait for USB CDC and peripherals to stabilize */
+  osDelay(2000);
+
+  /* Use LOG_INFO(LOG_TAG_SYS) since it's proven to work on serial */
+  LOG_INFO(LOG_TAG_SYS, "ToF task started");
+  osDelay(50);
+
+  if (ToF_Init() != 0) {
+    LOG_ERROR(LOG_TAG_SYS, "ToF init FAILED - task suspended");
+    osDelay(50);
+    vTaskSuspend(NULL);
+  }
+
+  LOG_INFO(LOG_TAG_SYS, "ToF running at 20Hz");
+  osDelay(50);
+  xLastWakeTime = xTaskGetTickCount();
+
+  for (;;) {
+    ToF_Task();
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
+  /* USER CODE END StartToFTask */
+}
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
 // If robot ID changes, restart ControlTask with new robot config
 static void on_robot_status(const MsgEvent *ev, void *user_data) {
-    (void)user_data;
-    if (ev->size == sizeof(robot_status_t)) {
-        memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
-        if (s_robot_status.robot_id != s_robot_id) {
-            const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
-            s_robot_id = s_robot_status.robot_id;
-            LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
+  (void)user_data;
+  if (ev->size == sizeof(robot_status_t)) {
+    memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
+    if (s_robot_status.robot_id != s_robot_id) {
+      const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
+      s_robot_id = s_robot_status.robot_id;
+      LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
 
-            // Restart motor registries used in CAN managers
-            MotorRegistry_Init(can1_manager.registry, robot_cfg, can1_manager.channel);
-            MotorRegistry_Init(can2_manager.registry, robot_cfg, can2_manager.channel);
+      // Restart motor registries used in CAN managers
+      MotorRegistry_Init(can1_manager.registry, robot_cfg,
+                         can1_manager.channel);
+      MotorRegistry_Init(can2_manager.registry, robot_cfg,
+                         can2_manager.channel);
 
-            // Restart Controls modules and applications
-            MotorDriver_ModuleInit(s_robot_status.robot_id);
-            ChassisApp_Init();
-            GimbalApp_Init();
-            ShooterApp_Init();
-        }
+      // Restart Controls modules and applications
+      MotorDriver_ModuleInit(s_robot_status.robot_id);
+      ChassisApp_Init();
+      GimbalApp_Init();
+      ShooterApp_Init();
     }
+  }
 }
 
 /* USER CODE END Application */
-
