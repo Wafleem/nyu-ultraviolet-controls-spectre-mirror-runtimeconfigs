@@ -98,6 +98,11 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     config/robot_config.c
     modules/tests/tests.c
     modules/sdcard/sdcard.c
+    # ToF sensor (VL53L1CX)
+    modules/tof/tof_sensor.c
+    modules/tof/uld/VL53L1X_api.c
+    modules/tof/uld/VL53L1X_calibration.c
+    modules/tof/uld/vl53l1_platform.c
     # QSPI Flash driver
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage/w25q128jv.c
 )
@@ -117,6 +122,8 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/vision_comm
     modules/tests
     modules/sdcard
+    modules/tof
+    modules/tof/uld
     application
     application/chassis
     application/cmd
