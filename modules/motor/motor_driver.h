@@ -44,7 +44,6 @@ typedef struct {
     bool angle_initialized;         // true if initial angle has been set
 
     // Computed values
-    float target_angle_rad;         // Current angle in radians
     float angle_correction;         // Angle correction for gimbal
     float angle_correction_ramp;    // Ramped angle correction
 
