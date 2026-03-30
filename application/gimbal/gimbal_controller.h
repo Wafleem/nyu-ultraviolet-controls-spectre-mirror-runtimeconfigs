@@ -33,8 +33,6 @@ typedef struct {
     uint32_t vision_ts_ms;
 } GimbalCmd;
 
-void last_data(float last_yaw_rate, float last_yaw_target);
-
 /**
  * @brief Pitch control with normalized rate command
  * @param id Motor ID (7=Pitch)
@@ -58,12 +56,6 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
  * @brief Update gimbal targets using gimbal cmd data
  */
 void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorContext_t *pitch);
-
-/**
- * @brief Target angle correction for yaw (chassis compensation)
- * @param sensor_data Sensor data pointer
- */
-void GimbalController_TargetAngleCorrection(Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Initialize gimbal application (message subscriptions and control)

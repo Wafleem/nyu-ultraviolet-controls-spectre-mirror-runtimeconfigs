@@ -8,8 +8,6 @@
       "description": "Choose robot configuration",
       "options": [
         "infantry_standard",
-        "sentry_swerve",
-        "some_other_robot"
       ],
       "default": "infantry_standard"
     }

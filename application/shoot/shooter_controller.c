@@ -201,12 +201,6 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
     }
 }
 
-void ShooterController_SetTurntableSpeed(ShooterController *controller, float speed)
-{ if (controller == NULL) return; controller->turntable_target = speed; }
-
-void ShooterController_SetShooterSpeeds(ShooterController *controller, float shooter1_speed, float shooter2_speed)
-{ if (controller == NULL) return; controller->shooter1_target = shooter1_speed; controller->shooter2_target = shooter2_speed; }
-
 void ShooterController_Stop(ShooterController *controller)
 {
     if (controller == NULL) return;
@@ -219,18 +213,6 @@ void ShooterController_Stop(ShooterController *controller)
     controller->shooter1_pid.integral = 0.0f;
     controller->shooter2_pid.integral = 0.0f;
     controller->pusher_pid.integral = 0.0f; 
-}
-
-const int16_t* ShooterController_GetOutputCurrents(const ShooterController *controller)
-{ if (controller == NULL) return NULL; return controller->output_currents; }
-
-bool ShooterController_IsRunning(const ShooterController *controller)
-{
-    if (controller == NULL) return false;
-    return controller->enabled || 
-           controller->ramped_turntable != 0 || 
-           controller->ramped_shooter1 != 0 || 
-           controller->ramped_shooter2 != 0;
 }
 
 void ShooterController_UpdateMotorFeedback(ShooterController *controller, uint8_t motor_id, uint16_t angle, int16_t speed, int16_t current, uint8_t temp, uint32_t current_tick)

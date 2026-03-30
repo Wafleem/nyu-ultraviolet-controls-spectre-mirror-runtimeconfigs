@@ -44,7 +44,6 @@
 #include "robot_config.h"
 #include "sdcard.h"
 #include "shooter_controller.h"
-#include "tests.h"
 #include "tof_sensor.h"
 #include "usbd_cdc_if.h"
 #include "vision_comm.h"
