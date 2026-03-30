@@ -42,7 +42,6 @@
 #include "logger.h"
 #include "robot_config.h"
 #include "imu.h"
-#include "can.h"
 #include "can_manager.h"
 #include "remote_control.h"
 #include "message_center.h"
@@ -97,17 +96,6 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/*
- * Test functions have been moved to modules/tests/tests.c
- * Available test functions:
- *   - Test_IMU_Report()      - Full IMU data dump
- *   - Test_CAN_Loopback(n)   - CAN TX/RX test
- *   - Test_FlySky_Report()   - RC receiver test
- *   - Test_IMU_PrintCompact() - Compact IMU output
- *
- * These can be called from FreeRTOS tasks in freertos.c
- */
 
 /* USER CODE END 0 */
 

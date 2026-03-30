@@ -78,39 +78,10 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
 void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t current_tick);
 
 /**
- * @brief Set turntable speed
- * @param controller Shooter controller pointer
- * @param speed Target speed
- */
-void ShooterController_SetTurntableSpeed(ShooterController *controller, float speed);
-
-/**
- * @brief Set shooter wheel speeds
- * @param controller Shooter controller pointer
- * @param shooter1_speed Shooter wheel 1 speed
- * @param shooter2_speed Shooter wheel 2 speed
- */
-void ShooterController_SetShooterSpeeds(ShooterController *controller, float shooter1_speed, float shooter2_speed);
-
-/**
  * @brief Stop shooter system
  * @param controller Shooter controller pointer
  */
 void ShooterController_Stop(ShooterController *controller);
-
-/**
- * @brief Get output currents
- * @param controller Shooter controller pointer
- * @return Output currents array pointer
- */
-const int16_t* ShooterController_GetOutputCurrents(const ShooterController *controller);
-
-/**
- * @brief Check if shooter system is running
- * @param controller Shooter controller pointer
- * @return true if shooter is running
- */
-bool ShooterController_IsRunning(const ShooterController *controller);
 
 /**
  * @brief Update motor feedback

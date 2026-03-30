@@ -110,11 +110,5 @@ void ChassisController_UpdateMotorFeedback(ChassisController *controller, uint8_
  */
 void ChassisApp_Init(void);
 
-/**
- * @brief Wait for swerve steer motors to align to initial position
- * @note Only applicable for sentry_swerve configuration
- */
-void Sentry_WaitForSteerAlignment(void);
-
 #endif // CHASSIS_CONTROLLER_H
 
