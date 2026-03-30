@@ -100,8 +100,8 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
             .gravity_compensation = 0.0f,
             .initial_angle = -1.0f //4096.0f  // Center position (needs calibration) Currently set to -1 to skip
         },
-        // .pid_outer = { 12.0f, 0.1f, 0.03f, 300.0f, 300.0f },    // IMU Yaw angle PID
-        .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // GM6020 Yaw angle PID
+        .pid_outer = { 12.0f, 0.1f, 0.03f, 300.0f, 300.0f },    // IMU Yaw angle PID
+        // .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // GM6020 Yaw angle PID
         .pid_inner = { 20.0f, 0.0f, 3.0f, 30000.0f, 4000.0f }    // Yaw speed PID
     },
 

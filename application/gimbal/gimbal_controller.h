@@ -10,19 +10,14 @@
 extern "C" {
 #endif
 
-// Whether to use GM6020 encoder. If you use it, set yaw .pid_outer in
-// infantry_standard.h accordingly
-#define USE_GM6020_YAW          1
-#if defined(USE_GM6020_YAW) && (USE_GM6020_YAW == 1)
-    #define MAX_YAW_ANGLE           8192.0f
-    #define MAX_YAW_ANGLE_PER_SEC   2000.0f
-#else
-    #define MAX_YAW_ANGLE           360.0f
-    #define MAX_YAW_ANGLE_PER_SEC   100.0f
-#endif
-
-#define MAX_PITCH_ANGLE_PER_SEC 2000.0f
+// #define MAX_YAW_ANGLE           8192.0f
+// #define MAX_YAW_ANGLE_PER_SEC   2000.0f
+#define MAX_YAW_ANGLE           360.0f
+#define MAX_YAW_ANGLE_CHANGE    150.0f
 #define MAX_YAW_RPM             440.0f
+#define MAX_PITCH_ANGLE         8192.0f   // Can be overwritten by robot config
+#define MAX_PITCH_ANGLE_CHANGE  2000.0f
+#define CURRENT_LIMIT           (30000.0f)
 
 // Gimbal command structure
 typedef struct {

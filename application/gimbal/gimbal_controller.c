@@ -11,10 +11,6 @@
 static uint8_t s_pitch_motor_id = 0xFF;
 static uint8_t s_yaw_motor_id = 0xFF;
 
-// Yaw control parameters
-#define YAW_CONTROL_GYRO_LPF_ALPHA (0.3f)
-#define CURRENT_LIMIT (30000.0f)
-
 // Static state for application
 static GimbalCmd s_last_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
@@ -33,7 +29,7 @@ int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data)
     // Determine if this is pitch motor (has angle limits)
     bool is_pitch_motor = (c->role == MOTOR_ROLE_GIMBAL_PITCH);
     float max_encoder = (c->config->limits.gm6020.angle_max > 0.0f) ?
-                        c->config->limits.gm6020.angle_max : 8192.0f;
+                        c->config->limits.gm6020.angle_max : MAX_PITCH_ANGLE;
 
     float current_angle = (float)c->angle_raw;
     float error = c->angle_target - current_angle;
@@ -70,13 +66,11 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
     if (!yaw || !yaw->angle_initialized) return 0;
 
-    float current;
-    if (USE_GM6020_YAW) current = yaw->angle_raw;
-    else current = sensor_data->ekf_yaw;
+    float current = sensor_data->ekf_yaw;
     float angle_error = yaw->angle_target - current;
 
     // small deadband
-    if (fabsf(angle_error) < 1.0f)
+    if (fabsf(angle_error) < 1.5f)
         angle_error = 0.0f;
 
    
@@ -96,16 +90,16 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     // Speed feedback source selection:
     // - Spin mode: Use IMU gyro for absolute yaw stability
     // - Normal mode: Use motor encoder for better response
-    float speed_feedback;
-    if (use_imu_feedback) {
-        // IMU gyro feedback (for spin mode)
-        // Convert IMU gyro (rad/s) to RPM: 1 rad/s = 30/π RPM ≈ 9.549 RPM
-        speed_feedback = -s_last_sensor.gyro_z * 30.0f / (float)M_PI;  // negative because IMU z-axis convention
-    } else {
-        // Motor encoder speed feedback (for normal mode)
-        speed_feedback = (float)yaw->speed_rpm;
-    }
-    // float speed_feedback = (float)yaw->speed_rpm;
+    // float speed_feedback;
+    // if (use_imu_feedback) {
+    //     // IMU gyro feedback (for spin mode)
+    //     // Convert IMU gyro (rad/s) to RPM: 1 rad/s = 30/π RPM ≈ 9.549 RPM
+    //     speed_feedback = -s_last_sensor.gyro_z * 30.0f / (float)M_PI;  // negative because IMU z-axis convention
+    // } else {
+    //     // Motor encoder speed feedback (for normal mode)
+    //     speed_feedback = (float)yaw->speed_rpm;
+    // }
+    float speed_feedback = (float)yaw->speed_rpm;
 
     float cmd_speed_to_current =
         PID_Calculate(&yaw->pid_inner, cmd_angle_to_speed, speed_feedback);
@@ -122,8 +116,7 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
           yaw->speed_rpm,
           cmd_speed_to_current,
           angle_error,
-          s_last_sensor.gyro_z * YAW_CONTROL_GYRO_LPF_ALPHA +
-              s_last_sensor.gyro_z * (1.0f - YAW_CONTROL_GYRO_LPF_ALPHA));
+          s_last_sensor.gyro_z);
 
     return (int16_t)cmd_speed_to_current;
 }
@@ -141,11 +134,6 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
         return;
     }
 
-    // Get current yaw angle
-    float current_yaw;
-    if (USE_GM6020_YAW) current_yaw = (float)yaw->angle_raw;
-    else current_yaw = s_last_sensor.ekf_yaw;
-
     // Get gimbal config or defaults
     float pitch_min, pitch_max, pitch_direction, yaw_direction;
     if (pitch->config != NULL) {
@@ -153,7 +141,7 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
         pitch_min = pitch->config->limits.gm6020.angle_min;
         pitch_direction = pitch->config->direction;
     } else {
-        pitch_max = 8192.0f;
+        pitch_max = MAX_PITCH_ANGLE;
         pitch_min = 0.0f;
         pitch_direction = 1.0f;
     }
@@ -163,6 +151,7 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
         yaw_direction = 1.0f;
     }
 
+    float current_yaw = s_last_sensor.ekf_yaw;
     // Continuous angle control: update target angle every cycle when vision is valid
     if (use_vision_target) {
         if (yaw && yaw->angle_initialized) {
@@ -226,9 +215,9 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
     // Update angle target based on joystick input and dt
     if (!use_vision_target) {
         if (!use_spin_hold) {
-            yaw->angle_target += yaw_direction * powf(cmd->yaw_rate, 3.0f) * MAX_YAW_ANGLE_PER_SEC * dt;
+            yaw->angle_target += yaw_direction * powf(cmd->yaw_rate, 3.0f) * MAX_YAW_ANGLE_CHANGE * dt;
         }
-        pitch->angle_target += pitch_direction * MAX_PITCH_ANGLE_PER_SEC * powf(cmd->pitch_rate, 3.0f) * dt;
+        pitch->angle_target += pitch_direction * MAX_PITCH_ANGLE_CHANGE * powf(cmd->pitch_rate, 3.0f) * dt;
     }
 
     // Set target angles to be in valid angle space
