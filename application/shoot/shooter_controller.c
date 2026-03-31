@@ -1,3 +1,5 @@
+#include "FreeRTOS.h"
+#include "timers.h"
 #include "shooter_controller.h"
 #include "motor_driver.h"
 #include <string.h>
@@ -15,9 +17,16 @@ static uint32_t s_last_print_ms = 0;
 
 // Static variables for app wrapper
 static ShootCmd s_last_cmd;
+static ShootCmd s_prev_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
 static ShooterController s_ctrl;
 static bool s_initialized = false;
+
+// Anti Jam
+static bool is_jammed = false;
+static TimerHandle_t s_jam_timer = NULL;
+static uint32_t s_unjam_start = 0;
+static bool s_unjam_active = false;
 
 // Shooter motor configuration (dynamically assigned during init)
 static uint8_t s_feed_motor_id = 0xFF;      // Turntable/feed motor
@@ -54,6 +63,21 @@ static int16_t ComputePusherCurrent(ShooterController *controller)
     float speed_damping = 1.5f * (float)controller->pusher_feedback.speed;
     int32_t damped = (int32_t)current_cmd - (int32_t)speed_damping;
     return (int16_t)damped;
+}
+
+static void ToggleJamDetection(void) {
+    if (s_jam_timer != NULL) {
+        return;
+    }
+    // When feeder turns on, start checking for jams
+    if (!s_prev_cmd.feed_enabled && s_last_cmd.feed_enabled) {
+        xTimerStart(s_jam_timer, 0);
+    }
+    // When feeder turns off, stop checking for jams
+    if (s_prev_cmd.feed_enabled && !s_last_cmd.feed_enabled) {
+        xTimerStop(s_jam_timer, 0);
+        is_jammed = false;
+    }
 }
 
 void ShooterController_Init(ShooterController *controller)
@@ -138,6 +162,12 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
 {
     if (controller == NULL) return;
     (void)sensor_data;  // Not needed anymore
+
+    // Unjam the feeder if software anti-jam is enabled
+    if (ANTIJAM_ENABLED && is_jammed) {
+        ShooterController_Unjam(controller);
+        return;
+    }
     
     // Use standardized command from cmd_controller
     controller->enabled = s_last_cmd.friction_enabled;
@@ -263,14 +293,45 @@ void ShooterController_UpdateMotorFeedback(ShooterController *controller, uint8_
     }
 }
 
+void ShooterController_Unjam(ShooterController *controller)
+{
+    if (controller == NULL) return;
+
+    if (!s_unjam_active) {
+        s_unjam_active = true;
+        s_unjam_start = xTaskGetTickCount();
+    }
+
+    float unjam_speed = -TURNTABLE_CONST_SPEED * controller->directions[0];
+    controller->ramped_turntable = unjam_speed;
+
+    int16_t cmd = (int16_t)(-3000);  // tune this 
+
+    if (s_feed_motor_id != 0xFF) {
+        MotorDriver_SendCurrent(s_feed_motor_id, cmd);
+    }
+
+    LOG_WARN(LOG_TAG_SHO, "UNJAM ACTIVE: reversing feeder");
+
+    if (xTaskGetTickCount() - s_unjam_start > 3000) {
+        is_jammed = false;
+        s_unjam_active = false;
+    }
+}
+
 // Subscription callbacks
 static void on_shoot_cmd(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(ShootCmd)) {
+        s_prev_cmd = s_last_cmd;  // store previous state
         memcpy(&s_last_cmd, ev->data, sizeof(ShootCmd));
+
         // Update controller and compute currents when command arrives
         ShooterController_Update(&s_ctrl, &s_last_sensor);
         ShooterController_ComputeCurrents(&s_ctrl, HAL_GetTick());
+        if (ANTIJAM_ENABLED) {
+            ToggleJamDetection();
+        }
     }
 }
 
@@ -293,6 +354,12 @@ static void on_motor_feedback(const MsgEvent *ev, void *user) {
     }
 }
 
+static void on_jam_check(TimerHandle_t xTimer) 
+{
+    int16_t speed = s_ctrl.turntable_feedback.speed;
+    is_jammed = (-50 < speed && speed < 50);
+}
+
 void ShooterApp_Init(void) {
     memset(&s_last_cmd, 0, sizeof(s_last_cmd));
     memset(&s_last_sensor, 0, sizeof(s_last_sensor));
@@ -304,6 +371,7 @@ void ShooterApp_Init(void) {
         (void)MsgCenter_Subscribe(TOPIC_SHOOT_CMD, on_shoot_cmd, NULL);
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
         (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+        s_jam_timer = xTimerCreate("JamTimer", pdMS_TO_TICKS(3000), pdTRUE, NULL, on_jam_check);
     }
     s_initialized = true;
 }

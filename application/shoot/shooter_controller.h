@@ -13,6 +13,7 @@
 #define SHOOTER_MOTOR_COUNT 4
 
 // Shooter system parameters
+#define ANTIJAM_ENABLED 0
 #define TURNTABLE_CONST_SPEED 5000      // Turntable speed
 #define SHOOTER_CONST_SPEED 7500     // Shooter wheel speed
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
@@ -94,6 +95,12 @@ void ShooterController_Stop(ShooterController *controller);
  * @param current_tick Current timestamp
  */
 void ShooterController_UpdateMotorFeedback(ShooterController *controller, uint8_t motor_id, uint16_t angle, int16_t speed, int16_t current, uint8_t temp, uint32_t current_tick);
+
+/**
+ * @brief Attempt to unjam the feeder
+ * @param controller Shooter controller pointer
+ */
+void ShooterController_Unjam(ShooterController *controller);
 
 #endif // SHOOTER_CONTROLLER_H
 
