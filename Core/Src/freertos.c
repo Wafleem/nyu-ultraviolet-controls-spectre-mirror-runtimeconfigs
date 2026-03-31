@@ -42,7 +42,7 @@
 #include "referee.h"
 #include "remote_control.h"
 #include "robot_config.h"
-#include "sdcard.h"
+#include "sdcard_logger.h"
 #include "shooter_controller.h"
 #include "tof_sensor.h"
 #include "usbd_cdc_if.h"
@@ -123,9 +123,19 @@ const osThreadAttr_t ToFTask_attributes = {
   .priority = (osPriority_t)osPriorityNormal,
 };
 
+/* Definitions for LoggerTask */
+osThreadId_t SDCardTaskHandle;
+const osThreadAttr_t SDCardTask_attributes = {
+  .name = "SDCardTask",
+  .stack_size = 512 * 4,   
+  .priority = (osPriority_t) osPriorityLow,
+};
+
+
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void on_robot_status(const MsgEvent *ev, void *user_data);
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -134,6 +144,7 @@ void StartControlTask(void *argument);
 void StartRefereeTask(void *argument);
 void StartIMUTask(void *argument);
 void StartToFTask(void *argument);
+void StartSDCardTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -189,6 +200,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+
+  SDCardTaskHandle = osThreadNew(StartSDCardTask, NULL, &SDCardTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -207,19 +220,6 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument) {
   /* USER CODE BEGIN StartDefaultTask */
 
-  // // Give the SD card a moment to initialize after power-up
-  // osDelay(100);
-  //
-  // /* -------- SD Card Init & Test -------- */
-  // if (SDCard_Init() == 0) {
-  //     if (SDCard_Open("spectre_log.txt") == 0) {
-  //         SDCard_Writeln("Spectre boot OK, tick=%lu", (unsigned
-  //         long)HAL_GetTick()); SDCard_Flush(); Debug_Printf("[SD] Write test
-  //         PASS\r\n");
-  //         // Leave file open for runtime logging, or close if not needed:
-  //         // SDCard_Close();
-  //     }
-  // }
 
   // Print boot banner
   Debug_Printf("========================================\r\n");
@@ -430,6 +430,22 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
       GimbalApp_Init();
       ShooterApp_Init();
     }
+  }
+}
+
+void StartSDCardTask(void *argument)
+{
+  (void)argument;
+
+  const TickType_t log_period_ticks   = pdMS_TO_TICKS(100);   // 10Hz
+  TickType_t last_wake_time = xTaskGetTickCount();
+
+  osDelay(300);
+  SDCard_Logger_Init();
+  for (;;)
+  {
+    SDCard_Logger_Task();
+    vTaskDelayUntil(&last_wake_time, log_period_ticks);
   }
 }
 

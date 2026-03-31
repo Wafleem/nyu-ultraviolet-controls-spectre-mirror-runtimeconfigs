@@ -94,6 +94,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     application/shoot/shooter_controller.c
     config/robot_config.c
     modules/sdcard/sdcard.c
+    modules/sdcard/sdcard_logger.c
     # ToF sensor (VL53L1CX)
     modules/tof/tof_sensor.c
     modules/tof/uld/VL53L1X_api.c
