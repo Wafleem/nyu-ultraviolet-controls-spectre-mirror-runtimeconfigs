@@ -49,12 +49,21 @@ void SDCard_Logger_Init(void) {
 }
 
 void SDCard_Logger_Task(void) {
+    // Check if SD card is inserted
+    if (!SDCard_Inserted()) {
+        sd_ready = 0;
+        header_written = 0;
+        return;
+    }
+
+    // Try to initialize the SD card
     if (!sd_ready && SDCard_Init() == 0 && SDCard_IsReady() && SDCard_Open("match_log.csv") == 0) {
         sd_ready = 1;
         header_written = 0;
         Debug_Printf("[LoggerTask] SD ready\r\n");
     }
 
+    // Check if SD card is ready
     if (!sd_ready || !SDCard_IsReady()) {
         sd_ready = 0;
         header_written = 0;

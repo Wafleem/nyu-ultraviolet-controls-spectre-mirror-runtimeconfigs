@@ -21,6 +21,11 @@ int SDCard_Init(void);
 void SDCard_Deinit(void);
 
 /**
+ * @return true if the SD card is inserted
+ */
+bool SDCard_Inserted(void);
+
+/**
  * @return true if the SD card is mounted and ready
  */
 bool SDCard_IsReady(void);

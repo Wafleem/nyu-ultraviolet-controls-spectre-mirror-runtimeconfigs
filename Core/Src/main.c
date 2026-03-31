@@ -47,6 +47,7 @@
 #include "message_center.h"
 #include "vision_comm.h"
 #include "referee.h"
+#include "sdcard.h"
 
 /* USER CODE END Includes */
 
@@ -151,7 +152,7 @@ int main(void)
   MX_USB_DEVICE_Init();
   
   /* Only init SDMMC if card is physically present (PB7 low = inserted) */
-  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_RESET) {
+  if (SDCard_Inserted()) {
       MX_SDMMC2_SD_Init();
       MX_FATFS_Init();
   }

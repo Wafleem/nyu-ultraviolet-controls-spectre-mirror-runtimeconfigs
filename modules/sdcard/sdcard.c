@@ -38,6 +38,10 @@ void SDCard_Deinit(void)
     }
 }
 
+bool SDCard_Inserted(void) {
+    return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_RESET;
+}
+
 bool SDCard_IsReady(void)
 {
     return s_mounted;
