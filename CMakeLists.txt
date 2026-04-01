@@ -102,6 +102,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/tof/uld/vl53l1_platform.c
     # QSPI Flash driver
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage/w25q128jv.c
+  # EEPROM driver
+${CMAKE_CURRENT_SOURCE_DIR}/modules/storage/m24c64_w.c
+
 )
 
 # Add module include paths
