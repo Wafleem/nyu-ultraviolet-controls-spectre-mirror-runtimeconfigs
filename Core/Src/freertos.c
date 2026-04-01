@@ -115,6 +115,13 @@ const osThreadAttr_t IMUTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for SDCardTask */
+osThreadId_t SDCardTaskHandle;
+const osThreadAttr_t SDCardTask_attributes = {
+  .name = "SDCardTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -127,6 +134,7 @@ void StartMsgDispatchTask(void *argument);
 void StartControlTask(void *argument);
 void StartRefereeTask(void *argument);
 void StartIMUTask(void *argument);
+void StartSDCardTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
