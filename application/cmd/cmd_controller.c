@@ -61,11 +61,12 @@ static Vision_Recv_s s_last_vision;
 static CanRxFrame s_last_can;
 static bool s_initialized = false;
 static projectile_allowance_t s_last_allowance;
-static int shoot_count = 0;
+static int s_shoot_count = 0;
 
 // RC health tracking
 static uint32_t s_last_rc_update_time = 0;
 static bool s_rc_ever_connected = false;  // Track if we've ever received valid RC data
+static bool s_waiting_for_neutral = true;     // Track if the stick had reached neutral position at least once
 #define RC_TIMEOUT_MS 100  // 100ms timeout (DR16 sends at ~100Hz = 10ms, so ~10 missed frames)
 
 // Command messages to publish
@@ -172,8 +173,8 @@ static void on_vision_update(const MsgEvent *ev, void *user_data) {
 static void on_shoot_data(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(shoot_data_t)) {
-        shoot_count++;
-        LOG_INFO(LOG_TAG_DEBUG, "Projectiles Shot: %d", shoot_count);
+        s_shoot_count++;
+        LOG_INFO(LOG_TAG_DEBUG, "Projectiles Shot: %d", s_shoot_count);
     }
 }
 
@@ -219,10 +220,7 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
     // Extract joystick values with deadband
     int16_t vx_raw = apply_deadband((int16_t)(rc->rc.ch[2]), JOYSTICK_DEADBAND);
     int16_t vy_raw = apply_deadband((int16_t)(rc->rc.ch[3]), JOYSTICK_DEADBAND);
-    int16_t wz_raw = apply_deadband((int16_t)(rc->rc.ch[4]), JOYSTICK_DEADBAND);
-
-    // Disabling rotation for now in case people don't know about knob controls
-    wz_raw = 0;
+    int16_t wz_raw = 0;  // Chassis rotate is not mapped to keybind
 
     // Convert to normalized values (-1.0 to 1.0)
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);
@@ -303,13 +301,14 @@ static void process_shooter_command(const RC_ctrl_t *rc) {
 }
 
 // Process gimbal control commands
-static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data_t *sensor, bool spin_mode) {
+static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data_t *sensor, bool spin_mode, bool aimbot_mode) {
     if (rc == NULL) {
         // RC disconnected, disable gimbal
         s_gimbal_cmd.enabled = false;
         s_gimbal_cmd.pitch_rate = 0.0f;
         s_gimbal_cmd.yaw_rate = 0.0f;
         s_gimbal_cmd.vision_valid = false;
+        s_gimbal_cmd.aimbot_mode = false;
         s_gimbal_cmd.vision_yaw_err_rad = 0.0f;
         s_gimbal_cmd.vision_pitch_err_rad = 0.0f;
         s_gimbal_cmd.vision_ts_ms = 0;
@@ -352,6 +351,7 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
         s_gimbal_cmd.yaw_rate_memo = 0.0f;
         s_gimbal_cmd.yaw_target_memo = 0.0f;
     }
+    s_gimbal_cmd.aimbot_mode = aimbot_mode;
     yaw_storage = yaw_raw;
 }
 
@@ -414,13 +414,29 @@ void CmdController_Task(uint32_t current_tick) {
     uint32_t time_since_last_rc = HAL_GetTick() - s_last_rc_update_time;
     bool rc_timeout = (s_rc_ever_connected && time_since_last_rc > RC_TIMEOUT_MS);
     bool rc_invalid_data = !is_rc_data_valid(&s_last_rc);
-    bool rc_healthy = s_rc_ever_connected && !rc_timeout;
+    bool rc_healthy = s_rc_ever_connected && !rc_timeout && !s_last_rc.rc.failsafe_active;
 
     // If RC is unhealthy, pass NULL to stop robot gracefully
     const RC_ctrl_t *rc_ptr = rc_healthy ? &s_last_rc : NULL;
 
     // Log RC state changes
     static bool last_rc_healthy = false;
+    static bool prev_rc_failsafe_active = false;
+
+    // If RC turns on, wait for its sticks to be in neutral
+    if (!s_last_rc.rc.failsafe_active && prev_rc_failsafe_active){
+        s_waiting_for_neutral = true;
+    }
+    // If sticks are in neutral, stop waiting. Otherwise, mark RC as unhealthy
+    if (!s_last_rc.rc.failsafe_active && s_waiting_for_neutral){
+        if (-JOYSTICK_DEADBAND <= s_last_rc.rc.ch[2] && s_last_rc.rc.ch[2] <= JOYSTICK_DEADBAND){
+            s_waiting_for_neutral = false;
+        } else {
+            rc_healthy = false;
+            s_waiting_for_neutral = true;
+        }
+    }
+    
     if (rc_healthy != last_rc_healthy) {
         if (!rc_healthy) {
             if (rc_timeout) {
@@ -432,6 +448,7 @@ void CmdController_Task(uint32_t current_tick) {
             USB_CDC_Printf("[RC] Signal restored - Robot active\r\n");
         }
         last_rc_healthy = rc_healthy;
+        prev_rc_failsafe_active = s_last_rc.rc.failsafe_active;
     }
 
     // If RC is unhealthy, disable all modes and pass NULL (robot stops)
@@ -477,6 +494,7 @@ void CmdController_Task(uint32_t current_tick) {
     // Both up -> Normal mode (chassis frame movement)
     bool gimbal_follow_now = switch_is_down(s_last_rc.rc.s[0]);
     bool spin_now = switch_is_down(s_last_rc.rc.s[1]);
+    bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
     // Spin mode rising edge: latch current gimbal absolute yaw as hold target
     if (spin_now && !s_spin_mode)
@@ -490,7 +508,7 @@ void CmdController_Task(uint32_t current_tick) {
     // Process control input (rc_ptr is guaranteed non-NULL here)
     process_chassis_command(rc_ptr, &s_gimbal_imu, s_spin_mode, s_gimbal_follow_mode);
     process_shooter_command(rc_ptr);
-    process_gimbal_command(rc_ptr, &s_gimbal_imu, s_spin_mode);
+    process_gimbal_command(rc_ptr, &s_gimbal_imu, s_spin_mode, aimbot_now);
     process_vision_command(&s_last_vision);
 
     // Debug output

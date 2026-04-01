@@ -7,7 +7,7 @@
 #include "main.h"
 #include "remote_control.h"
 #include "motor_feedback.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "config_types.h"
 
 // Chassis motor count
@@ -57,7 +57,7 @@ void ChassisController_Init(ChassisController *controller);
  * @param controller Chassis controller pointer
  * @param sensor_data Sensor data pointer
  */
-void ChassisController_Update(ChassisController *controller, SensorData* sensor_data);
+void ChassisController_Update(ChassisController *controller, Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Compute chassis motor currents
@@ -109,12 +109,6 @@ void ChassisController_UpdateMotorFeedback(ChassisController *controller, uint8_
  * @brief Initialize chassis application (subscriptions, etc.)
  */
 void ChassisApp_Init(void);
-
-/**
- * @brief Wait for swerve steer motors to align to initial position
- * @note Only applicable for sentry_swerve configuration
- */
-void Sentry_WaitForSteerAlignment(void);
 
 #endif // CHASSIS_CONTROLLER_H
 

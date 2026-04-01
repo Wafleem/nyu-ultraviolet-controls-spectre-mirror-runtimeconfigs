@@ -32,11 +32,11 @@
  *         |                                          | Publish()
  *         v                                          v
  *   +------------------+                    +------------------+
- *   | TOPIC_RC_UPDATE  |----> Queue ------->| TOPIC_CHASSIS_CMD|---> chassis_controller
- *   +------------------+                    | TOPIC_GIMBAL_CMD |---> gimbal_controller
- *                                           | TOPIC_SHOOT_CMD  |---> shooter_controller
- *   [SPI2 / ControlTask]                    +------------------+
- *   (ICM-42688P IMU)
+ *   | TOPIC_RC_UPDATE  |----> Queue ------->| TOPIC_CHASSIS_CMD|--->
+ * chassis_controller
+ *   +------------------+                    | TOPIC_GIMBAL_CMD |--->
+ * gimbal_controller | TOPIC_SHOOT_CMD  |---> shooter_controller [SPI2 /
+ * ControlTask]                    +------------------+ (ICM-42688P IMU)
  *         |
  *         v
  *   +------------------+
@@ -61,12 +61,12 @@
  * =============================================================================
  */
 
-#include <stddef.h>
-#include <stdint.h>
 #include "FreeRTOS.h"
 #include "queue.h"
-#include "task.h"
 #include "semphr.h"
+#include "task.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,107 +80,121 @@ extern "C" {
  */
 
 typedef enum {
-    /* -------------------------------------------------------------------------
-     * INPUT TOPICS (Hardware -> Software)
-     * These are published from ISRs when hardware events occur
-     * ------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------
+   * INPUT TOPICS (Hardware -> Software)
+   * These are published from ISRs when hardware events occur
+   * -------------------------------------------------------------------------
+   */
 
-    TOPIC_RC_UPDATE = 0,      // Remote control data from receiver
-                              // Data: RC_ctrl_t (24 bytes)
-                              // Publisher: UART7 RX ISR (ibus.c)
-                              // Subscribers: cmd_controller
+  TOPIC_RC_UPDATE = 0, // Remote control data from receiver
+                       // Data: RC_ctrl_t (24 bytes)
+                       // Publisher: UART7 RX ISR (ibus.c)
+                       // Subscribers: cmd_controller
 
-    TOPIC_IMU_UPDATE,         // IMU sensor data (gyro, accel, angles)
-                              // Data: Gimbal_Sensor_Data_t
-                              // Publisher: ControlTask (imu.c)
-                              // Subscribers: cmd_controller, gimbal_controller
-    TOPIC_CHASSIS_IMU,        //chassis imu data
-    TOPIC_CHASSIS_CALIB,
+  TOPIC_IMU_UPDATE,  // IMU sensor data (gyro, accel, angles)
+                     // Data: Gimbal_Sensor_Data_t
+                     // Publisher: ControlTask (imu.c)
+                     // Subscribers: cmd_controller, gimbal_controller
+  TOPIC_CHASSIS_IMU, // chassis imu data
+  TOPIC_CHASSIS_CALIB,
 
-    TOPIC_CAN_RX,             // Raw CAN frame received (for debugging)
-                              // Data: CanRxFrame (12 bytes)
-                              // Publisher: FDCAN RX ISR (can_manager.c)
-                              // Subscribers: (typically none in production)
+  TOPIC_CAN_RX, // Raw CAN frame received (for debugging)
+                // Data: CanRxFrame (12 bytes)
+                // Publisher: FDCAN RX ISR (can_manager.c)
+                // Subscribers: (typically none in production)
 
-    TOPIC_MOTOR_FEEDBACK,     // M3508/M2006 motor feedback (chassis, shooter)
-                              // Data: MotorFeedbackEvent (16 bytes)
-                              // Publisher: FDCAN RX ISR -> motor parsing
-                              // Subscribers: motor_driver -> chassis_controller
+  TOPIC_MOTOR_FEEDBACK, // M3508/M2006 motor feedback (chassis, shooter)
+                        // Data: MotorFeedbackEvent (16 bytes)
+                        // Publisher: FDCAN RX ISR -> motor parsing
+                        // Subscribers: motor_driver -> chassis_controller
 
-    TOPIC_CHASSIS_POWER,      // Chassis power reading
-                              // Data: PowerFeedbackEvent
+  TOPIC_CHASSIS_POWER, // Chassis power reading
+                       // Data: PowerFeedbackEvent
 
-    TOPIC_GM6020_FEEDBACK,    // GM6020 gimbal motor feedback
-                              // Data: GM6020FeedbackEvent (12 bytes)
-                              // Publisher: FDCAN RX ISR -> motor parsing
-                              // Subscribers: motor_driver -> gimbal_controller
+  TOPIC_GM6020_FEEDBACK, // GM6020 gimbal motor feedback
+                         // Data: GM6020FeedbackEvent (12 bytes)
+                         // Publisher: FDCAN RX ISR -> motor parsing
+                         // Subscribers: motor_driver -> gimbal_controller
 
-    /* -------------------------------------------------------------------------
-     * COMMAND TOPICS (Control Task -> Motor Controllers)
-     * These are published by the control task at 200Hz
-     * ------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------
+   * COMMAND TOPICS (Control Task -> Motor Controllers)
+   * These are published by the control task at 200Hz
+   * -------------------------------------------------------------------------
+   */
 
-    TOPIC_CHASSIS_CMD,        // Chassis movement command
-                              // Data: ChassisCmd { vx, vy, wz, enabled }
-                              // Publisher: cmd_controller (200Hz)
-                              // Subscribers: chassis_controller
+  TOPIC_CHASSIS_CMD, // Chassis movement command
+                     // Data: ChassisCmd { vx, vy, wz, enabled }
+                     // Publisher: cmd_controller (200Hz)
+                     // Subscribers: chassis_controller
 
-    TOPIC_SHOOT_CMD,          // Shooter command (friction wheels, feeder)
-                              // Data: ShootCmd { fire, friction_on, ... }
-                              // Publisher: cmd_controller (200Hz)
-                              // Subscribers: shooter_controller
+  TOPIC_SHOOT_CMD, // Shooter command (friction wheels, feeder)
+                   // Data: ShootCmd { fire, friction_on, ... }
+                   // Publisher: cmd_controller (200Hz)
+                   // Subscribers: shooter_controller
 
-    TOPIC_GIMBAL_CMD,         // Gimbal command (yaw, pitch angles/rates)
-                              // Data: GimbalCmd { yaw_rate, pitch_rate, enabled, ... }
-                              // Publisher: cmd_controller (200Hz)
-                              // Subscribers: gimbal_controller
+  TOPIC_GIMBAL_CMD, // Gimbal command (yaw, pitch angles/rates)
+                    // Data: GimbalCmd { yaw_rate, pitch_rate, enabled, ... }
+                    // Publisher: cmd_controller (200Hz)
+                    // Subscribers: gimbal_controller
 
-    /* -------------------------------------------------------------------------
-     * REFEREE TOPICS (Referee Task -> Motor Controllers)
-     * These are published by the referee task at 100 Hz
-     * ------------------------------------------------------------------------- */
-    TOPIC_BARREL_HEAT,          // Barrel heat data
-                                // Data: power_heat_data_t
-                                // Publisher: referee (10Hz)
-    TOPIC_ROBOT_STATUS,         // Robot status data
-                                // Data: robot_status_t
-                                // Publisher: referee (10Hz)
-    TOPIC_SHOOT_DATA,           // Shoot data
-                                // Data: shoot_data_t
-                                // Publisher: referee (on projectile shot)
-    TOPIC_PROJECTILE_ALLOWANCE, // Projectile allowance data
-                                // Data: projectile_allowance_t
-                                // Publisher: referee (10Hz)
+  /* -------------------------------------------------------------------------
+   * REFEREE TOPICS (Referee Task -> Motor Controllers)
+   * These are published by the referee task at 100 Hz
+   * -------------------------------------------------------------------------
+   */
+  TOPIC_BARREL_HEAT,          // Barrel heat data
+                              // Data: power_heat_data_t
+                              // Publisher: referee (10Hz)
+  TOPIC_ROBOT_STATUS,         // Robot status data
+                              // Data: robot_status_t
+                              // Publisher: referee (10Hz)
+  TOPIC_SHOOT_DATA,           // Shoot data
+                              // Data: shoot_data_t
+                              // Publisher: referee (on projectile shot)
+  TOPIC_PROJECTILE_ALLOWANCE, // Projectile allowance data
+                              // Data: projectile_allowance_t
+                              // Publisher: referee (10Hz)
 
-    /* -------------------------------------------------------------------------
-     * VISION TOPICS (External -> Gimbal)
-     * High-priority path for auto-aim
-     * ------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------
+   * VISION TOPICS (External -> Gimbal)
+   * High-priority path for auto-aim
+   * -------------------------------------------------------------------------
+   */
 
-    TOPIC_VISION_DATA,        // Vision system target data
-                              // Data: VisionData { yaw_err, pitch_err, fire_cmd, ... }
-                              // Publisher: vision_comm.c (USB/UART RX)
-                              // Subscribers: cmd_controller, gimbal_controller
+  TOPIC_VISION_DATA, // Vision system target data
+                     // Data: VisionData { yaw_err, pitch_err, fire_cmd, ... }
+                     // Publisher: vision_comm.c (USB/UART RX)
+                     // Subscribers: cmd_controller, gimbal_controller
 
-    TOPIC_NUM_TOPICS          // Total number of topics (must be last!)
+  /* -------------------------------------------------------------------------
+   * SENSOR TOPICS (Sensor Modules -> Application)
+   * -------------------------------------------------------------------------
+   */
+
+  TOPIC_TOF_UPDATE, // Time-of-Flight distance measurement
+                    // Data: ToF_Data_t { distance_mm, range_status, ... }
+                    // Publisher: ToFTask (tof_sensor.c, ~20Hz)
+                    // Subscribers: sentry_controller (obstacle avoidance)
+
+  TOPIC_NUM_TOPICS // Total number of topics (must be last!)
 
 } MsgTopic;
 
-
 /* =============================================================================
  *                              CONFIGURATION
- * ============================================================================= */
+ * =============================================================================
+ */
 
 #ifndef MC_MAX_PAYLOAD
-#define MC_MAX_PAYLOAD 128    // Maximum bytes per message (increase if needed)
+#define MC_MAX_PAYLOAD 128 // Maximum bytes per message (increase if needed)
 #endif
 
-#define MC_MAX_SUBS_PER_TOPIC 8   // Maximum subscribers per topic
-
+#define MC_MAX_SUBS_PER_TOPIC 8 // Maximum subscribers per topic
 
 /* =============================================================================
  *                              DATA STRUCTURES
- * ============================================================================= */
+ * =============================================================================
+ */
 
 /**
  * @brief Event structure passed through the queue
@@ -189,9 +203,9 @@ typedef enum {
  * is copied into the data[] array.
  */
 typedef struct {
-    uint16_t topic;                 // Which topic (MsgTopic enum value)
-    uint16_t size;                  // How many bytes are in data[]
-    uint8_t  data[MC_MAX_PAYLOAD];  // The actual message payload
+  uint16_t topic;               // Which topic (MsgTopic enum value)
+  uint16_t size;                // How many bytes are in data[]
+  uint8_t data[MC_MAX_PAYLOAD]; // The actual message payload
 } MsgEvent;
 
 /**
@@ -209,19 +223,17 @@ typedef void (*MsgCallback)(const MsgEvent *ev, void *user_data);
  * @brief Statistics for debugging and monitoring
  */
 typedef struct {
-    uint32_t events_published;      // Total events published (all time)
-    uint32_t events_dispatched;     // Total events dispatched (all time)
-    uint32_t queue_overflow_count;  // Times publish failed (queue full)
-    uint32_t current_queue_depth;   // Current events waiting in queue
-    uint32_t max_queue_depth;       // High water mark
+  uint32_t events_published;     // Total events published (all time)
+  uint32_t events_dispatched;    // Total events dispatched (all time)
+  uint32_t queue_overflow_count; // Times publish failed (queue full)
+  uint32_t current_queue_depth;  // Current events waiting in queue
+  uint32_t max_queue_depth;      // High water mark
 } MsgCenter_Stats;
-
-
-
 
 /* =============================================================================
  *                              PUBLIC API
- * ============================================================================= */
+ * =============================================================================
+ */
 
 /**
  * @brief Initialize the message center
@@ -243,7 +255,8 @@ int MsgCenter_Init(size_t queue_length);
  * @param block_time_ms How long to wait if queue is full (0 = don't wait)
  * @return 0 on success, -1 if queue full, -2 if invalid params
  */
-int MsgCenter_Publish(MsgTopic topic, const void *data, size_t size, uint32_t block_time_ms);
+int MsgCenter_Publish(MsgTopic topic, const void *data, size_t size,
+                      uint32_t block_time_ms);
 
 /**
  * @brief Publish an event from an ISR (interrupt handler)
@@ -283,7 +296,6 @@ void MsgCenter_DispatcherTask(void *pvParameters);
  * @brief Get statistics for debugging
  */
 void MsgCenter_GetStats(MsgCenter_Stats *stats);
-
 
 #ifdef __cplusplus
 }

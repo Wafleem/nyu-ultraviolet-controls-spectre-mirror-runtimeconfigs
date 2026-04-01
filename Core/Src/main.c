@@ -21,6 +21,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "dma.h"
+#include "fatfs.h"
 #include "fdcan.h"
 #include "i2c.h"
 #include "quadspi.h"
@@ -35,17 +36,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "sdmmc.h"
 #include "usb_device.h"
 #include "printing.h"
 #include "logger.h"
 #include "robot_config.h"
 #include "imu.h"
-#include "can.h"
 #include "can_manager.h"
 #include "remote_control.h"
 #include "message_center.h"
 #include "vision_comm.h"
 #include "referee.h"
+#include "sdcard.h"
 
 /* USER CODE END Includes */
 
@@ -95,17 +97,6 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/*
- * Test functions have been moved to modules/tests/tests.c
- * Available test functions:
- *   - Test_IMU_Report()      - Full IMU data dump
- *   - Test_CAN_Loopback(n)   - CAN TX/RX test
- *   - Test_FlySky_Report()   - RC receiver test
- *   - Test_IMU_PrintCompact() - Compact IMU output
- *
- * These can be called from FreeRTOS tasks in freertos.c
- */
 
 /* USER CODE END 0 */
 
@@ -160,6 +151,12 @@ int main(void)
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   MX_USB_DEVICE_Init();
+  
+  /* Only init SDMMC if card is physically present (PB7 low = inserted) */
+  if (SDCard_Inserted()) {
+      MX_SDMMC2_SD_Init();
+      MX_FATFS_Init();
+  }
 
   // Wait for USB to enumerate
   HAL_Delay(1000);

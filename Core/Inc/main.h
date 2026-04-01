@@ -63,6 +63,8 @@ void Error_Handler(void);
 #define EEPROM0_GPIO_Port GPIOF
 #define EEPROM0F3_Pin GPIO_PIN_3
 #define EEPROM0F3_GPIO_Port GPIOF
+#define SD_DETECT_Pin GPIO_PIN_7
+#define SD_DETECT_GPIO_Port GPIOB
 #define MAG_CS_Pin GPIO_PIN_1
 #define MAG_CS_GPIO_Port GPIOK
 #define DataLine2_Pin GPIO_PIN_9

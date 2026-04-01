@@ -32,7 +32,8 @@ typedef enum {
     MOTOR_ROLE_GIMBAL_YAW,         // Gimbal yaw axis
     MOTOR_ROLE_GIMBAL_PITCH,       // Gimbal pitch axis
     MOTOR_ROLE_SHOOTER_FEED,       // Shooter feed/turntable motor
-    MOTOR_ROLE_SHOOTER_FRICTION    // Shooter friction wheel motor
+    MOTOR_ROLE_SHOOTER_FRICTION,   // Shooter friction wheel motor
+    MOTOR_ROLE_SHOOTER_PUSH        // Hero Shooter ball pusher
 } MotorRole_e;
 
 /**

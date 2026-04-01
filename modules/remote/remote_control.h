@@ -52,6 +52,7 @@ typedef __PACKED_STRUCT
         {
                 int16_t ch[6];
                 char s[4];
+                uint8_t failsafe_active;
         } rc;
         __PACKED_STRUCT
         {
@@ -65,7 +66,6 @@ typedef __PACKED_STRUCT
         {
                 uint16_t v;
         } key;
-
 } RC_ctrl_t;
 
 /* ----------------------- Internal Data ----------------------------------- */

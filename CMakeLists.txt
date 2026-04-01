@@ -30,12 +30,10 @@ set(ROBOT_TYPE "infantry_standard" CACHE STRING "Robot configuration type")
 # Optional: show available values in GUIs (ccmake/cmake-gui)
 set_property(CACHE ROBOT_TYPE PROPERTY STRINGS
     infantry_standard
-    sentry_swerve
-    some_other_robot
 )
 
 # Optional: validate to fail fast on typos
-set(_valid_robot_types infantry_standard sentry_swerve some_other_robot)
+set(_valid_robot_types infantry_standard)
 list(FIND _valid_robot_types "${ROBOT_TYPE}" _robot_type_idx)
 if(_robot_type_idx EQUAL -1)
     message(FATAL_ERROR "Invalid ROBOT_TYPE='${ROBOT_TYPE}'. Valid: ${_valid_robot_types}")
@@ -72,7 +70,6 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add module sources
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     modules/imu/imu.c
-    modules/can/can.c
     modules/can/can_manager.c
     modules/can/motor_registry.c
     modules/fifo/fifo.c
@@ -96,7 +93,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     application/gimbal/gimbal_controller.c
     application/shoot/shooter_controller.c
     config/robot_config.c
-    modules/tests/tests.c
+    modules/sdcard/sdcard.c
+    modules/sdcard/sdcard_logger.c
+    # ToF sensor (VL53L1CX)
+    modules/tof/tof_sensor.c
+    modules/tof/uld/VL53L1X_api.c
+    modules/tof/uld/VL53L1X_calibration.c
+    modules/tof/uld/vl53l1_platform.c
     # QSPI Flash driver
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/storage/w25q128jv.c
   # EEPROM driver
@@ -117,7 +120,9 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     modules/logger
     modules/algorithm
     modules/vision_comm
-    modules/tests
+    modules/sdcard
+    modules/tof
+    modules/tof/uld
     application
     application/chassis
     application/cmd
