@@ -8,6 +8,62 @@
   * License and copyright idk
   *
   ******************************************************************************
+  *
+  * @section Usage Example (from integration test)
+  *
+  * Hardware:
+  *   - I2C2 on PH4 (SCL) / PH5 (SDA), fast mode, timing 0x00B03FDB
+  *   - EEPROM WC pin on PF2 (EEPROM0), PF3 (EEPROM0F3) as GPIO outputs
+  *   - EEPROM1_ADDR = device I2C address (e.g. 0xA0)
+  *
+  * @code
+  *   #define EEPROM1_ADDR  0xA0   // adjust A0-A2 pins to match hardware
+  *
+  *   char ee_status_msg[64] = "Not Started";
+  *   uint8_t ee_fail_stage = 0;
+  *
+  *   uint8_t ee_write_buf[] = "Hello EEPROM!";
+  *   uint8_t ee_read_buf[32] = {0};
+  *
+  *   // Pull WC low to enable write
+  *   HAL_GPIO_WritePin(EEPROM0_GPIO_Port, EEPROM0_Pin, GPIO_PIN_RESET);
+  *   osDelay(10);
+  *
+  *   // Bus sanity check before attempting I2C
+  *   if (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY)) {
+  *       ee_fail_stage = 99;
+  *       snprintf(ee_status_msg, sizeof(ee_status_msg), "I2C_BUSY_LINE_STUCK");
+  *   } else {
+  *       // Write with short timeout to avoid hanging
+  *       if (HAL_I2C_Mem_Write(&hi2c2, EEPROM1_ADDR, 0x0000, I2C_MEMADD_SIZE_16BIT,
+  *                             ee_write_buf, sizeof(ee_write_buf), 20) != HAL_OK) {
+  *           ee_fail_stage = 1;
+  *           snprintf(ee_status_msg, sizeof(ee_status_msg), "WR_ERR_CODE_%lu",
+  *                    (unsigned long)hi2c2.ErrorCode);
+  *       } else {
+  *           osDelay(15);  // Wait for EEPROM internal write cycle
+  *           if (HAL_I2C_Mem_Read(&hi2c2, EEPROM1_ADDR, 0x0000, I2C_MEMADD_SIZE_16BIT,
+  *                                ee_read_buf, sizeof(ee_write_buf), 20) != HAL_OK) {
+  *               ee_fail_stage = 2;
+  *               snprintf(ee_status_msg, sizeof(ee_status_msg), "RD_ERR_CODE_%lu",
+  *                        (unsigned long)hi2c2.ErrorCode);
+  *           } else if (memcmp(ee_write_buf, ee_read_buf, sizeof(ee_write_buf)) != 0) {
+  *               ee_fail_stage = 3;
+  *               snprintf(ee_status_msg, sizeof(ee_status_msg), "DATA_MISMATCH");
+  *           } else {
+  *               snprintf(ee_status_msg, sizeof(ee_status_msg), "SUCCESS");
+  *           }
+  *       }
+  *   }
+  *
+  *   // Pull WC high to protect writes
+  *   HAL_GPIO_WritePin(EEPROM0_GPIO_Port, EEPROM0_Pin, GPIO_PIN_SET);
+  *
+  *   // Log result
+  *   LOG_INFO(LOG_TAG_SYS, "[EEPROM] %s (Stage: %d)", ee_status_msg, ee_fail_stage);
+  * @endcode
+  *
+  ******************************************************************************
   */
 
 #include "m24c64_w.h"

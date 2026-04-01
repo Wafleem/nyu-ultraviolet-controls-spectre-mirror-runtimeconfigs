@@ -19,9 +19,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -85,52 +85,36 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for MsgDispatch */
 osThreadId_t MsgDispatchHandle;
 const osThreadAttr_t MsgDispatch_attributes = {
   .name = "MsgDispatch",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityAboveNormal7,
+  .priority = (osPriority_t) osPriorityAboveNormal7,
 };
 /* Definitions for ControlTask */
 osThreadId_t ControlTaskHandle;
 const osThreadAttr_t ControlTask_attributes = {
   .name = "ControlTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for RefereeTask */
 osThreadId_t RefereeTaskHandle;
 const osThreadAttr_t RefereeTask_attributes = {
   .name = "RefereeTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
 const osThreadAttr_t IMUTask_attributes = {
   .name = "IMUTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for ToFTask */
-osThreadId_t ToFTaskHandle;
-const osThreadAttr_t ToFTask_attributes = {
-  .name = "ToFTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
-};
-
-/* Definitions for LoggerTask */
-osThreadId_t SDCardTaskHandle;
-const osThreadAttr_t SDCardTask_attributes = {
-  .name = "SDCardTask",
-  .stack_size = 512 * 4,   
-  .priority = (osPriority_t) osPriorityLow,
-};
-
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -143,8 +127,6 @@ void StartMsgDispatchTask(void *argument);
 void StartControlTask(void *argument);
 void StartRefereeTask(void *argument);
 void StartIMUTask(void *argument);
-void StartToFTask(void *argument);
-void StartSDCardTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -195,9 +177,6 @@ void MX_FREERTOS_Init(void) {
   /* creation of IMUTask */
   IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
 
-  /* creation of ToFTask */
-  ToFTaskHandle = osThreadNew(StartToFTask, NULL, &ToFTask_attributes);
-
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
@@ -217,7 +196,8 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
   /* USER CODE BEGIN StartDefaultTask */
 
 
@@ -268,7 +248,8 @@ void StartDefaultTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartMsgDispatchTask */
-void StartMsgDispatchTask(void *argument) {
+void StartMsgDispatchTask(void *argument)
+{
   /* USER CODE BEGIN StartMsgDispatchTask */
   /*
    * This task processes all message center events.
@@ -291,7 +272,8 @@ void StartMsgDispatchTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument) {
+void StartControlTask(void *argument)
+{
   /* USER CODE BEGIN StartControlTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(5); // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -328,7 +310,8 @@ void StartControlTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartRefereeTask */
-void StartRefereeTask(void *argument) {
+void StartRefereeTask(void *argument)
+{
   /* USER CODE BEGIN StartRefereeTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10ms = 100Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -347,7 +330,8 @@ void StartRefereeTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartIMUTask */
-void StartIMUTask(void *argument) {
+void StartIMUTask(void *argument)
+{
   /* USER CODE BEGIN StartIMUTask */
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(5); /* 5ms = 200Hz */
@@ -374,35 +358,6 @@ void StartIMUTask(void *argument) {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END StartIMUTask */
-}
-
-void StartToFTask(void *argument) {
-  /* USER CODE BEGIN StartToFTask */
-  const TickType_t xFrequency = pdMS_TO_TICKS(50); /* 50ms = 20Hz */
-  TickType_t xLastWakeTime;
-
-  /* Wait for USB CDC and peripherals to stabilize */
-  osDelay(2000);
-
-  /* Use LOG_INFO(LOG_TAG_SYS) since it's proven to work on serial */
-  LOG_INFO(LOG_TAG_SYS, "ToF task started");
-  osDelay(50);
-
-  if (ToF_Init() != 0) {
-    LOG_ERROR(LOG_TAG_SYS, "ToF init FAILED - task suspended");
-    osDelay(50);
-    vTaskSuspend(NULL);
-  }
-
-  LOG_INFO(LOG_TAG_SYS, "ToF running at 20Hz");
-  osDelay(50);
-  xLastWakeTime = xTaskGetTickCount();
-
-  for (;;) {
-    ToF_Task();
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
-  }
-  /* USER CODE END StartToFTask */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -450,3 +405,4 @@ void StartSDCardTask(void *argument)
 }
 
 /* USER CODE END Application */
+
