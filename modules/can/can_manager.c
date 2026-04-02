@@ -374,6 +374,9 @@ HAL_StatusTypeDef CAN_Manager_SendMotorCurrent(CAN_Manager_t *manager,
     if (motor->type == MOTOR_TYPE_GM6020) {
         if (current >  25000) current =  25000;
         if (current < -25000) current = -25000;
+    } else if (motor->type == MOTOR_TYPE_M2006) {
+        if (current >  10000) current =  10000;
+        if (current < -10000) current = -10000;
     } else {
         if (current >  16384) current =  16384;
         if (current < -16384) current = -16384;

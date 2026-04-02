@@ -172,7 +172,25 @@ static const MotorConfig_t g_motor_configs_hero[] = {
             .speed_limit = 10000.0f
         },
         .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}}
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+    },
+
+    // Ball Pusher
+    {
+        .motor_id = 9,
+        .type = MOTOR_TYPE_M2006,
+        .role = MOTOR_ROLE_SHOOTER_PUSH,
+        .can_channel = CAN_CHANNEL_2,
+        .can_rx_id = 0x208,
+        .can_tx_id = 0x1FF,
+        .tx_slot = 3,
+        .direction = -1,
+        .limits.m3508 = {
+            .speed_limit = 10000.0f
+        },
+        .pid_outer = {0.05f, 0.0f, 0.0f, 15000.0f, 7500.0f},
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+    }
 };
 
 // Robot configuration structure
@@ -180,9 +198,9 @@ static const RobotConfig_t g_robot_config_hero = {
     .name = "Hero",
     .chassis_motor_count = 4,
     .gimbal_motor_count = 2,
-    .shooter_motor_count = 3,
+    .shooter_motor_count = 4,
     .motor_configs = g_motor_configs_hero,
-    .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
+    .total_motor_count = 10,    // 4 chassis + 2 gimbal + 4 shooter
     .enable_imu_calibration = 0
 };
 

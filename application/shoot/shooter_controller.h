@@ -6,17 +6,19 @@
 #include "pid.h"
 #include "remote_control.h"
 #include "motor_feedback.h"
-#include "gyro_data.h"
+#include "imu.h"
 #include "config_types.h"
 
 // Shooter system motor count
 #define SHOOTER_MOTOR_COUNT 4
 
 // Shooter system parameters
+#define ANTIJAM_ENABLED 0
 #define TURNTABLE_CONST_SPEED 5000      // Turntable speed
 #define SHOOTER_CONST_SPEED 7500     // Shooter wheel speed
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
-
+#define PUSHER_EXTENDED (int32_t)(2.5f * 8192.0f)
+#define PUSHER_RETRACTED 0
 
 // Shooter controller structure
 typedef struct {
@@ -29,6 +31,12 @@ typedef struct {
     float shooter2_target;
     float ramped_shooter1;
     float ramped_shooter2;
+
+    // Pusher targets
+    float pusher_target;
+    int32_t pusher_total_angle;
+    uint16_t pusher_last_angle;
+    bool pusher_initialized;
     
     // Running state
     bool enabled;
@@ -37,11 +45,13 @@ typedef struct {
     PID_Controller turntable_pid;
     PID_Controller shooter1_pid;
     PID_Controller shooter2_pid;
+    PID_Controller pusher_pid;
     
     // Motor feedbacks (turntable and shooter wheels)
     Motor_Feedback turntable_feedback;
     Motor_Feedback shooter1_feedback;
     Motor_Feedback shooter2_feedback;
+    Motor_Feedback pusher_feedback;
     
     // Output currents
     int16_t output_currents[SHOOTER_MOTOR_COUNT];
@@ -59,7 +69,7 @@ void ShooterController_Init(ShooterController *controller);
  * @param controller Shooter controller pointer
  * @param sensor_data Sensor data pointer
  */
-void ShooterController_Update(ShooterController *controller, SensorData *sensor_data);
+void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_t *sensor_data);
 
 /**
  * @brief Compute shooter system motor currents
@@ -69,39 +79,10 @@ void ShooterController_Update(ShooterController *controller, SensorData *sensor_
 void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t current_tick);
 
 /**
- * @brief Set turntable speed
- * @param controller Shooter controller pointer
- * @param speed Target speed
- */
-void ShooterController_SetTurntableSpeed(ShooterController *controller, float speed);
-
-/**
- * @brief Set shooter wheel speeds
- * @param controller Shooter controller pointer
- * @param shooter1_speed Shooter wheel 1 speed
- * @param shooter2_speed Shooter wheel 2 speed
- */
-void ShooterController_SetShooterSpeeds(ShooterController *controller, float shooter1_speed, float shooter2_speed);
-
-/**
  * @brief Stop shooter system
  * @param controller Shooter controller pointer
  */
 void ShooterController_Stop(ShooterController *controller);
-
-/**
- * @brief Get output currents
- * @param controller Shooter controller pointer
- * @return Output currents array pointer
- */
-const int16_t* ShooterController_GetOutputCurrents(const ShooterController *controller);
-
-/**
- * @brief Check if shooter system is running
- * @param controller Shooter controller pointer
- * @return true if shooter is running
- */
-bool ShooterController_IsRunning(const ShooterController *controller);
 
 /**
  * @brief Update motor feedback
@@ -114,6 +95,12 @@ bool ShooterController_IsRunning(const ShooterController *controller);
  * @param current_tick Current timestamp
  */
 void ShooterController_UpdateMotorFeedback(ShooterController *controller, uint8_t motor_id, uint16_t angle, int16_t speed, int16_t current, uint8_t temp, uint32_t current_tick);
+
+/**
+ * @brief Attempt to unjam the feeder
+ * @param controller Shooter controller pointer
+ */
+void ShooterController_Unjam(ShooterController *controller);
 
 #endif // SHOOTER_CONTROLLER_H
 

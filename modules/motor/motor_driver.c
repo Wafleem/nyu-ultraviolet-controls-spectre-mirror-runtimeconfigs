@@ -129,16 +129,14 @@ void MotorDriver_UpdateFeedback(uint8_t motor_id,
     ctx->feedback_current = current;
     ctx->last_feedback_time = timestamp;
 
-    // Compute angle in radians (for GM6020 gimbal control)
-    if (ctx->type == MOTOR_TYPE_GM6020) {
-        float max_encoder = (ctx->config->limits.gm6020.angle_max > 0.0f) ?
-                           ctx->config->limits.gm6020.angle_max : 8192.0f;
-        ctx->target_angle_rad = (float)angle_raw / max_encoder * 2.0f * M_PI;
-    }
-
     // Auto-initialize angle target on first feedback
     if (!ctx->angle_initialized) {
-        ctx->angle_target = (float)angle_raw;
+        // Yaw uses IMU angle, which starts at 180 degrees
+        if (ctx->config->role == MOTOR_ROLE_GIMBAL_YAW) {
+            ctx->angle_target = 180.0f;
+        } else {
+            ctx->angle_target = (float)angle_raw;
+        }
         ctx->angle_initialized = true;
     }
 }

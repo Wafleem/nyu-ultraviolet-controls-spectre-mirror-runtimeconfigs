@@ -3,16 +3,21 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "motor_driver.h"
 #include "imu.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// #define MAX_YAW_ANGLE           8192.0f
+// #define MAX_YAW_ANGLE_PER_SEC   2000.0f
 #define MAX_YAW_ANGLE           360.0f
-#define MAX_PITCH_ANGLE_PER_SEC 2000.0f
-#define MAX_YAW_ANGLE_PER_SEC   100.0f
+#define MAX_YAW_ANGLE_CHANGE    150.0f
 #define MAX_YAW_RPM             440.0f
+#define MAX_PITCH_ANGLE         8192.0f   // Can be overwritten by robot config
+#define MAX_PITCH_ANGLE_CHANGE  2000.0f
+#define CURRENT_LIMIT           (30000.0f)
 
 // Gimbal command structure
 typedef struct {
@@ -22,12 +27,11 @@ typedef struct {
     float yaw_rate_memo;
     float yaw_target_memo;           // Yaw angular rate command (-1.0 to 1.0, normalized)
     bool vision_valid;
+    bool aimbot_mode;
     float vision_yaw_err_rad;
     float vision_pitch_err_rad;
     uint32_t vision_ts_ms;
 } GimbalCmd;
-
-void last_data(float last_yaw_rate, float last_yaw_target);
 
 /**
  * @brief Pitch control with normalized rate command
@@ -37,7 +41,7 @@ void last_data(float last_yaw_rate, float last_yaw_target);
  * @return Motor current command
  */
 
-int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, Gimbal_Sensor_Data_t* sensor_data);
+int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data);
 
 /**
  * @brief Yaw control with compensation (chassis rotation + gyro feedback)
@@ -46,13 +50,12 @@ int16_t GimbalController_PitchControl(uint8_t id, float rate_normalized, Gimbal_
  * @param use_imu_feedback Use IMU gyro for speed feedback (true for spin mode, false for encoder)
  * @return Motor current command
  */
-int16_t GimbalController_YawControlWithCompensation(float rate_normalized, Gimbal_Sensor_Data_t* sensor_data, bool use_imu_feedback);
+int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor_data, bool use_imu_feedback);
 
 /**
- * @brief Target angle correction for yaw (chassis compensation)
- * @param sensor_data Sensor data pointer
+ * @brief Update gimbal targets using gimbal cmd data
  */
-void GimbalController_TargetAngleCorrection(Gimbal_Sensor_Data_t* sensor_data);
+void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorContext_t *pitch);
 
 /**
  * @brief Initialize gimbal application (message subscriptions and control)

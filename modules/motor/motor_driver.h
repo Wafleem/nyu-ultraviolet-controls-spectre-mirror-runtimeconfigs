@@ -44,27 +44,12 @@ typedef struct {
     bool angle_initialized;         // true if initial angle has been set
 
     // Computed values
-    float target_angle_rad;         // Current angle in radians
     float angle_correction;         // Angle correction for gimbal
     float angle_correction_ramp;    // Ramped angle correction
 
     // PID controllers
     PID_Controller pid_outer;       // Outer loop (angle/position)
     PID_Controller pid_inner;       // Inner loop (speed)
-
-    // Motor-specific state (used by application layer)
-    union {
-        // GM6020-specific (gimbal motors)
-        struct {
-            float w_chassis_raw;        // Raw chassis angular velocity
-            float joystick_sensitivity; // Joystick sensitivity
-        } gm6020;
-
-        // M3508-specific (chassis/shooter motors)
-        struct {
-            float ramped_target_speed;  // Ramped target speed
-        } m3508;
-    } state;
 
 } MotorContext_t;
 
