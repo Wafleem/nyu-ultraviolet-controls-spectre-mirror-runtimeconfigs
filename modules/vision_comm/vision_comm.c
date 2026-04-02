@@ -16,7 +16,7 @@ static Vision_Recv_s recv_data;
 static Vision_Send_s send_data;
 
 // UART receive buffer (double buffer for DMA/IT mode)
-uint8_t uart_recv_buff[VISION_RECV_SIZE];  // Made non-static for access in HAL callback
+uint8_t uart_recv_buff[VISION_RECV_SIZE] DMA_SECTION;  // Made non-static for access in HAL callback
 static uint8_t uart_recv_processing[VISION_RECV_SIZE];
 
 // Vision send frequency control (100Hz = 10ms interval)
@@ -85,8 +85,8 @@ void VisionComm_RxCallback(uint8_t *buf, uint32_t len)
  */
 void VisionComm_StartReceive(void)
 {
-    // Use HAL_UARTEx_ReceiveToIdle_IT for variable length reception
-    HAL_UARTEx_ReceiveToIdle_IT(&VISION_UART_HANDLE, uart_recv_buff, VISION_RECV_SIZE);
+    // Use HAL_UARTEx_ReceiveToIdle_DMA for variable length reception
+    HAL_UARTEx_ReceiveToIdle_DMA(&VISION_UART_HANDLE, uart_recv_buff, VISION_RECV_SIZE);
 }
 
 /**
