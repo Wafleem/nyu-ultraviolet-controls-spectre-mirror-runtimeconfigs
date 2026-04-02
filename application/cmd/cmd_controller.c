@@ -374,6 +374,13 @@ static void process_vision_command(Vision_Recv_s* vision) {
             s_gimbal_cmd.vision_valid = false;
         }
     }
+    LOG_INFO(LOG_TAG_VIS, "VIS,%d,%d,%d,%.4f,%.4f,v=%d\r\n",
+            s_last_vision.fire_mode,
+            s_last_vision.target_state,
+            s_last_vision.target_type,
+            s_last_vision.pitch,
+            s_last_vision.yaw,
+            s_gimbal_cmd.vision_valid);
 }
 
 void CmdController_Init(void) {
@@ -473,13 +480,6 @@ void CmdController_Task(uint32_t current_tick) {
 
         // Process vision data even without RC
         process_vision_command(&s_last_vision);
-        LOG_INFO(LOG_TAG_VIS, "VIS,%d,%d,%d,%.4f,%.4f,v=%d\r\n",
-                s_last_vision.fire_mode,
-                s_last_vision.target_state,
-                s_last_vision.target_type,
-                s_last_vision.pitch,
-                s_last_vision.yaw,
-                s_gimbal_cmd.vision_valid);
 
         (void)MsgCenter_Publish(TOPIC_CHASSIS_CMD, &s_chassis_cmd, sizeof(s_chassis_cmd), 0);
         (void)MsgCenter_Publish(TOPIC_SHOOT_CMD, &s_shoot_cmd, sizeof(s_shoot_cmd), 0);
