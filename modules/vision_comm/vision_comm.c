@@ -7,6 +7,7 @@
 #include "seasky_protocol.h"
 #include "message_center.h"
 #include "imu.h"
+#include "ref_structs.h"
 #include "stm32h7xx_hal.h"
 #include "printing.h"
 #include <string.h>
@@ -22,6 +23,7 @@ static uint8_t uart_recv_processing[VISION_RECV_SIZE];
 // Vision send frequency control (100Hz = 10ms interval)
 #define VISION_SEND_INTERVAL_MS 10
 static uint32_t last_send_time = 0;
+static Enemy_Color_e last_enemy_color = COLOR_NONE;
 
 // Debug counters (ISR-safe, incremented in callback, printed from task context)
 volatile uint32_t dbg_rx_count      = 0;  // total UART callbacks fired
@@ -104,10 +106,23 @@ static void on_imu_update(const MsgEvent *ev, void *user_data)
         if (current_time - last_send_time >= VISION_SEND_INTERVAL_MS) {
             // Set attitude data from gimbal IMU (EKF-fused angles)
             VisionComm_SetAltitude(imu->ekf_yaw, imu->ekf_pitch, imu->ekf_roll);
-            VisionComm_SetFlag(COLOR_BLUE, VISION_MODE_AIM, SMALL_AMU_15);
+            VisionComm_SetFlag(last_enemy_color, VISION_MODE_AIM, SMALL_AMU_15);
             VisionComm_Send();
 
             last_send_time = current_time;
+        }
+    }
+}
+
+static void on_robot_status(const MsgEvent *ev, void *user_data) {
+    (void)user_data;
+    
+    if (ev->size == sizeof(robot_status_t)) {
+        const robot_status_t *status = (const robot_status_t *)ev->data;
+        if (status->robot_id >= 100) {
+            last_enemy_color = COLOR_RED;
+        } else {
+            last_enemy_color = COLOR_BLUE;
         }
     }
 }
@@ -125,6 +140,7 @@ Vision_Recv_s *VisionComm_Init(void)
 
     // Subscribe to IMU updates for sending vision data
     (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+    (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
 
     // Start UART reception
     VisionComm_StartReceive();
