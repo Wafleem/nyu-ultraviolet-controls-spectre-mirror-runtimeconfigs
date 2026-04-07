@@ -184,7 +184,10 @@ static const RobotConfig_t g_robot_config_infantry_standard = {
     .shooter_motor_count = 3,
     .motor_configs = g_motor_configs_infantry_standard,
     .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
-    .enable_imu_calibration = 0
+    .enable_imu_calibration = 0,
+    .feeder_speed = 5000.0f,
+    .friction_wheel_speed = 7500.0f,
+    .pusher_extended_angle = 0.0f,
 };
 
 #endif // INFANTRY_H

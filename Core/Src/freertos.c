@@ -300,6 +300,7 @@ void StartControlTask(void *argument) {
   s_robot_id = 0;
   memset(&s_robot_status, 0, sizeof(robot_status_t));
   (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
+  const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
 
   // Initialize modules that subscribe to topics
   MotorDriver_ModuleInit(s_robot_id);
@@ -307,7 +308,7 @@ void StartControlTask(void *argument) {
   CmdController_Init();
   ChassisApp_Init();
   GimbalApp_Init();
-  ShooterApp_Init();
+  ShooterApp_Init(robot_cfg);
 
   // Wait for USB and other tasks to stabilize
   osDelay(1500);
@@ -428,7 +429,7 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
       MotorDriver_ModuleInit(s_robot_status.robot_id);
       ChassisApp_Init();
       GimbalApp_Init();
-      ShooterApp_Init();
+      ShooterApp_Init(robot_cfg);
     }
   }
 }

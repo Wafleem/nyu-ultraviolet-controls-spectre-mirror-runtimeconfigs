@@ -99,6 +99,9 @@ typedef struct {
     const MotorConfig_t *motor_configs;  // Pointer to motor configuration array
     uint8_t total_motor_count;           // Total number of motors
     uint8_t enable_imu_calibration;      // Enable IMU calibration at startup (1 = enabled, 0 = disabled)
+    float feeder_speed;                  // Feeder/turntable motor speed
+    float friction_wheel_speed;          // Friction wheel motor speed
+    int32_t pusher_extended_angle;       // Pusher extended angle (encoder units)
 } RobotConfig_t;
 
 #endif // CONFIG_TYPES_H

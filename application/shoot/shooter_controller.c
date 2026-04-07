@@ -21,6 +21,7 @@ static ShootCmd s_prev_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
 static ShooterController s_ctrl;
 static bool s_initialized = false;
+static RobotConfig_t s_shooter_config;
 
 // Anti Jam
 static bool is_jammed = false;
@@ -173,14 +174,14 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
     controller->enabled = s_last_cmd.friction_enabled;
     
     // Set turntable target (only feed when feed_enabled)
-    float turntable_target = s_last_cmd.feed_enabled ? TURNTABLE_CONST_SPEED * controller->directions[0] : 0.0f;
+    float turntable_target = s_last_cmd.feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
     
     // Set shooter wheel targets
-    float shooter1_target = s_last_cmd.friction_enabled ? SHOOTER_CONST_SPEED * controller->directions[1] : 0.0f;
-    float shooter2_target = s_last_cmd.friction_enabled ? SHOOTER_CONST_SPEED * controller->directions[2] : 0.0f;
+    float shooter1_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[1] : 0.0f;
+    float shooter2_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[2] : 0.0f;
 
     // Set pusher target
-    controller->pusher_target = s_last_cmd.feed_enabled ? PUSHER_EXTENDED : PUSHER_RETRACTED;
+    controller->pusher_target = s_last_cmd.feed_enabled ? s_shooter_config.pusher_extended_angle : 0;
     
     // Apply ramping
     controller->ramped_turntable = RampTowards(controller->ramped_turntable, turntable_target, SHOOTER_RAMP_STEP);
@@ -302,7 +303,7 @@ void ShooterController_Unjam(ShooterController *controller)
         s_unjam_start = xTaskGetTickCount();
     }
 
-    float unjam_speed = -TURNTABLE_CONST_SPEED * controller->directions[0];
+    float unjam_speed = -s_shooter_config.feeder_speed * controller->directions[0];
     controller->ramped_turntable = unjam_speed;
 
     int16_t cmd = (int16_t)(-3000);  // tune this 
@@ -360,7 +361,7 @@ static void on_jam_check(TimerHandle_t xTimer)
     is_jammed = (-50 < speed && speed < 50);
 }
 
-void ShooterApp_Init(void) {
+void ShooterApp_Init(const RobotConfig_t *config) {
     memset(&s_last_cmd, 0, sizeof(s_last_cmd));
     memset(&s_last_sensor, 0, sizeof(s_last_sensor));
 
@@ -372,6 +373,9 @@ void ShooterApp_Init(void) {
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
         (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
         s_jam_timer = xTimerCreate("JamTimer", pdMS_TO_TICKS(3000), pdTRUE, NULL, on_jam_check);
+    }
+    if (config) {
+        s_shooter_config = *config;
     }
     s_initialized = true;
 }
