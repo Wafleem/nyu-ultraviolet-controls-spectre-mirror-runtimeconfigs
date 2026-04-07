@@ -14,11 +14,7 @@
 
 // Shooter system parameters
 #define ANTIJAM_ENABLED 0
-#define TURNTABLE_CONST_SPEED 5000      // Turntable speed
-#define SHOOTER_CONST_SPEED 7500     // Shooter wheel speed
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
-#define PUSHER_EXTENDED (int32_t)(2.5f * 8192.0f)
-#define PUSHER_RETRACTED 0
 
 // Shooter controller structure
 typedef struct {

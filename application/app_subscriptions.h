@@ -7,7 +7,7 @@
 
 // Initialize application controllers (event-driven)
 void ChassisApp_Init(void);
-void ShooterApp_Init(void);
+void ShooterApp_Init(const RobotConfig_t *config);
 
 #endif // APP_SUBSCRIPTIONS_H
 
