@@ -143,6 +143,8 @@ static void on_chassis_imu(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(ChassisIMUFeedbackEvent)) {
         memcpy(&s_chassis_imu, ev->data, sizeof(ChassisIMUFeedbackEvent));
+        // Move chassis yaw reading from [0, 3600] to [-180, 180]
+        s_chassis_imu.yaw = s_chassis_imu.yaw / 10 - 180;
     }
 }
 static void on_chassis_calib(const MsgEvent *ev, void *user_data) {
@@ -236,7 +238,8 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
         // No separate chassis IMU on this hardware, so offset is 0
         // (chassis frame == gimbal frame for field-oriented control)
         float gimbal_yaw_norm = normalize_angle_180(sensor->ekf_yaw);
-        float offset_angle = normalize_angle_180(0.0f - gimbal_yaw_norm);
+        float chassis_yaw = normalize_angle_180((float)s_chassis_imu.yaw);    
+        float offset_angle = normalize_angle_180(chassis_yaw - gimbal_yaw_norm);
 
         // Rotate joystick input from gimbal frame to chassis frame
         float vx_c = 0.0f, vy_c = 0.0f;
@@ -264,8 +267,8 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
         } else {
             // Gimbal-follow mode: chassis does NOT auto-rotate, manual wz control
             // Swap vx_c and vy_c to match chassis coordinate system, negate vy for correct direction
-            s_chassis_cmd.vx = vy_c;
-            s_chassis_cmd.vy = -vx_c;
+            s_chassis_cmd.vx = vx_c;
+            s_chassis_cmd.vy = vy_c;
             s_chassis_cmd.wz = wz_n;
             // Enable chassis if any joystick is moved
             s_chassis_cmd.enabled = (vx_raw != 0 || vy_raw != 0 || wz_raw != 0);
