@@ -3,7 +3,6 @@
 #include "gpio.h"
 #include "spi.h"
 #include "usbd_cdc_if.h"
-#include "logger.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,8 +29,6 @@ static int16_t mag_z_buffer[MAG_NOISE_BUFFER_SIZE];
 static uint16_t buffer_index = 0;
 static bool buffers_filled = false;
 
-/* IMU calibration */
-#define IMU_CALIB_SAMPLES 2000
 /* IMU scale factors for current sensor config: accel=±16g, gyro=±2000dps */
 #define IMU_ACCEL_LSB_PER_G 2048.0f
 #define IMU_GYRO_LSB_PER_DPS 16.4f
@@ -69,7 +66,6 @@ static float s_ekf_roll_filtered = 0.0f;
 static float s_ekf_pitch_filtered = 0.0f;
 static float s_ekf_yaw_filtered = 0.0f;
 static float s_ekf_yaw_reset_offset_deg = 0.0f;
-static int16_t gyro_offset[3] = {0, 0, 0};
 
 static void IMU_Init_QuaternionEKF(void);
 static void IMU_ApplyMountRotationXY(float *x, float *y);
@@ -256,51 +252,6 @@ int8_t IMU_Test_WhoAmI(void) {
   return -1;
 }
 
-void IMU_Read(Gimbal_Sensor_Data_t *sensor) {
-  uint8_t raw[12];
-  int8_t status = icm_read_burst(ICM_REG_ACC_XH, raw, 12);
-  if (status != 0) {
-    return;
-  }
-  float accel_x = (float)((int16_t)(raw[0] << 8 | raw[1]));
-  float accel_y = (float)((int16_t)(raw[2] << 8 | raw[3]));
-  float accel_z = (float)((int16_t)(raw[4] << 8 | raw[5]));
-  float gyro_x = (float)((int16_t)(raw[6] << 8 | raw[7]));
-  float gyro_y = (float)((int16_t)(raw[8] << 8 | raw[9]));
-  float gyro_z = (float)((int16_t)(raw[10] << 8 | raw[11]));
-
-  IMU_ApplyMountRotationXY(&accel_x, &accel_y);
-  IMU_ApplyMountRotationXY(&gyro_x, &gyro_y);
-
-  sensor->accel_x = (int16_t)accel_x;
-  sensor->accel_y = (int16_t)accel_y;
-  sensor->accel_z = (int16_t)accel_z;
-  sensor->gyro_x = (int16_t)gyro_x;
-  sensor->gyro_y = (int16_t)gyro_y;
-  sensor->gyro_z = (int16_t)gyro_z;
-}
-
-// Calibrate the gyroscope by sampling it at rest.
-void IMU_Calibrate(void) {
-  for (int i = 0; i < 3; i++) {
-    gyro_offset[i] = 0;
-  }
-
-  for (uint16_t i = 0; i < IMU_CALIB_SAMPLES; i++) {
-    IMU_Read(&Gimbal_Sensor);
-    gyro_offset[0] += Gimbal_Sensor.gyro_x;
-    gyro_offset[1] += Gimbal_Sensor.gyro_y;
-    gyro_offset[2] += Gimbal_Sensor.gyro_z;
-  }
-
-  for (int i = 0; i < 3; i++) {
-    gyro_offset[i] /= IMU_CALIB_SAMPLES;
-  }
-
-  LOG_INFO(LOG_TAG_SYS, "Calibrated (gyro_offset=[%d,%d,%d]rad/s)\r\n",
-           gyro_offset[0], gyro_offset[1], gyro_offset[2]);
-}
-
 void Mag_Save_Biases_To_EPROM(void) {
   // Placeholder for Flash logic — implement if persistent storage is required
 }
@@ -382,7 +333,6 @@ int8_t System_Sensors_Init(void) {
   mlx_write_reg(MLX_REG_RES, 0x001C);
 
   Mag_Calibrate_And_Check_Noise();
-  IMU_Calibrate();
 
   IMU_Init_QuaternionEKF();
 
@@ -435,29 +385,57 @@ void IMU_ResetYawToZero(void) {
 void System_Read_And_Process(void) {
   // static uint8_t mag_yaw_initialized = 0;
   // static float mag_yaw_filtered_deg = 0.0f;
+  uint8_t raw[12];
   uint8_t temp_raw[2];
 
-  IMU_Read(&Gimbal_Sensor);
+  if (icm_read_burst(ICM_REG_ACC_XH, raw, 12) == 0) {
+    float accel_x = (float)((int16_t)(raw[0] << 8 | raw[1]));
+    float accel_y = (float)((int16_t)(raw[2] << 8 | raw[3]));
+    float accel_z = (float)((int16_t)(raw[4] << 8 | raw[5]));
+
+    float gyro_x = (float)((int16_t)(raw[6] << 8 | raw[7]));
+    float gyro_y = (float)((int16_t)(raw[8] << 8 | raw[9]));
+    float gyro_z = (float)((int16_t)(raw[10] << 8 | raw[11]));
+
+    IMU_ApplyMountRotationXY(&accel_x, &accel_y);
+    IMU_ApplyMountRotationXY(&gyro_x, &gyro_y);
+
+    Gimbal_Sensor.accel_x = (int16_t)accel_x;
+    Gimbal_Sensor.accel_y = (int16_t)accel_y;
+    Gimbal_Sensor.accel_z = (int16_t)accel_z;
+
+    Gimbal_Sensor.gyro_x = (int16_t)gyro_x;
+    Gimbal_Sensor.gyro_y = (int16_t)gyro_y;
+    Gimbal_Sensor.gyro_z = (int16_t)gyro_z;
+  }
+
   if (icm_read_burst(ICM_REG_TEMP_H, temp_raw, 2) == 0) {
     Gimbal_Sensor.temp_raw = (int16_t)(temp_raw[0] << 8 | temp_raw[1]);
     Gimbal_Sensor.temp_c = (Gimbal_Sensor.temp_raw / 512.0f) + 23.0f;
   }
 
-  // Calibrate IMU values
   float ax = Gimbal_Sensor.accel_x / 2048.0f;
   float ay = Gimbal_Sensor.accel_y / 2048.0f;
   float az = Gimbal_Sensor.accel_z / 2048.0f;
   float accel_norm_g = sqrtf(ax * ax + ay * ay + az * az);
-  float gx_lsb = (float)Gimbal_Sensor.gyro_x - gyro_offset[0];
-  float gy_lsb = (float)Gimbal_Sensor.gyro_y - gyro_offset[1];
-  float gz_lsb = (float)Gimbal_Sensor.gyro_z - gyro_offset[2];
-  IMU_ApplyGyroTempComp(Gimbal_Sensor.temp_c, accel_norm_g, &gx_lsb, &gy_lsb, &gz_lsb);
-  Gimbal_Sensor.gyro_x = (int16_t)gx_lsb;
-  Gimbal_Sensor.gyro_y = (int16_t)gy_lsb;
-  Gimbal_Sensor.gyro_z = (int16_t)gz_lsb;
+  // float gyro_norm_dps = 0.0f;
 
-  // float gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb * gz_lsb) /
-  //                 IMU_GYRO_LSB_PER_DPS;
+  {
+    float gx_lsb = (float)Gimbal_Sensor.gyro_x;
+    float gy_lsb = (float)Gimbal_Sensor.gyro_y;
+    float gz_lsb = (float)Gimbal_Sensor.gyro_z;
+
+    IMU_ApplyGyroTempComp(Gimbal_Sensor.temp_c, accel_norm_g, &gx_lsb, &gy_lsb,
+                          &gz_lsb);
+
+    Gimbal_Sensor.gyro_x = (int16_t)gx_lsb;
+    Gimbal_Sensor.gyro_y = (int16_t)gy_lsb;
+    Gimbal_Sensor.gyro_z = (int16_t)gz_lsb;
+
+    // gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb *
+    // gz_lsb) /
+    //                 IMU_GYRO_LSB_PER_DPS;
+  }
 
   Gimbal_Sensor.roll = atan2f(ay, az) * 180.0f / M_PI;
   Gimbal_Sensor.pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * 180.0f / M_PI;

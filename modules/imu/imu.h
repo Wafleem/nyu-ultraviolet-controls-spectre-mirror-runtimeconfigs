@@ -120,9 +120,7 @@ extern Gimbal_Sensor_Data_t Gimbal_Sensor;
 extern volatile uint8_t imu_initialized;
 
 // Expose the original API names used by main.c
-void IMU_Read(Gimbal_Sensor_Data_t *sensor);
 int8_t IMU_Test_WhoAmI(void);
-void IMU_Calibrate(void);
 void Mag_Save_Biases_To_EPROM(void);
 void Mag_Calibrate_And_Check_Noise(void);
 int8_t System_Sensors_Init(void);
