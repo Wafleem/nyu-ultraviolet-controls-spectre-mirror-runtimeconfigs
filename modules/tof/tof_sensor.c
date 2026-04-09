@@ -154,7 +154,7 @@ void ToF_Task(void) {
   /* Print every 10th reading (~2Hz at 20Hz poll rate) */
   if (++tof_print_counter % 10 == 0) {
     LOG_INFO(
-        LOG_TAG_SYS,
+        LOG_TAG_IMU,
         "ToF: %dmm status=%d sig=%d amb=%d EKF: roll=%.2f pitch=%.2f yaw=%.2f",
         result.Distance, result.Status, result.SigPerSPAD, result.Ambient,
         (double)Gimbal_Sensor.ekf_roll, (double)Gimbal_Sensor.ekf_pitch,
