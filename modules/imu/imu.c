@@ -420,6 +420,11 @@ void System_Read_And_Process(void) {
   float accel_norm_g = sqrtf(ax * ax + ay * ay + az * az);
   // float gyro_norm_dps = 0.0f;
 
+  // Deadband gyroscope
+  if (fabsf(Gimbal_Sensor.gyro_x) <= 1) Gimbal_Sensor.gyro_x = 0;
+  if (fabsf(Gimbal_Sensor.gyro_y) <= 1) Gimbal_Sensor.gyro_y = 0;
+  if (fabsf(Gimbal_Sensor.gyro_z) <= 1) Gimbal_Sensor.gyro_z = 0;
+
   {
     float gx_lsb = (float)Gimbal_Sensor.gyro_x;
     float gy_lsb = (float)Gimbal_Sensor.gyro_y;
