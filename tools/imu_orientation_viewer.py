@@ -27,6 +27,11 @@ ANGLES_RE = re.compile(
 EKF_RE = re.compile(
     r"EKF:\s*Roll:\s*(-?\d+(?:\.\d+)?)\s*Pitch:\s*(-?\d+(?:\.\d+)?)\s*Yaw:\s*(-?\d+(?:\.\d+)?)"
 )
+TOF_EKF_RE = re.compile(
+    r"ToF:\s*\d+mm.*?EKF:\s*roll\s*=\s*(-?\d+(?:\.\d+)?)\s*"
+    r"pitch\s*=\s*(-?\d+(?:\.\d+)?)\s*yaw\s*=\s*(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 
 
 def parse_line(line: str, state: dict):
@@ -55,6 +60,11 @@ def parse_line(line: str, state: dict):
             ekf_yaw = 0.0
 
         return -ax, -ay, az, -gx, -gy, gz, -mx, -my, mz, -ekf_roll, -ekf_pitch, ekf_yaw
+
+    m = TOF_EKF_RE.search(line)
+    if m:
+        ekf_roll, ekf_pitch, ekf_yaw = map(float, m.groups())
+        return 0, 0, 0, 0, 0, 0, 0, 0, 0, -ekf_roll, -ekf_pitch, ekf_yaw
 
     m = ACCEL_RE.search(line)
     if m:

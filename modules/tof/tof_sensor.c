@@ -7,6 +7,7 @@
 
 #include "tof_sensor.h"
 #include "VL53L1X_api.h"
+#include "imu.h"
 #include "logger.h"
 #include "message_center.h"
 #include <string.h>
@@ -21,6 +22,7 @@
 
 /* 8-bit I2C address (7-bit 0x29 << 1) */
 #define TOF_I2C_ADDR 0x52
+#define TOF_RESET_THRESHOLD_MM 25
 
 /* Published data */
 ToF_Data_t ToF_Data;
@@ -107,6 +109,7 @@ int8_t ToF_Init(void) {
 }
 
 static uint32_t tof_print_counter = 0;
+static uint8_t tof_reset_latched = 0;
 
 void ToF_Task(void) {
   if (!tof_initialized)
@@ -137,11 +140,25 @@ void ToF_Task(void) {
   ToF_Data.ambient_rate = result.Ambient;
   ToF_Data.valid = (result.Status == 0) ? 1 : 0;
 
+  if (ToF_Data.valid && result.Distance < TOF_RESET_THRESHOLD_MM) {
+    if (!tof_reset_latched) {
+      IMU_ResetYawToZero();
+      tof_reset_latched = 1;
+      LOG_INFO(LOG_TAG_SYS, "ToF=%dmm < %dmm, EKF yaw reset to zero",
+               result.Distance, TOF_RESET_THRESHOLD_MM);
+    }
+  } else {
+    tof_reset_latched = 0;
+  }
+
   /* Print every 10th reading (~2Hz at 20Hz poll rate) */
   if (++tof_print_counter % 10 == 0) {
-    LOG_INFO(LOG_TAG_SYS, "ToF: %dmm status=%d sig=%d amb=%d",
-             result.Distance, result.Status, result.SigPerSPAD,
-             result.Ambient);
+    LOG_INFO(
+        LOG_TAG_SYS,
+        "ToF: %dmm status=%d sig=%d amb=%d EKF: roll=%.2f pitch=%.2f yaw=%.2f",
+        result.Distance, result.Status, result.SigPerSPAD, result.Ambient,
+        (double)Gimbal_Sensor.ekf_roll, (double)Gimbal_Sensor.ekf_pitch,
+        (double)Gimbal_Sensor.ekf_yaw);
   }
 
   /* Publish to message center */
