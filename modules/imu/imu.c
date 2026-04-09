@@ -60,6 +60,12 @@ typedef struct {
 } GyroTempCompState_t;
 
 static GyroTempCompState_t s_gyro_temp_comp = {0};
+static uint32_t s_last_update_tick = 0;
+static uint8_t s_ekf_output_initialized = 0;
+static float s_ekf_roll_filtered = 0.0f;
+static float s_ekf_pitch_filtered = 0.0f;
+static float s_ekf_yaw_filtered = 0.0f;
+static float s_ekf_yaw_reset_offset_deg = 0.0f;
 
 static void IMU_Init_QuaternionEKF(void);
 static void IMU_ApplyMountRotationXY(float *x, float *y);
@@ -365,14 +371,20 @@ static void IMU_Init_QuaternionEKF(void) {
   Gimbal_Sensor.ekf_yaw = 0.0f;
 }
 
+void IMU_ResetYawToZero(void) {
+  /* Keep current roll/pitch from EKF and only re-zero the reported yaw. */
+  s_ekf_yaw_reset_offset_deg = IMU_WrapAngleDeg(-QEKF_INS.Yaw);
+
+  if (s_ekf_output_initialized) {
+    s_ekf_yaw_filtered = 0.0f;
+  }
+
+  Gimbal_Sensor.ekf_yaw = 0.0f;
+}
+
 void System_Read_And_Process(void) {
-  static uint32_t last_update_tick = 0;
   // static uint8_t mag_yaw_initialized = 0;
   // static float mag_yaw_filtered_deg = 0.0f;
-  static uint8_t ekf_output_initialized = 0;
-  static float ekf_roll_filtered = 0.0f;
-  static float ekf_pitch_filtered = 0.0f;
-  static float ekf_yaw_filtered = 0.0f;
   uint8_t raw[12];
   uint8_t temp_raw[2];
 
@@ -420,7 +432,8 @@ void System_Read_And_Process(void) {
     Gimbal_Sensor.gyro_y = (int16_t)gy_lsb;
     Gimbal_Sensor.gyro_z = (int16_t)gz_lsb;
 
-    // gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb * gz_lsb) /
+    // gyro_norm_dps = sqrtf(gx_lsb * gx_lsb + gy_lsb * gy_lsb + gz_lsb *
+    // gz_lsb) /
     //                 IMU_GYRO_LSB_PER_DPS;
   }
 
@@ -428,9 +441,12 @@ void System_Read_And_Process(void) {
   Gimbal_Sensor.pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * 180.0f / M_PI;
 
   {
-    float gx_rad = (Gimbal_Sensor.gyro_x / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
-    float gy_rad = (Gimbal_Sensor.gyro_y / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
-    float gz_rad = (Gimbal_Sensor.gyro_z / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
+    float gx_rad =
+        (Gimbal_Sensor.gyro_x / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
+    float gy_rad =
+        (Gimbal_Sensor.gyro_y / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
+    float gz_rad =
+        (Gimbal_Sensor.gyro_z / IMU_GYRO_LSB_PER_DPS) * (M_PI / 180.0f);
 
     float ax_mps2 = ax * IMU_GRAVITY_MPS2;
     float ay_mps2 = ay * IMU_GRAVITY_MPS2;
@@ -438,10 +454,10 @@ void System_Read_And_Process(void) {
 
     uint32_t current_tick = HAL_GetTick();
     float dt = 0.005f;
-    if (last_update_tick != 0) {
-      dt = (current_tick - last_update_tick) * 0.001f;
+    if (s_last_update_tick != 0) {
+      dt = (current_tick - s_last_update_tick) * 0.001f;
     }
-    last_update_tick = current_tick;
+    s_last_update_tick = current_tick;
 
     if (dt < 0.0005f)
       dt = 0.0005f;
@@ -467,7 +483,8 @@ void System_Read_And_Process(void) {
     Gimbal_Sensor.mag_z =
         (int16_t)(mraw[5] << 8 | mraw[6]) - Gimbal_Sensor.mag_bias_z;
 
-    Mag_Update_Noise(Gimbal_Sensor.mag_x, Gimbal_Sensor.mag_y, Gimbal_Sensor.mag_z);
+    Mag_Update_Noise(Gimbal_Sensor.mag_x, Gimbal_Sensor.mag_y,
+  Gimbal_Sensor.mag_z);
 
     // Mag yaw assist (mag values intentionally not mount-rotated)
     {
@@ -478,8 +495,8 @@ void System_Read_And_Process(void) {
       if (mag_xy_norm2 > 1.0f && gyro_norm_dps < IMU_MAG_ASSIST_MAX_GYRO_DPS &&
           Gimbal_Sensor.mag_noise < IMU_MAG_ASSIST_MAX_NOISE) {
         float mag_yaw_raw_deg =
-            atan2f((float)Gimbal_Sensor.mag_y, (float)Gimbal_Sensor.mag_x) * 180.0f /
-            M_PI;
+            atan2f((float)Gimbal_Sensor.mag_y, (float)Gimbal_Sensor.mag_x) *
+  180.0f / M_PI;
 
         if (!mag_yaw_initialized) {
           mag_yaw_filtered_deg = mag_yaw_raw_deg;
@@ -505,25 +522,25 @@ void System_Read_And_Process(void) {
   {
     float raw_roll = QEKF_INS.Pitch;
     float raw_pitch = QEKF_INS.Roll;
-    float raw_yaw = QEKF_INS.Yaw;
+    float raw_yaw = IMU_WrapAngleDeg(QEKF_INS.Yaw + s_ekf_yaw_reset_offset_deg);
 
-    if (!ekf_output_initialized) {
-      ekf_roll_filtered = raw_roll;
-      ekf_pitch_filtered = raw_pitch;
-      ekf_yaw_filtered = raw_yaw;
-      ekf_output_initialized = 1;
+    if (!s_ekf_output_initialized) {
+      s_ekf_roll_filtered = raw_roll;
+      s_ekf_pitch_filtered = raw_pitch;
+      s_ekf_yaw_filtered = raw_yaw;
+      s_ekf_output_initialized = 1;
     } else {
-      ekf_roll_filtered =
-          IMU_AngleLerpDeg(ekf_roll_filtered, raw_roll, IMU_EKF_OUTPUT_ALPHA);
-      ekf_pitch_filtered =
-          IMU_AngleLerpDeg(ekf_pitch_filtered, raw_pitch, IMU_EKF_OUTPUT_ALPHA);
-      ekf_yaw_filtered =
-          IMU_AngleLerpDeg(ekf_yaw_filtered, raw_yaw, IMU_EKF_OUTPUT_ALPHA);
+      s_ekf_roll_filtered =
+          IMU_AngleLerpDeg(s_ekf_roll_filtered, raw_roll, IMU_EKF_OUTPUT_ALPHA);
+      s_ekf_pitch_filtered = IMU_AngleLerpDeg(s_ekf_pitch_filtered, raw_pitch,
+                                              IMU_EKF_OUTPUT_ALPHA);
+      s_ekf_yaw_filtered =
+          IMU_AngleLerpDeg(s_ekf_yaw_filtered, raw_yaw, IMU_EKF_OUTPUT_ALPHA);
     }
 
-    Gimbal_Sensor.ekf_roll = ekf_roll_filtered;
-    Gimbal_Sensor.ekf_pitch = ekf_pitch_filtered;
-    Gimbal_Sensor.ekf_yaw = ekf_yaw_filtered;
+    Gimbal_Sensor.ekf_roll = s_ekf_roll_filtered;
+    Gimbal_Sensor.ekf_pitch = s_ekf_pitch_filtered;
+    Gimbal_Sensor.ekf_yaw = s_ekf_yaw_filtered;
   }
 }
 void Mag_Update_Noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
