@@ -43,7 +43,7 @@ static float s_spin_hold_yaw_deg = 0.0f;       // target absolute yaw (deg, gimb
 //  - Chassis: movement direction follows gimbal orientation (field-oriented control).
 //  - Chassis does NOT auto-spin (wz controlled manually by joystick).
 //  - Gimbal: normal manual control.
-static bool s_gimbal_follow_mode = false;
+static bool s_gimbal_follow_mode = true;
 
 
 
@@ -464,7 +464,6 @@ void CmdController_Task(uint32_t current_tick) {
     // If RC is unhealthy, disable all modes and pass NULL (robot stops)
     if (!rc_healthy) {
         s_spin_mode = false;
-        s_gimbal_follow_mode = false;
 
         // Disable chassis and shooter (no RC = no movement/shooting)
         s_chassis_cmd.vx = 0.0f;
@@ -495,7 +494,7 @@ void CmdController_Task(uint32_t current_tick) {
     // Mid Left Down  -> Small gyro mode (chassis auto-spins, gimbal holds yaw)
     // Far Left Down  -> Gimbal-follow mode (movement follows gimbal orientation, no auto-spin)
     // Both up -> Normal mode (chassis frame movement)
-    bool gimbal_follow_now = switch_is_down(s_last_rc.rc.s[0]);
+    bool sprint_now = switch_is_down(s_last_rc.rc.s[0]);
     bool spin_now = switch_is_down(s_last_rc.rc.s[1]);
     bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
@@ -505,7 +504,6 @@ void CmdController_Task(uint32_t current_tick) {
         s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw;
     }
 
-    s_gimbal_follow_mode = gimbal_follow_now;
     s_spin_mode = spin_now;
 
     // Process control input (rc_ptr is guaranteed non-NULL here)
