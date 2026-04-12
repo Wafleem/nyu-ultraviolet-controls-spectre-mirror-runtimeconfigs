@@ -185,6 +185,26 @@ void CAN_Manager_ProcessCallback(CAN_Manager_t *manager, FDCAN_HandleTypeDef *hf
         };
         (void)MsgCenter_PublishFromISR(TOPIC_CHASSIS_POWER, &pev, sizeof(pev));
     }
+    /* Supercap (Wraith) telemetry. Per Controls_Supercap CAN_PROTOCOL.md:
+     *   0x405 (DLC 8): bytes 0-3 = pmm_w float LE, bytes 4-7 = chassis_w float LE
+     *   0x406 (DLC 5): bytes 0-3 = voltage_pct float LE, byte 4 = mode uint8
+     * Both are little-endian. Parsed BEFORE the dlc!=8 early return because
+     * 0x406 has DLC 5. Latest values are merged into a static struct so each
+     * frame republishes a complete snapshot. */
+    if (rx.IdType == FDCAN_STANDARD_ID &&
+        (rx.Identifier == 0x405 || rx.Identifier == 0x406)) {
+        static SupercapFeedbackEvent s_sc = {0};
+        if (rx.Identifier == 0x405 && dlc >= 8) {
+            memcpy(&s_sc.pmm_w,     &d[0], sizeof(float));
+            memcpy(&s_sc.chassis_w, &d[4], sizeof(float));
+        } else if (rx.Identifier == 0x406 && dlc >= 5) {
+            memcpy(&s_sc.voltage_pct, &d[0], sizeof(float));
+            s_sc.mode = d[4];
+        }
+        s_sc.tick_ms = current_tick;
+        (void)MsgCenter_PublishFromISR(TOPIC_SUPERCAP_FEEDBACK, &s_sc, sizeof(s_sc));
+    }
+
     /* Only process standard ID frames with 8 bytes */
     if (rx.IdType != FDCAN_STANDARD_ID || dlc != 8) {
         return;
@@ -443,6 +463,34 @@ HAL_StatusTypeDef CAN_Manager_FlushTx(CAN_Manager_t *manager)
     }
 
     return result;
+}
+
+/* Send Wraith (supercap) discharge command on CAN1.
+ * Standard ID 0x407, DLC 1. Per Controls_Supercap CAN_PROTOCOL.md. */
+HAL_StatusTypeDef CAN_Manager_SendSupercapDischarge(bool enable)
+{
+    if (!can1_manager.initialized || can1_manager.hfdcan == NULL) {
+        return HAL_ERROR;
+    }
+
+    FDCAN_TxHeaderTypeDef tx;
+    memset(&tx, 0, sizeof(tx));
+    tx.Identifier          = 0x407;
+    tx.IdType              = FDCAN_STANDARD_ID;
+    tx.TxFrameType         = FDCAN_DATA_FRAME;
+    tx.DataLength          = FDCAN_DLC_BYTES_1;
+    tx.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx.BitRateSwitch       = FDCAN_BRS_OFF;
+    tx.FDFormat            = FDCAN_CLASSIC_CAN;
+    tx.TxEventFifoControl  = FDCAN_NO_TX_EVENTS;
+
+    uint8_t d[1] = { enable ? 0x01u : 0x00u };
+
+    HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(can1_manager.hfdcan, &tx, d);
+    if (st == HAL_OK) can1_manager.tx_ok++;
+    else              can1_manager.tx_err++;
+    can1_manager.last_tx_time = HAL_GetTick();
+    return st;
 }
 
 CAN_Manager_t* CAN_Manager_FromHandle(FDCAN_HandleTypeDef *hfdcan)

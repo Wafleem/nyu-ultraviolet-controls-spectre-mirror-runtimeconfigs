@@ -15,8 +15,9 @@
 
 #define CHASSIS_STEER_COUNT 2
 
-// Chassis control parameters
-#define CHASSIS_DEMO_TARGET_SPEED 7000
+// Chassis speed limits (RPM) — runtime-switched for supercap boost
+#define CHASSIS_SPEED_NORMAL   7000  // Normal max speed (PMM only)
+#define CHASSIS_SPEED_SUPERCAP 8500  // Boosted speed when supercap is discharging
 
 
 // Chassis controller structure

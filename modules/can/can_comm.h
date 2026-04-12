@@ -32,6 +32,17 @@ typedef struct {
     float power;    // watts
 } PowerFeedbackEvent;
 
+// Supercap (Wraith) telemetry parsed from CAN IDs 0x405 and 0x406.
+// Per Controls_Supercap/Datasheets/CAN_PROTOCOL.md.
+typedef struct {
+    float    pmm_w;        // 0x405 bytes 0-3, PMM input power (W)
+    float    chassis_w;    // 0x405 bytes 4-7, chassis output power (W)
+    float    voltage_pct;  // 0x406 bytes 0-3, supercap voltage % (0..100)
+    uint8_t  mode;         // 0x406 byte 4, charger mode
+                           // 0=DISABLED, 1=CHARGING, 2=DISCHARGING, 3=UNDERVOLTAGE
+    uint32_t tick_ms;      // last update tick (HAL_GetTick)
+} SupercapFeedbackEvent;
+
 typedef struct {
     int16_t roll;
     int16_t pitch;

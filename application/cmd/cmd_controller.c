@@ -6,6 +6,7 @@
 #include "referee.h"
 #include "ref_structs.h"
 #include "can_comm.h"
+#include "can_manager.h"
 #include "printing.h"
 #include "logger.h"
 #include "logger_config.h"
@@ -191,12 +192,6 @@ static void on_can_rx(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(CanRxFrame)) {
         memcpy(&s_last_can, ev->data, sizeof(CanRxFrame));
-        LOG_INFO(LOG_TAG_CAN, "ID: %x, Data (%u bytes): %x %x %x %x %x %x %x %x",
-                s_last_can.std_id, s_last_can.dlc,
-                s_last_can.data[0], s_last_can.data[1],
-                s_last_can.data[2], s_last_can.data[3],
-                s_last_can.data[4], s_last_can.data[5],
-                s_last_can.data[6], s_last_can.data[7]);
     }
 }
 
@@ -494,7 +489,9 @@ void CmdController_Task(uint32_t current_tick) {
     // Mid Left Down  -> Small gyro mode (chassis auto-spins, gimbal holds yaw)
     // Far Left Down  -> Gimbal-follow mode (movement follows gimbal orientation, no auto-spin)
     // Both up -> Normal mode (chassis frame movement)
-    bool sprint_now = switch_is_down(s_last_rc.rc.s[0]);
+    // Left switch s[0] is the supercap discharge trigger.
+    // Switch DOWN = discharge, anything else = charge.
+    bool supercap_discharge_now = switch_is_down(s_last_rc.rc.s[0]);
     bool spin_now = switch_is_down(s_last_rc.rc.s[1]);
     bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
@@ -504,6 +501,19 @@ void CmdController_Task(uint32_t current_tick) {
         s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw;
     }
 
+    // Supercap (Wraith) discharge command edge detection. Send only on transitions.
+    static bool s_supercap_discharge_prev = false;
+    static bool s_supercap_initialized    = false;
+    if (!s_supercap_initialized || supercap_discharge_now != s_supercap_discharge_prev) {
+        (void)CAN_Manager_SendSupercapDischarge(supercap_discharge_now);
+        LOG_INFO(LOG_TAG_CAN, "[Wraith] discharge cmd -> %s\r\n",
+                 supercap_discharge_now ? "START" : "STOP");
+        s_supercap_discharge_prev = supercap_discharge_now;
+        s_supercap_initialized    = true;
+    }
+
+    // s[0] is the supercap trigger — gimbal-follow mode disabled.
+    s_gimbal_follow_mode = false;
     s_spin_mode = spin_now;
 
     // Process control input (rc_ptr is guaranteed non-NULL here)
