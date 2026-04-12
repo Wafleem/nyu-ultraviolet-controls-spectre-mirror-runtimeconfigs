@@ -1,21 +1,22 @@
-#ifndef INFANTRY_H
-#define INFANTRY_H
+#ifndef STANDARD_2026_H
+#define STANDARD_2026_H
 
 #include "config_types.h"
 
 /**
- * @brief Standard Infantry Robot Configuration
+ * @brief 2026 Standard Robot Configuration
  *
  * Current configuration:
  * - 4x M3508 chassis motors (mecanum wheels) on CAN1
- * - 2x GM6020 gimbal motors (yaw + pitch) on CAN1
- * - 2x M3508 + 1x M2006 shooter motors on CAN2
+ * - 1x M3508 gimbal yaw (belt drive) on CAN1
+ * - 1x GM6020 gimbal pitch on CAN1
+ * - 1x M2006 P36 indexer + 2x M3508 shooter friction wheels on CAN2
  */
 
 // Motor configuration array
-static const MotorConfig_t g_motor_configs_infantry_standard[] = {
-    // ========== CHASSIS MOTORS (4x M3508) on CAN1 ==========
-    // Front-left chassis motor (ID 0)
+static const MotorConfig_t g_motor_configs_standard_2026[] = {
+    // =CHASSIS MOTORS (4x M3508)=
+    // Front-left chassis motor
     {
         .motor_id = 0,
         .type = MOTOR_TYPE_M3508,
@@ -24,7 +25,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .can_rx_id = 0x201,
         .can_tx_id = 0x200,
         .tx_slot = 0,
-        .direction = -1,  // Mecanum kinematics correction
+        .direction = -1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
@@ -32,7 +33,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }           // Not used
     },
 
-    // Front-right chassis motor (ID 1)
+    // Front-right chassis motor
     {
         .motor_id = 1,
         .type = MOTOR_TYPE_M3508,
@@ -49,7 +50,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
-    // Back-left chassis motor (ID 2)
+    // Back-left chassis motor
     {
         .motor_id = 2,
         .type = MOTOR_TYPE_M3508,
@@ -66,7 +67,7 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
-    // Back-right chassis motor (ID 3)
+    // Back-right chassis motor
     {
         .motor_id = 3,
         .type = MOTOR_TYPE_M3508,
@@ -83,74 +84,71 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
-    // ========== GIMBAL MOTORS (2x GM6020) on CAN1 ==========
-    // Yaw gimbal motor (rotation) - 1 blink
+    // =GIMBAL MOTORS=
+    // Yaw motor - M3508 with belt drive, ESC ID 5, 5 blinks
     {
-        .motor_id = 4,  // Internal ID
-        .type = MOTOR_TYPE_GM6020,
+        .motor_id = 4,
+        .type = MOTOR_TYPE_M3508,
         .role = MOTOR_ROLE_GIMBAL_YAW,
-        .can_channel = CAN_CHANNEL_1,  // CAN1 - same bus as chassis
-        .can_rx_id = 0x205,  // GM6020: 0x204 + 1 = 0x205
-        .can_tx_id = 0x1FF,  // Motors 1-4 use 0x1FF
-        .tx_slot = 0,        // Motor 1 -> slot 0 (motor_id - 1)
+        .can_channel = CAN_CHANNEL_1,
+        .can_rx_id = 0x205,
+        .can_tx_id = 0x1FF,
+        .tx_slot = 0,
         .direction = +1,
-        .limits.gm6020 = {
-            .angle_min = 0.0f,
-            .angle_max = 8192.0f,
-            .gravity_compensation = 0.0f,
-            .initial_angle = -1.0f //4096.0f  // Center position (needs calibration) Currently set to -1 to skip
+        .limits.m3508 = {
+            .speed_limit = 10000.0f
         },
-        .pid_outer = { 12.0f, 0.1f, 0.03f, 300.0f, 300.0f },    // IMU Yaw angle PID
-        // .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // GM6020 Yaw angle PID
-        .pid_inner = { 20.0f, 0.0f, 3.0f, 30000.0f, 4000.0f }    // Yaw speed PID
+        .pid_outer = { 0.5f, 0.0f, 0.0f, 300.0f, 150.0f },    // Yaw angle PID (needs tuning)
+        .pid_inner = { 5.0f, 0.0f, 0.0f, 16000.0f, 4000.0f }    // Yaw speed PID (needs tuning)
     },
 
-    // Pitch gimbal motor (up/down) - 2 blinks
+    // Pitch gimbal motor (up/down) - GM6020 ID 2, 2 blinks
     {
-        .motor_id = 5,  // Internal ID
+        .motor_id = 5,
         .type = MOTOR_TYPE_GM6020,
         .role = MOTOR_ROLE_GIMBAL_PITCH,
-        .can_channel = CAN_CHANNEL_1,  // CAN1 - same bus as chassis
-        .can_rx_id = 0x206,  // GM6020: 0x204 + 2 = 0x206
-        .can_tx_id = 0x1FF,  // Motors 1-4 use 0x1FF
-        .tx_slot = 1,        // Motor 2 -> slot 1 (motor_id - 1)
-        .direction = -1,     // Pitch direction correction
+        .can_channel = CAN_CHANNEL_2,
+        .can_rx_id = 0x206,  // GM6020 ID 2: 0x204 + 2
+        .can_tx_id = 0x1FF,  // GM6020 motors 1-4
+        .tx_slot = 1,
+        .direction = -1,
         .limits.gm6020 = {
-            .angle_min = 6700.0f,
-            .angle_max = 7900.0f,
-            .gravity_compensation = 10000.0f,  // Gravity compensation for pitch
-            .initial_angle = 7400.0f  // Center position (needs calibration)
+            .angle_min = 0.0f,      // TODO: Move pitch to min physical limit, read encoder value
+            .angle_max = 8192.0f,  // TODO: Move pitch to max physical limit, read encoder value
+            .gravity_compensation = 0.0f,  // TODO: Increase until pitch holds position against gravity without PID
+            .initial_angle = -1.0f  // Disabled (needs calibration)
         },
-        .pid_outer = { 90.0f, 5.0f, 3.22f, 30000.0f, 25000.0f },  // Pitch PID
+        .pid_outer = { 60.0f, 0.0f, 0.0f, 30000.0f, 25000.0f },  // Pitch PID (Sampled lower from infantry standard)
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
-    // ========== SHOOTER MOTORS (2x M3508, 1x M2006) on CAN2 ==========
-    // Feeder motor
+    // ==SHOOTER MOTORS (1x M2006 indexer + 2x M3508 friction)==
+    // Indexer motor - M2006 P36, feeds directly into shooter
     {
         .motor_id = 6,
         .type = MOTOR_TYPE_M2006,
         .role = MOTOR_ROLE_SHOOTER_FEED,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x207,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 2,
+        .can_rx_id = 0x201,  // ESC ID 1 on CAN2
+        .can_tx_id = 0x200,
+        .tx_slot = 0,
         .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {5.0f, 1.0f, 0.0f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}},
+        .pid_outer = { 2.0f, 0.0f, 0.0f, 10000.0f, 5000.0f },
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+    },
 
-    // Friction wheel 1
+    // Friction wheel 1 - M3508
     {
         .motor_id = 7,
         .type = MOTOR_TYPE_M3508,
         .role = MOTOR_ROLE_SHOOTER_FRICTION,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x205,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 0,
+        .can_rx_id = 0x202,
+        .can_tx_id = 0x200,
+        .tx_slot = 1,
         .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
@@ -159,35 +157,36 @@ static const MotorConfig_t g_motor_configs_infantry_standard[] = {
         .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
     },
 
-    // Friction wheel 2
+    // Friction wheel 2 - M3508
     {
         .motor_id = 8,
         .type = MOTOR_TYPE_M3508,
         .role = MOTOR_ROLE_SHOOTER_FRICTION,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x206,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 1,
+        .can_rx_id = 0x203,
+        .can_tx_id = 0x200,
+        .tx_slot = 2,
         .direction = -1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
         .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}}
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+    }
 };
 
 // Robot configuration structure
-static const RobotConfig_t g_robot_config_infantry_standard = {
-    .name = "Infantry",
+static const RobotConfig_t g_robot_config_standard_2026 = {
+    .name = "2026_Standard",
     .chassis_motor_count = 4,
     .gimbal_motor_count = 2,
     .shooter_motor_count = 3,
-    .motor_configs = g_motor_configs_infantry_standard,
+    .motor_configs = g_motor_configs_standard_2026,
     .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
     .enable_imu_calibration = 0,
-    .feeder_speed = 5000.0f,
-    .friction_wheel_speed = 7500.0f,
+    .feeder_speed = 3000.0f,
+    .friction_wheel_speed = 4500.0f,
     .pusher_extended_angle = 0.0f,
 };
 
-#endif // INFANTRY_H
+#endif // STANDARD_2026_H
