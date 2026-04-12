@@ -12,15 +12,42 @@
 
 #define MOTOR_FEEDBACK_TIMEOUT_MS (100U)
 
+// PMM power threshold: during supercap discharge, PMM draws idle trickle power (~1.6W).
+// Only engage power scaling when PMM is actually delivering significant power.
+#define PMM_TRICKLE_THRESHOLD_W 2.0f
+
 typedef struct { float x; float y; } Pair;
+
+/**
+ * @brief Get PMM power limit in watts based on robot type
+ *
+ * Per RoboMaster rules: Hero/Sentry = 100W, Standard = 75W.
+ * Default to 80W for unknown/pre-identified robots.
+ */
+static float get_pmm_power_limit_w(robot_id_t id)
+{
+    switch (id) {
+        case RED_HERO:    case BLUE_HERO:
+        case RED_SENTRY:  case BLUE_SENTRY:
+            return 100.0f;
+        case RED_STANDARD_1:  case RED_STANDARD_2:  case RED_STANDARD_3:
+        case BLUE_STANDARD_1: case BLUE_STANDARD_2: case BLUE_STANDARD_3:
+            return 75.0f;
+        default:
+            return 80.0f;
+    }
+}
 
 // Static variables for app wrapper
 static ChassisCmd s_last_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
 static ChassisController s_ctrl;
-static PowerFeedbackEvent s_last_power;
+static SupercapFeedbackEvent s_last_supercap;
 static robot_status_t s_last_robot_status;
 static bool s_initialized = false;
+
+// Chassis speed limit: switches between normal and supercap-boosted
+static int s_chassis_max_speed = CHASSIS_SPEED_NORMAL;
 
 // Chassis motor configuration (dynamically assigned during init)
 static uint8_t s_chassis_motor_ids[CHASSIS_MOTOR_COUNT];
@@ -77,7 +104,7 @@ void ChassisController_Update(ChassisController *controller, Gimbal_Sensor_Data_
     float vx_norm = s_last_cmd.vx;
     float vy_norm = s_last_cmd.vy;
     float wz_norm = s_last_cmd.wz;
-    float scale = (float)CHASSIS_DEMO_TARGET_SPEED / 2.0f;
+    float scale = (float)s_chassis_max_speed / 2.0f;
     float omega = wz_norm * scale;
 
     // Coordinate transformation is already done in cmd_controller for spin mode
@@ -121,9 +148,37 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
             current_tick
         );
         controller->output_currents[i] = motor_current;
+    }
 
-        // Send motor current (module layer handles CAN)
-        MotorDriver_SendCurrent(s_chassis_motor_ids[i], motor_current);
+    // ===== SUPERCAP SPEED BOOST & PMM POWER LIMITING =====
+    bool supercap_discharging = (s_last_supercap.mode == 2);  // DISCHARGING
+
+    // Update speed limit: raise when supercap is powering chassis
+    s_chassis_max_speed = supercap_discharging ? CHASSIS_SPEED_SUPERCAP : CHASSIS_SPEED_NORMAL;
+
+    // PMM power limiting — scale currents down to stay within per-robot power budget.
+    // Only engage when PMM is actively delivering power (>1.0W threshold).
+    // During supercap discharge, PMM draws only trickle power (~0.3-0.4W), so we skip.
+    if (!supercap_discharging && s_last_supercap.pmm_w > PMM_TRICKLE_THRESHOLD_W) {
+        float limit_w = get_pmm_power_limit_w((robot_id_t)s_last_robot_status.robot_id);
+        float target_w = limit_w * 0.90f;  // 90% headroom before hard cap
+
+        if (s_last_supercap.pmm_w > target_w) {
+            float ratio = target_w / s_last_supercap.pmm_w;
+            if (ratio > 1.0f) ratio = 1.0f;  // Never scale UP, only down
+
+            LOG_INFO(LOG_TAG_CHA, "PMM SCALE: pmm=%.1fW limit=%.0fW scale=%.3f\r\n",
+                     s_last_supercap.pmm_w, limit_w, ratio);
+
+            for (int j = 0; j < s_chassis_motor_count; j++) {
+                controller->output_currents[j] = (int16_t)((float)controller->output_currents[j] * ratio);
+            }
+        }
+    }
+
+    // Send all computed (and possibly scaled) currents to motors
+    for (int i = 0; i < s_chassis_motor_count; i++) {
+        MotorDriver_SendCurrent(s_chassis_motor_ids[i], controller->output_currents[i]);
     }
 
     // Flush all pending motor commands
@@ -202,11 +257,10 @@ static void on_motor_feedback(const MsgEvent *ev, void *user) {
     }
 }
 
-static void on_chassis_power_update(const MsgEvent *ev, void *user_data) {
-    (void)user_data;
-    if (ev->size == sizeof(PowerFeedbackEvent)) {
-        memcpy(&s_last_power, ev->data, sizeof(PowerFeedbackEvent));
-        LOG_INFO(LOG_TAG_DEBUG, "POWER=%f\r\n", (double)s_last_power.power);
+static void on_supercap_feedback(const MsgEvent *ev, void *user) {
+    (void)user;
+    if (ev->size == sizeof(SupercapFeedbackEvent)) {
+        memcpy(&s_last_supercap, ev->data, sizeof(SupercapFeedbackEvent));
     }
 }
 
@@ -230,7 +284,7 @@ void ChassisApp_Init(void) {
         (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CMD, on_chassis_cmd, NULL);
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
         (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
-        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_POWER, on_chassis_power_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_SUPERCAP_FEEDBACK, on_supercap_feedback, NULL);
         (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
     }
     s_initialized = true;

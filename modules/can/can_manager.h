@@ -93,6 +93,15 @@ HAL_StatusTypeDef CAN_Manager_SendMotorCurrent(CAN_Manager_t *manager,
 HAL_StatusTypeDef CAN_Manager_FlushTx(CAN_Manager_t *manager);
 
 /**
+ * @brief Send Wraith (supercap) discharge command on CAN1.
+ *        Frame: standard ID 0x404, DLC 1.
+ *        byte 0 = 0x01 -> start discharging
+ *        byte 0 = 0x00 -> stop discharging (resume charging)
+ *        Per Controls_Supercap CAN_PROTOCOL.md.
+ */
+HAL_StatusTypeDef CAN_Manager_SendSupercapDischarge(bool enable);
+
+/**
  * @brief Get CAN manager from FDCAN handle (reverse lookup)
  */
 CAN_Manager_t* CAN_Manager_FromHandle(FDCAN_HandleTypeDef *hfdcan);

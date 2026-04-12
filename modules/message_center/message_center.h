@@ -111,6 +111,11 @@ typedef enum {
   TOPIC_CHASSIS_POWER, // Chassis power reading
                        // Data: PowerFeedbackEvent
 
+  TOPIC_SUPERCAP_FEEDBACK, // Supercap (Wraith) telemetry from CAN 0x405/0x406
+                           // Data: SupercapFeedbackEvent
+                           // Publisher: FDCAN RX ISR (can_manager.c)
+                           // Subscribers: defaultTask (debug log)
+
   TOPIC_GM6020_FEEDBACK, // GM6020 gimbal motor feedback
                          // Data: GM6020FeedbackEvent (12 bytes)
                          // Publisher: FDCAN RX ISR -> motor parsing
