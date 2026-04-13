@@ -85,15 +85,15 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
     },
 
     // =GIMBAL MOTORS=
-    // Yaw motor - M3508 with belt drive, ESC ID 5, 5 blinks
+    // Yaw motor - M3508 with belt drive, ESC ID 4, 4 blinks
     {
         .motor_id = 4,
         .type = MOTOR_TYPE_M3508,
         .role = MOTOR_ROLE_GIMBAL_YAW,
-        .can_channel = CAN_CHANNEL_1,
-        .can_rx_id = 0x205,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 0,
+        .can_channel = CAN_CHANNEL_2,
+        .can_rx_id = 0x204,
+        .can_tx_id = 0x200,
+        .tx_slot = 3,
         .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
