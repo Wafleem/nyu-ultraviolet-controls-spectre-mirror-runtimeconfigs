@@ -221,7 +221,8 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
 
     // Convert to normalized values (-1.0 to 1.0)
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);
-    float vx_f = -(float)vx_raw / max_input; //added back minus sign to flip forward/backward
+    // Transform joystick values into gimbal frame
+    float vx_f = -(float)vx_raw / max_input;
     float vy_f = -(float)vy_raw / max_input;
     float wz_n = (float)wz_raw / max_input;
 
@@ -254,8 +255,8 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
             }
 
             // Swap vx_c and vy_c to match chassis coordinate system, negate vy for correct direction
-            s_chassis_cmd.vx = vy_c;
-            s_chassis_cmd.vy = -vx_c;
+            s_chassis_cmd.vx = vx_c;
+            s_chassis_cmd.vy = vy_c;
             s_chassis_cmd.wz = omega;
             // In spin mode we always enable chassis so it keeps rotating even with sticks centered.
             s_chassis_cmd.enabled = true;
@@ -495,10 +496,13 @@ void CmdController_Task(uint32_t current_tick) {
     bool spin_now = switch_is_down(s_last_rc.rc.s[1]);
     bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
-    // Spin mode rising edge: latch current gimbal absolute yaw as hold target
+    // Spin mode rising edge: latch current gimbal absolute yaw as hold target.
+    // NOTE: gimbal_controller shifts ekf_yaw by +180 so its internal frame is
+    // [0, 360] (same frame as yaw->angle_target). We must capture the target
+    // in that same [0, 360] frame
     if (spin_now && !s_spin_mode)
     {
-        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw;
+        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw + 180.0f;
     }
 
     // Supercap (Wraith) discharge command edge detection. Send only on transitions.
@@ -512,8 +516,6 @@ void CmdController_Task(uint32_t current_tick) {
         s_supercap_initialized    = true;
     }
 
-    // s[0] is the supercap trigger — gimbal-follow mode disabled.
-    s_gimbal_follow_mode = false;
     s_spin_mode = spin_now;
 
     // Process control input (rc_ptr is guaranteed non-NULL here)

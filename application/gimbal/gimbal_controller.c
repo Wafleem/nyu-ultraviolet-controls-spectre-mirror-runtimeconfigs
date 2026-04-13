@@ -195,10 +195,21 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
             while (yaw_err_deg > 180.0f) yaw_err_deg -= 360.0f;
             while (yaw_err_deg < -180.0f) yaw_err_deg += 360.0f;
 
-            // Convert to angles
+            // angle_target lives in the same [0, 360] degree frame as
+            // (shifted) ekf_yaw, because MAX_YAW_ANGLE == 360 and the outer
+            // yaw loop compares angle_target against ekf_yaw directly.
             float angles_per_deg = MAX_YAW_ANGLE / 360.0f;
             float err_ticks = yaw_err_deg * angles_per_deg;
             yaw->angle_target = (float)current_yaw + err_ticks;
+
+            // Beyblading diagnostic: target(deg), current(deg), raw err, wrapped err,
+            // encoder angle_raw, computed angle_target (ticks)
+            LOG_CSV(LOG_TAG_GIM, "SPINHOLD,%.2f,%.2f,%.2f,%.1f,%.1f\r\n",
+                    cmd->yaw_target_memo,
+                    current_yaw,
+                    yaw_err_deg,
+                    (float)yaw->angle_raw,
+                    yaw->angle_target);
 
             if (!s_yaw_spin_hold_active) {
                 PID_Reset(&yaw->pid_outer);
@@ -267,7 +278,8 @@ static void on_imu_update(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
         memcpy(&s_last_sensor, ev->data, sizeof(Gimbal_Sensor_Data_t));
-        // Convert IMU angle from [-180, 180] to [0, 360]
+        // Convert IMU angle from [-180, 180] to [0, 360] so it shares a frame
+        // with yaw->angle_target (which wraps to [0, MAX_YAW_ANGLE) = [0, 360)).
         s_last_sensor.ekf_yaw += 180.0f;
     }
 }

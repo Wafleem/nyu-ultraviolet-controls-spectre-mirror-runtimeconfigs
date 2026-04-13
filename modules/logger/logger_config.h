@@ -15,12 +15,12 @@
 #define LOG_ENABLE_SYS    1  // System/boot messages
 #define LOG_ENABLE_CMD    0  // Command controller
 #define LOG_ENABLE_CHA    0  // Chassis controller
-#define LOG_ENABLE_GIM    0  // Gimbal controller - ENABLED for YAW plotting
+#define LOG_ENABLE_GIM    0  // Gimbal controller
 #define LOG_ENABLE_SHO    0  // Shooter controller
 #define LOG_ENABLE_SEN    0  // Sentry controller
 #define LOG_ENABLE_MOT    0  // Motor driver
 #define LOG_ENABLE_IMU    0  // IMU sensors
-#define LOG_ENABLE_CAN    1  // CAN communication
+#define LOG_ENABLE_CAN    0  // CAN communication
 #define LOG_ENABLE_VIS    0  // Vision communication
 #define LOG_ENABLE_RC     0  // Remote control
 #define LOG_ENABLE_DEBUG  0  // General debug
