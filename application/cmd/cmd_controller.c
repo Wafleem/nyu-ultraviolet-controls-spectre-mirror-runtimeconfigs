@@ -29,9 +29,9 @@
 //  - Gimbal yaw: hold gimbal IMU absolute yaw steady (controlled by gimbal module's internal PID).
 //
 // NOTE: Tune these parameters on robot if needed.
-#define SPIN_WZ_NORM                 (0.33f)   // chassis spin rate command (normalized, 0-1)
+#define SPIN_WZ_NORM                 (1.00f)   // chassis spin rate command (normalized, 0-1)
 #define SPIN_TRANSLATE_LIMIT_NORM    (1.00f)   // max translation velocity in spin mode (normalized)
-#define SPIN_GIMBAL_YAW_ADJ_DEG_PER_S (120.0f) // manual yaw adjustment rate when in spin mode (deg/s)
+#define SPIN_GIMBAL_YAW_ADJ_DEG_PER_S (150.0f) // manual yaw adjustment rate when in spin mode (deg/s)
 
 static bool  s_spin_mode = false;
 static float s_spin_hold_yaw_deg = 0.0f;       // target absolute yaw (deg, gimbal IMU yaw_total_angle)
