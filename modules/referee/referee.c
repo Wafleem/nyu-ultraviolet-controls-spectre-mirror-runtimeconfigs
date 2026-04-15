@@ -5,8 +5,11 @@
 
 uint8_t referee_rx_buf[REFEREE_RX_BUF_LENGTH] DMA_SECTION;
 uint8_t referee_fifo_buf[REFEREE_FIFO_BUF_LENGTH];
+uint8_t referee_tx_buf[REFEREE_TX_BUF_LENGTH];
 fifo_s_t referee_fifo;
 unpack_data_t referee_unpack_obj;
+robot_interaction_data_t hud_data;
+uint8_t referee_send_seq;
 
 // Get the referee buffer for debugging purposes
 void get_referee_buffer(uint8_t out[REFEREE_RX_BUF_LENGTH]) {
@@ -122,11 +125,33 @@ void referee_unpack_fifo_data(void)
   }
 }
 
+void referee_send_data(void)
+{
+  uint16_t data_len = sizeof(robot_interaction_data_t);
+  uint16_t cmd_id = 0x0301;
+
+  referee_tx_buf[0] = 0xA5;
+  referee_tx_buf[1] = data_len & 0xFF;
+  referee_tx_buf[2] = (data_len >> 8) & 0xFF;
+  referee_tx_buf[3] = referee_send_seq;
+  append_CRC8_check_sum(referee_tx_buf, 5);
+  referee_tx_buf[5] = cmd_id & 0xFF;
+  referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
+  build_hud_data(&hud_data);
+  memcpy(&hud_data, referee_tx_buf + 7, data_len);
+  append_CRC16_check_sum(referee_tx_buf, 7 + data_len + 2);
+
+  HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, REFEREE_TX_BUF_LENGTH, HAL_MAX_DELAY);
+  referee_send_seq++;
+}
+
 // Initialize referee interpreter
 void referee_init(void)
 {
   // Initialize referee structs
   ref_structs_init();
+  memset(&hud_data, 0, sizeof(robot_interaction_data_t));
+  referee_send_seq = 0;
 
   // Initialize FIFO
   fifo_s_init(&referee_fifo, referee_fifo_buf, REFEREE_FIFO_BUF_LENGTH);

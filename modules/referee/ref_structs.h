@@ -47,6 +47,39 @@ typedef enum
     PROGRESS_CALCULATING    = 5,
 } game_progress_t;
 
+typedef enum
+{
+    NO_OPERATION    = 0,
+    ADD             = 1,
+    EDIT            = 2,
+    DELETE          = 3
+} hud_operation_t;
+
+typedef enum
+{
+    LINE        = 0,
+    RECTANGLE   = 1,
+    CIRCLE      = 2,
+    ELLIPSE     = 3,
+    ARC         = 4,
+    FLOAT       = 5,
+    INTEGER     = 6,
+    CHARACTER   = 7
+} hud_shape_t;
+
+typedef enum
+{
+    TEAM_COLOR  = 0,
+    YELLOW      = 1,
+    GREEN       = 2,
+    ORANGE      = 3,
+    MAGENTA     = 4,
+    PINK        = 5,
+    CYAN        = 6,
+    BLACK       = 7,
+    WHITE       = 8
+} hud_color_t;
+
 #pragma pack(push, 1)
 typedef struct //0001
 {
@@ -200,10 +233,27 @@ typedef struct //0x020E
 
 typedef struct //0x0301
 {
+    uint8_t figure_name[3];
+    uint32_t operate_type : 3;
+    uint32_t figure_type : 3;
+    uint32_t layer : 4;
+    uint32_t color : 4;
+    uint32_t details_a : 9;
+    uint32_t details_b : 9;
+    uint32_t width : 10;
+    uint32_t start_x : 11;
+    uint32_t start_y : 11;
+    uint32_t details_c : 10;
+    uint32_t details_d : 11;
+    uint32_t details_e : 11;
+} interaction_figure_t;
+
+typedef struct //0x0301
+{
     uint16_t data_cmd_id;
     uint16_t sender_id;
     uint16_t receiver_id;
-    uint8_t *user_data;
+    interaction_figure_t interaction_figure;
 } robot_interaction_data_t;
 
 typedef struct // 0x0302
@@ -282,6 +332,7 @@ typedef struct //0x0310
 
 extern void ref_structs_init(void);
 extern void ref_structs_solve(uint8_t *frame);
+extern void build_hud_data(robot_interaction_data_t *data);
 extern uint8_t get_robot_id(void);
 extern void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat);
 

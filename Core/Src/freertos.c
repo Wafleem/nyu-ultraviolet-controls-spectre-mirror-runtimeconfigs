@@ -78,6 +78,7 @@ extern CAN_Manager_t can2_manager;
 /* Robot config */
 static robot_id_t s_robot_id;
 static robot_status_t s_robot_status;
+static TickType_t last_ref_send_time;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -336,12 +337,17 @@ void StartControlTask(void *argument) {
 /* USER CODE END Header_StartRefereeTask */
 void StartRefereeTask(void *argument) {
   /* USER CODE BEGIN StartRefereeTask */
-  const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10ms = 100Hz
+  const TickType_t xTaskFrequency = pdMS_TO_TICKS(10);  // 10ms = 100Hz
+  const TickType_t xSendFrequency = pdMS_TO_TICKS(100); // 100ms = 10Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
     referee_unpack_fifo_data();
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    if ((xTaskGetTickCount() - last_ref_send_time) >= xSendFrequency) {
+      referee_send_data();
+      last_ref_send_time = xTaskGetTickCount();
+    }
+    vTaskDelayUntil(&xLastWakeTime, xTaskFrequency);
   }
   /* USER CODE END StartRefereeTask */
 }

@@ -12,7 +12,6 @@
 
 
 frame_header_struct_t referee_receive_header;
-frame_header_struct_t referee_send_header;
 
 game_state_t game_state;
 game_result_t game_result;
@@ -51,7 +50,6 @@ robot_custom_data_2_t robot_custom_data_2;
 void ref_structs_init(void)
 {
     memset(&referee_receive_header, 0, sizeof(frame_header_struct_t));
-    memset(&referee_send_header, 0, sizeof(frame_header_struct_t));
 
     memset(&game_state, 0, sizeof(game_state_t));
     memset(&game_result, 0, sizeof(game_result_t));
@@ -253,4 +251,26 @@ void ref_structs_solve(uint8_t *frame)
             break;
         }
     }
+}
+
+void build_hud_data(robot_interaction_data_t *data)
+{
+    data->data_cmd_id = 0x0101;
+    data->sender_id = robot_status.robot_id;
+    data->sender_id = robot_status.robot_id + 0x100;
+    data->interaction_figure.figure_name[0] = 0;
+    data->interaction_figure.figure_name[1] = 0;
+    data->interaction_figure.figure_name[2] = 0;
+    data->interaction_figure.operate_type = ADD;
+    data->interaction_figure.figure_type = RECTANGLE;
+    data->interaction_figure.layer = 1;
+    data->interaction_figure.color = TEAM_COLOR;
+    data->interaction_figure.details_a = 0;
+    data->interaction_figure.details_b = 0;
+    data->interaction_figure.width = 10;
+    data->interaction_figure.start_x = 1000;
+    data->interaction_figure.start_y = 500;
+    data->interaction_figure.details_c = 0;
+    data->interaction_figure.details_d = 1500;
+    data->interaction_figure.details_e = 700;
 }
