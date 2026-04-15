@@ -338,7 +338,7 @@ void StartControlTask(void *argument) {
 void StartRefereeTask(void *argument) {
   /* USER CODE BEGIN StartRefereeTask */
   const TickType_t xTaskFrequency = pdMS_TO_TICKS(10);  // 10ms = 100Hz
-  const TickType_t xSendFrequency = pdMS_TO_TICKS(100); // 100ms = 10Hz
+  const TickType_t xSendFrequency = pdMS_TO_TICKS(1000); // 100ms = 10Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
