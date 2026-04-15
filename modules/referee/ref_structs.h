@@ -206,6 +206,11 @@ typedef struct //0x0301
     uint8_t *user_data;
 } robot_interaction_data_t;
 
+typedef struct // 0x0302
+{
+    uint8_t *data;
+} custom_robot_data_t;
+
 typedef struct //0x0303
 {
     float opponent_position_x;
@@ -226,6 +231,7 @@ typedef struct //0x0304
     uint16_t reserved;
 } remote_control_t;
 
+// TODO: update to 2026 protocol format
 typedef struct //0x0305
 {
     uint16_t hero_location_x;

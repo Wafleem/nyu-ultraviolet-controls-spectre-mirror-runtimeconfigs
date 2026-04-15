@@ -37,6 +37,7 @@ sentry_info_t sentry_info;
 radar_info_t radar_info;
 
 robot_interaction_data_t robot_interaction_data;
+custom_robot_data_t custom_robot_data;
 map_command_t map_command;
 remote_control_t remote_control;
 map_robot_data_t map_robot_data;
@@ -75,6 +76,7 @@ void ref_structs_init(void)
     memset(&radar_info, 0, sizeof(radar_info_t));
 
     memset(&robot_interaction_data, 0, sizeof(robot_interaction_data_t));
+    memset(&custom_robot_data, 0, sizeof(custom_robot_data_t));
     memset(&map_command, 0, sizeof(map_command_t));
     memset(&remote_control, 0, sizeof(remote_control_t));
     memset(&map_robot_data, 0, sizeof(map_robot_data_t));
@@ -207,6 +209,10 @@ void ref_structs_solve(uint8_t *frame)
             memcpy(&robot_interaction_data, frame + index, sizeof(robot_interaction_data_t));
         }
         break;
+        case CUSTOM_ROBOT_DATA_CMD_ID:
+        {
+            memcpy(&custom_robot_data, frame + index, sizeof(custom_robot_data_t));
+        }
         case MAP_COMMAND_CMD_ID:
         {
             memcpy(&map_command, frame + index, sizeof(map_command_t));
