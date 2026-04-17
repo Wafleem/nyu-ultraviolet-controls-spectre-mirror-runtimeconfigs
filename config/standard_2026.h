@@ -98,8 +98,9 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 0.5f, 0.0f, 0.0f, 300.0f, 150.0f },    // Yaw angle PID (needs tuning)
-        .pid_inner = { 5.0f, 0.0f, 0.0f, 16000.0f, 4000.0f }    // Yaw speed PID (needs tuning)
+        .pid_outer = { 13.5f, 0.0f, 3.0f, 300.0f, 150.0f },    // Yaw angle PID (needs tuning)
+        // .pid_inner = { 20.0f, 0.0f, 0.0f, 16000.0f, 4000.0f }    // Yaw speed PID (needs tuning)
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 16000.0f, 4000.0f }    // Disabling yaw PID due to loose belt
     },
 
     // Pitch gimbal motor (up/down) - GM6020 ID 2, 2 blinks
@@ -111,14 +112,14 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .can_rx_id = 0x206,  // GM6020 ID 2: 0x204 + 2
         .can_tx_id = 0x1FF,  // GM6020 motors 1-4
         .tx_slot = 1,
-        .direction = -1,
+        .direction = +1,
         .limits.gm6020 = {
-            .angle_min = 0.0f,      // TODO: Move pitch to min physical limit, read encoder value
-            .angle_max = 8192.0f,  // TODO: Move pitch to max physical limit, read encoder value
-            .gravity_compensation = 0.0f,  // TODO: Increase until pitch holds position against gravity without PID
-            .initial_angle = -1.0f  // Disabled (needs calibration)
+            .angle_min = 5070.0f,
+            .angle_max = 6370.0f,
+            .gravity_compensation = 4000.0f,
+            .initial_angle = 5550.0f
         },
-        .pid_outer = { 60.0f, 0.0f, 0.0f, 30000.0f, 25000.0f },  // Pitch PID (Sampled lower from infantry standard)
+        .pid_outer = { 25.0f, 1.0f, 50.0f, 30000.0f, 25000.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
@@ -149,7 +150,7 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .can_rx_id = 0x202,
         .can_tx_id = 0x200,
         .tx_slot = 1,
-        .direction = +1,
+        .direction = -1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
@@ -166,7 +167,7 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .can_rx_id = 0x203,
         .can_tx_id = 0x200,
         .tx_slot = 2,
-        .direction = -1,
+        .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
