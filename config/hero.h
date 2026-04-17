@@ -28,7 +28,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },  // Speed PID
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },  // Speed PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }           // Not used
     },
 
@@ -45,7 +45,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
@@ -62,7 +62,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
@@ -79,7 +79,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 0.0f, 0.0f, 0.0f, 15000.0f, 7500.0f },
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
@@ -90,8 +90,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .type = MOTOR_TYPE_GM6020,
         .role = MOTOR_ROLE_GIMBAL_YAW,
         .can_channel = CAN_CHANNEL_1,  // CAN1 - same bus as chassis
-        .can_rx_id = 0x205,  // GM6020: 0x204 + 1 = 0x205
-        .can_tx_id = 0x1FF,  // Motors 1-4 use 0x1FF
+        .can_rx_id = 0x209,  // GM6020: 0x204 + 1 = 0x205
+        .can_tx_id = 0x2FF,  // Motors 1-4 use 0x1FF
         .tx_slot = 0,        // Motor 1 -> slot 0 (motor_id - 1)
         .direction = +1,
         .limits.gm6020 = {
@@ -100,8 +100,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
             .gravity_compensation = 0.0f,
             .initial_angle = -1.0f //4096.0f  // Center position (needs calibration) Currently set to -1 to skip
         },
-        .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // Yaw angle PID
-        .pid_inner = { 20.0f, 0.0f, 3.0f, 30000.0f, 4000.0f }    // Yaw speed PID
+        .pid_outer = { 13.5f, 0.0f, 0.3f, 300.0f, 300.0f },    // Yaw angle PID
+        .pid_inner = { 60.0f, 0.0f, 3.0f, 30000.0f, 4000.0f }    // Yaw speed PID
     },
 
     // Pitch gimbal motor (up/down) - 2 blinks
@@ -109,18 +109,18 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .motor_id = 5,  // Internal ID
         .type = MOTOR_TYPE_GM6020,
         .role = MOTOR_ROLE_GIMBAL_PITCH,
-        .can_channel = CAN_CHANNEL_1,  // CAN1 - same bus as chassis
+        .can_channel = CAN_CHANNEL_2,  // CAN1 - same bus as chassis
         .can_rx_id = 0x206,  // GM6020: 0x204 + 2 = 0x206
         .can_tx_id = 0x1FF,  // Motors 1-4 use 0x1FF
         .tx_slot = 1,        // Motor 2 -> slot 1 (motor_id - 1)
         .direction = -1,     // Pitch direction correction
         .limits.gm6020 = {
-            .angle_min = 6700.0f,
-            .angle_max = 7900.0f,
-            .gravity_compensation = 10000.0f,  // Gravity compensation for pitch
-            .initial_angle = 7400.0f  // Center position (needs calibration)
+            .angle_min = 4600.0f,
+            .angle_max = 5300.0f,
+            .gravity_compensation = 8000.0f,  // Gravity compensation for pitch
+            .initial_angle = 4900.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 90.0f, 5.0f, 3.22f, 30000.0f, 25000.0f },  // Pitch PID
+        .pid_outer = { 50.0f, 1.0f, 30.0f, 30000.0f, 25000.0f },  // Pitch PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
@@ -131,9 +131,9 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .type = MOTOR_TYPE_M2006,
         .role = MOTOR_ROLE_SHOOTER_FEED,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x207,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 2,
+        .can_rx_id = 0x201,
+        .can_tx_id = 0x200,
+        .tx_slot = 0,
         .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
@@ -147,10 +147,10 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .type = MOTOR_TYPE_M3508,
         .role = MOTOR_ROLE_SHOOTER_FRICTION,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x205,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 0,
-        .direction = +1,
+        .can_rx_id = 0x202,
+        .can_tx_id = 0x200,
+        .tx_slot = 1,
+        .direction = -1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
@@ -164,10 +164,10 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .type = MOTOR_TYPE_M3508,
         .role = MOTOR_ROLE_SHOOTER_FRICTION,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x206,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 1,
-        .direction = -1,
+        .can_rx_id = 0x203,
+        .can_tx_id = 0x200,
+        .tx_slot = 2,
+        .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
@@ -181,10 +181,10 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .type = MOTOR_TYPE_M2006,
         .role = MOTOR_ROLE_SHOOTER_PUSH,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x208,
-        .can_tx_id = 0x1FF,
+        .can_rx_id = 0x204,
+        .can_tx_id = 0x200,
         .tx_slot = 3,
-        .direction = -1,
+        .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
@@ -204,7 +204,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .enable_imu_calibration = 0,
     .feeder_speed = 5000.0f,
     .friction_wheel_speed = 7500.0f,
-    .pusher_extended_angle = (int32_t)(2.5f * 8192.0f)
+    .pusher_extended_angle = (int32_t)(10.0f * 8192.0f)
 };
 
 #endif // HERO_H

@@ -41,9 +41,9 @@ int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data)
     float cmd = PID_Calculate(&c->pid_outer, error, 0.0f);
 
     if (is_pitch_motor) {
-        float ang01 = current_angle / max_encoder;
-        float ang_rad = ang01 * (2.0f * (float)M_PI);
-        float gravity_ff = c->config->direction * c->config->limits.gm6020.gravity_compensation * sinf(ang_rad);
+        float ang01 = current_angle - c->config->limits.gm6020.initial_angle;
+        float ang_rad = ang01 * (2 * M_PI) / MAX_PITCH_ANGLE;
+        float gravity_ff = c->config->direction * c->config->limits.gm6020.gravity_compensation * cosf(ang_rad);
         cmd += gravity_ff;
     }
     float max_abs = 25000.0f;
@@ -109,14 +109,13 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     if (cmd_speed_to_current < -CURRENT_LIMIT) cmd_speed_to_current = -CURRENT_LIMIT;
 
     // Logging for tuning/debug
-    LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%d,%.2f,%.2f,%.2f",
+    LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%d,%.2f,%.2f",
           yaw->angle_target,
           s_last_sensor.ekf_yaw,
           cmd_angle_to_speed,
-          yaw->speed_rpm,
+          s_last_sensor.gyro_z,
           cmd_speed_to_current,
-          angle_error,
-          s_last_sensor.gyro_z);
+          angle_error);
 
     return (int16_t)cmd_speed_to_current;
 }

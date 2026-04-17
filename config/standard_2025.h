@@ -118,7 +118,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .limits.gm6020 = {
             .angle_min = 6700.0f,
             .angle_max = 7900.0f,
-            .gravity_compensation = 10000.0f,  // Gravity compensation for pitch
+            .gravity_compensation = 5000.0f,  // Gravity compensation for pitch
             .initial_angle = 7400.0f  // Center position (needs calibration)
         },
         .pid_outer = { 90.0f, 5.0f, 3.22f, 30000.0f, 25000.0f },  // Pitch PID
