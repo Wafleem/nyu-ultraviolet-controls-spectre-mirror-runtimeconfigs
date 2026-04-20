@@ -136,6 +136,7 @@ const osThreadAttr_t SDCardTask_attributes = {
 /* USER CODE BEGIN FunctionPrototypes */
 static void on_robot_status(const MsgEvent *ev, void *user_data);
 static void on_supercap_feedback(const MsgEvent *ev, void *user_data);
+static float get_supercap_charge_limit_w(robot_id_t id);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -431,6 +432,26 @@ static void on_supercap_feedback(const MsgEvent *ev, void *user_data) {
             (unsigned long)sc->tick_ms);
 }
 
+/**
+ * @brief Per-robot supercap charging power ceiling in watts.
+ *
+ * Mirrors the chassis PMM limit policy in chassis_controller.c
+ * (get_pmm_power_limit_w) so the supercap cannot out-draw the
+ * referee-system budget for this robot type.
+ */
+static float get_supercap_charge_limit_w(robot_id_t id) {
+  switch (id) {
+    case RED_HERO:    case BLUE_HERO:
+    case RED_SENTRY:  case BLUE_SENTRY:
+      return 100.0f;
+    case RED_STANDARD_1:  case RED_STANDARD_2:  case RED_STANDARD_3:
+    case BLUE_STANDARD_1: case BLUE_STANDARD_2: case BLUE_STANDARD_3:
+      return 75.0f;
+    default:
+      return 80.0f;
+  }
+}
+
 // If robot ID changes, restart ControlTask with new robot config
 static void on_robot_status(const MsgEvent *ev, void *user_data) {
   (void)user_data;
@@ -452,6 +473,12 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
       ChassisApp_Init();
       GimbalApp_Init();
       ShooterApp_Init(robot_cfg);
+
+      /* Push the per-robot charging power ceiling to Wraith over CAN (0x408).
+       * Sent here (not at ControlTask startup) because robot_id is only
+       * known once the referee system publishes robot_status_t. */
+      float charge_limit_w = get_supercap_charge_limit_w(s_robot_id);
+      CAN_Manager_SendSupercapChargeLimit(charge_limit_w);
     }
   }
 }

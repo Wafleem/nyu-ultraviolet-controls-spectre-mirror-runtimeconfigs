@@ -493,6 +493,39 @@ HAL_StatusTypeDef CAN_Manager_SendSupercapDischarge(bool enable)
     return st;
 }
 
+/* Send Wraith (supercap) charging power ceiling on CAN1.
+ * Standard ID 0x408, DLC 4, float32 LE watts. Per Controls_Supercap
+ * CAN_PROTOCOL.md. Clamping is handled on the Wraith side. */
+HAL_StatusTypeDef CAN_Manager_SendSupercapChargeLimit(float watts)
+{
+    if (!can1_manager.initialized || can1_manager.hfdcan == NULL) {
+        return HAL_ERROR;
+    }
+
+    FDCAN_TxHeaderTypeDef tx;
+    memset(&tx, 0, sizeof(tx));
+    tx.Identifier          = 0x408;
+    tx.IdType              = FDCAN_STANDARD_ID;
+    tx.TxFrameType         = FDCAN_DATA_FRAME;
+    tx.DataLength          = FDCAN_DLC_BYTES_4;
+    tx.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx.BitRateSwitch       = FDCAN_BRS_OFF;
+    tx.FDFormat            = FDCAN_CLASSIC_CAN;
+    tx.TxEventFifoControl  = FDCAN_NO_TX_EVENTS;
+
+    uint8_t d[4];
+    memcpy(d, &watts, sizeof(float));
+
+    HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(can1_manager.hfdcan, &tx, d);
+    if (st == HAL_OK) can1_manager.tx_ok++;
+    else              can1_manager.tx_err++;
+    can1_manager.last_tx_time = HAL_GetTick();
+
+    // USB_CDC_Printf("[0x408] Wraith charge limit -> %.1fW (tx=%d)\r\n", (double)watts, (int)st);
+
+    return st;
+}
+
 CAN_Manager_t* CAN_Manager_FromHandle(FDCAN_HandleTypeDef *hfdcan)
 {
     if (hfdcan == can1_manager.hfdcan) {
