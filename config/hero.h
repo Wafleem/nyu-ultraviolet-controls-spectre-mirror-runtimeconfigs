@@ -115,10 +115,10 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .tx_slot = 1,        // Motor 2 -> slot 1 (motor_id - 1)
         .direction = -1,     // Pitch direction correction
         .limits.gm6020 = {
-            .angle_min = 4600.0f,
+            .angle_min = 4400.0f,
             .angle_max = 5300.0f,
             .gravity_compensation = 8000.0f,  // Gravity compensation for pitch
-            .initial_angle = 4900.0f  // Center position (needs calibration)
+            .initial_angle = 5100.0f  // Center position (needs calibration)
         },
         .pid_outer = { 50.0f, 1.0f, 30.0f, 30000.0f, 25000.0f },  // Pitch PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
@@ -206,7 +206,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .aligned_yaw = 55.0f,
     .feeder_speed = 5000.0f,
     .friction_wheel_speed = 7500.0f,
-    .pusher_extended_angle = (int32_t)(10.0f * 8192.0f)
+    .pusher_extended_angle = (int32_t)(15.0f * 8192.0f)
 };
 
 #endif // HERO_H
