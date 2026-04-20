@@ -26,6 +26,7 @@
 
 /* Published data */
 ToF_Data_t ToF_Data;
+const RobotConfig_t *s_robot_config = NULL;
 volatile uint8_t tof_initialized = 0;
 
 int8_t ToF_Init(void) {
@@ -142,9 +143,11 @@ void ToF_Task(void) {
 
   if (ToF_Data.valid && result.Distance < TOF_RESET_THRESHOLD_MM) {
     if (!tof_reset_latched) {
-      IMU_ResetYawToZero();
+      if (s_robot_config != NULL) {
+        IMU_SetYaw(s_robot_config->aligned_yaw);
+      }
       tof_reset_latched = 1;
-      LOG_INFO(LOG_TAG_SYS, "ToF=%dmm < %dmm, EKF yaw reset to zero",
+      LOG_INFO(LOG_TAG_SYS, "ToF=%dmm < %dmm, EKF yaw reset",
                result.Distance, TOF_RESET_THRESHOLD_MM);
     }
   } else {
@@ -163,4 +166,8 @@ void ToF_Task(void) {
 
   /* Publish to message center */
   MsgCenter_Publish(TOPIC_TOF_UPDATE, &ToF_Data, sizeof(ToF_Data), 0);
+}
+
+void ToF_SetRobotConfig(const RobotConfig_t *robot_config) {
+  s_robot_config = robot_config;
 }

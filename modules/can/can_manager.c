@@ -238,10 +238,16 @@ void CAN_Manager_ProcessCallback(CAN_Manager_t *manager, FDCAN_HandleTypeDef *hf
         int16_t raw_roll  = (int16_t)((d[0] << 8) | d[1]);
         int16_t raw_pitch = (int16_t)((d[2] << 8) | d[3]);
         int16_t raw_yaw   = (int16_t)((d[4] << 8) | d[5]);
+
         ChassisIMUFeedbackEvent yev;
         memcpy(&yev.roll,  &raw_roll,  sizeof(raw_roll));
         memcpy(&yev.pitch, &raw_pitch, sizeof(raw_pitch));
         memcpy(&yev.yaw,   &raw_yaw,   sizeof(raw_yaw));
+
+        // Move angle readings from [0, 3600] to [0, 360]
+        yev.roll = yev.roll / 10;
+        yev.pitch = yev.pitch / 10;
+        yev.yaw = yev.yaw / 10;
         (void)MsgCenter_PublishFromISR(TOPIC_CHASSIS_IMU, &yev, sizeof(yev));
     }
     /* Dynamic motor feedback processing using registry */

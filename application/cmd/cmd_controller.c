@@ -54,6 +54,7 @@ static float yaw_storage=0.0f;
 static uint32_t s_last_spin_dbg_tick = 0; // rate limiter for SPINDBG prints (tagged)
 
 // Local state storage
+static const RobotConfig_t *s_robot_config;
 static RC_ctrl_t s_last_rc;
 static Gimbal_Sensor_Data_t s_gimbal_imu;
 static ChassisIMUFeedbackEvent s_chassis_imu;
@@ -63,6 +64,7 @@ static CanRxFrame s_last_can;
 static bool s_initialized = false;
 static projectile_allowance_t s_last_allowance;
 static int s_shoot_count = 0;
+static uint8_t s_yaw_motor_id = 0xFF;
 
 // RC health tracking
 static uint32_t s_last_rc_update_time = 0;
@@ -102,10 +104,10 @@ static bool is_rc_data_valid(const RC_ctrl_t *rc) {
 }
 
 // Normalize angle to [-180, 180] range
-static float normalize_angle_180(float angle_deg)
+static float normalize_angle_360(float angle_deg)
 {
-    while (angle_deg > 180.0f) angle_deg -= 360.0f;
-    while (angle_deg < -180.0f) angle_deg += 360.0f;
+    while (angle_deg > 360.0f) angle_deg -= 360.0f;
+    while (angle_deg < 0.0f) angle_deg += 360.0f;
     return angle_deg;
 }
 
@@ -144,8 +146,6 @@ static void on_chassis_imu(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(ChassisIMUFeedbackEvent)) {
         memcpy(&s_chassis_imu, ev->data, sizeof(ChassisIMUFeedbackEvent));
-        // Move chassis yaw reading from [0, 3600] to [-180, 180]
-        s_chassis_imu.yaw = s_chassis_imu.yaw / 10 - 180;
     }
 }
 static void on_chassis_calib(const MsgEvent *ev, void *user_data) {
@@ -233,9 +233,20 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
         // Calculate offset angle: chassis yaw - gimbal yaw
         // No separate chassis IMU on this hardware, so offset is 0
         // (chassis frame == gimbal frame for field-oriented control)
-        float gimbal_yaw_norm = normalize_angle_180(sensor->ekf_yaw);
-        float chassis_yaw = normalize_angle_180((float)s_chassis_imu.yaw);    
-        float offset_angle = normalize_angle_180(chassis_yaw - gimbal_yaw_norm);
+        float offset_angle = 0.0f;
+        if (s_robot_config->chassis_yaw_source == YAW_SOURCE_DEVC) {
+            float gimbal_yaw_norm = normalize_angle_360(sensor->ekf_yaw);
+            float chassis_yaw = normalize_angle_360((float)s_chassis_imu.yaw);    
+            offset_angle = normalize_angle_360(chassis_yaw - gimbal_yaw_norm);
+        }
+        else if (s_robot_config->chassis_yaw_source == YAW_SOURCE_GM6020) {
+            MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
+            if (yaw && yaw->angle_initialized) {
+                float current_yaw = (float)yaw->angle_raw * 360 / 8192;
+                // Negating offset because GM6020 axes seem reversed compared to chassis frame
+                offset_angle = -normalize_angle_360(current_yaw - s_robot_config->aligned_yaw);
+            }
+        }
 
         // Rotate joystick input from gimbal frame to chassis frame
         float vx_c = 0.0f, vy_c = 0.0f;
@@ -382,10 +393,7 @@ static void process_vision_command(Vision_Recv_s* vision) {
             s_gimbal_cmd.vision_valid);
 }
 
-void CmdController_Init(void) {
-    if (s_initialized) {
-        return;
-    }
+void CmdController_Init(const RobotConfig_t *robot_config) {
     memset(&s_last_rc, 0, sizeof(s_last_rc));
     memset(&s_gimbal_imu, 0, sizeof(Gimbal_Sensor_Data_t));
     memset(&s_chassis_imu, 0, sizeof(ChassisIMUFeedbackEvent));
@@ -393,16 +401,28 @@ void CmdController_Init(void) {
     memset(&s_chassis_cmd, 0, sizeof(s_chassis_cmd));
     memset(&s_shoot_cmd, 0, sizeof(s_shoot_cmd));
     memset(&s_gimbal_cmd, 0, sizeof(s_gimbal_cmd));
-    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_IMU, on_chassis_imu, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CALIB, on_chassis_calib, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_gimbal_imu, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_VISION_DATA, on_vision_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_SHOOT_DATA, on_shoot_data, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_PROJECTILE_ALLOWANCE, on_projectile_allowance, NULL);
-    // Avoid subscription overhead if CAN logger is disabled
-    if (LOG_ENABLE_CAN) {
-        (void)MsgCenter_Subscribe(TOPIC_CAN_RX, on_can_rx, NULL);
+
+    if (!s_initialized) {
+        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_IMU, on_chassis_imu, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CALIB, on_chassis_calib, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_gimbal_imu, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_VISION_DATA, on_vision_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_SHOOT_DATA, on_shoot_data, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_PROJECTILE_ALLOWANCE, on_projectile_allowance, NULL);
+        // Avoid subscription overhead if CAN logger is disabled
+        if (LOG_ENABLE_CAN) {
+            (void)MsgCenter_Subscribe(TOPIC_CAN_RX, on_can_rx, NULL);
+        }
+    }
+
+    if (robot_config != NULL) {
+        s_robot_config = robot_config;
+    }
+
+    uint8_t yaw_motors[1];
+    if (MotorDriver_FindByRole(MOTOR_ROLE_GIMBAL_YAW, yaw_motors, 1) > 0) {
+        s_yaw_motor_id = yaw_motors[0];
     }
 
     s_initialized = true;
@@ -497,12 +517,9 @@ void CmdController_Task(uint32_t current_tick) {
     bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
     // Spin mode rising edge: latch current gimbal absolute yaw as hold target.
-    // NOTE: gimbal_controller shifts ekf_yaw by +180 so its internal frame is
-    // [0, 360] (same frame as yaw->angle_target). We must capture the target
-    // in that same [0, 360] frame
     if (spin_now && !s_spin_mode)
     {
-        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw + 180.0f;
+        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw;
     }
 
     // Supercap (Wraith) discharge command edge detection. Send only on transitions.

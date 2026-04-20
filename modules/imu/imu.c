@@ -371,15 +371,15 @@ static void IMU_Init_QuaternionEKF(void) {
   Gimbal_Sensor.ekf_yaw = 0.0f;
 }
 
-void IMU_ResetYawToZero(void) {
-  /* Keep current roll/pitch from EKF and only re-zero the reported yaw. */
-  s_ekf_yaw_reset_offset_deg = IMU_WrapAngleDeg(-QEKF_INS.Yaw);
+void IMU_SetYaw(float yaw) {
+  /* Keep current roll/pitch from EKF and only set the reported yaw. */
+  s_ekf_yaw_reset_offset_deg = IMU_WrapAngleDeg(yaw - QEKF_INS.Yaw);
 
   if (s_ekf_output_initialized) {
-    s_ekf_yaw_filtered = 0.0f;
+    s_ekf_yaw_filtered = yaw;
   }
 
-  Gimbal_Sensor.ekf_yaw = 0.0f;
+  Gimbal_Sensor.ekf_yaw = yaw;
 }
 
 void System_Read_And_Process(void) {
@@ -547,6 +547,11 @@ void System_Read_And_Process(void) {
     Gimbal_Sensor.ekf_pitch = s_ekf_pitch_filtered;
     Gimbal_Sensor.ekf_yaw = s_ekf_yaw_filtered;
   }
+
+  // Shift angle range from [-180, 180] to [0, 360]
+  Gimbal_Sensor.ekf_roll += 180.0f;
+  Gimbal_Sensor.ekf_pitch += 180.0f;
+  Gimbal_Sensor.ekf_yaw += 180.0f;
 }
 void Mag_Update_Noise(int16_t raw_x, int16_t raw_y, int16_t raw_z) {
   // Store raw readings in circular buffers
