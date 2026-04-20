@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "config_types.h"
 #include "gimbal_controller.h"
 
 #ifdef __cplusplus
@@ -26,7 +27,7 @@ typedef struct {
 /**
  * @brief Initialize command controller
  */
-void CmdController_Init(void);
+void CmdController_Init(const RobotConfig_t *robot_config);
 
 /**
  * @brief Process remote control input and publish commands

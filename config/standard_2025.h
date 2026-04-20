@@ -102,7 +102,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         },
         .pid_outer = { 13.5f, 0.0f, 3.0f, 300.0f, 0.0f },    // IMU Yaw angle PID (P-only for tuning)
         // .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // GM6020 Yaw angle PID
-        .pid_inner = { 40.0f, 0.0f, 0.0f, 30000.0f, 0.0f }   // Yaw speed PID (P-only for tuning)
+        .pid_inner = { 20.0f, 0.0f, 0.0f, 30000.0f, 0.0f }   // Yaw speed PID (P-only for tuning)
     },
 
     // Pitch gimbal motor (up/down) - 2 blinks
@@ -185,6 +185,8 @@ static const RobotConfig_t g_robot_config_standard_2025 = {
     .motor_configs = g_motor_configs_standard_2025,
     .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
     .enable_imu_calibration = 0,
+    .chassis_yaw_source = YAW_SOURCE_DEVC,
+    .aligned_yaw = 0.0f,
     .feeder_speed = 5000.0f,
     .friction_wheel_speed = 7500.0f,
     .pusher_extended_angle = 0.0f,

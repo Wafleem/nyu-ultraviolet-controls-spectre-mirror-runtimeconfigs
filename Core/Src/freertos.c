@@ -310,10 +310,11 @@ void StartControlTask(void *argument) {
   // Initialize modules that subscribe to topics
   MotorDriver_ModuleInit(s_robot_id);
   VisionComm_Init();
-  CmdController_Init();
+  CmdController_Init(robot_cfg);
   ChassisApp_Init();
   GimbalApp_Init();
   ShooterApp_Init(robot_cfg);
+  ToF_SetRobotConfig(robot_cfg);
 
   // Wait for USB and other tasks to stabilize
   osDelay(1500);
@@ -452,6 +453,8 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
       ChassisApp_Init();
       GimbalApp_Init();
       ShooterApp_Init(robot_cfg);
+      CmdController_Init(robot_cfg);
+      ToF_SetRobotConfig(robot_cfg);
     }
   }
 }
