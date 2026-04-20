@@ -2,13 +2,15 @@
 #include "ref_structs.h"
 #include "ref_crc.h"
 #include "fifo.h"
+#include "printing.h"
 
 uint8_t referee_rx_buf[REFEREE_RX_BUF_LENGTH] DMA_SECTION;
 uint8_t referee_fifo_buf[REFEREE_FIFO_BUF_LENGTH];
 uint8_t referee_tx_buf[REFEREE_TX_BUF_LENGTH];
+char out[REFEREE_TX_BUF_LENGTH * 3 + 1];
+char *ptr = out;
 fifo_s_t referee_fifo;
 unpack_data_t referee_unpack_obj;
-robot_interaction_data_t hud_data;
 uint8_t referee_send_seq;
 
 // Get the referee buffer for debugging purposes
@@ -137,11 +139,16 @@ void referee_send_data(void)
   append_CRC8_check_sum(referee_tx_buf, 5);
   referee_tx_buf[5] = cmd_id & 0xFF;
   referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
-  build_hud_data(&hud_data);
-  memcpy(&hud_data, referee_tx_buf + 7, data_len);
+  build_hud_data(referee_tx_buf + 7);
+  // memcpy(referee_tx_buf + 7, &hud_data, data_len);
   append_CRC16_check_sum(referee_tx_buf, 7 + data_len + 2);
-
+  ptr = out;
+  for (int i = 0; i < REFEREE_TX_BUF_LENGTH; i++) {
+    ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
+  }
+  USB_CDC_Printf("%s\r\n", out);
   HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, REFEREE_TX_BUF_LENGTH, HAL_MAX_DELAY);
+
   referee_send_seq++;
 }
 
@@ -150,7 +157,7 @@ void referee_init(void)
 {
   // Initialize referee structs
   ref_structs_init();
-  memset(&hud_data, 0, sizeof(robot_interaction_data_t));
+  memset(referee_tx_buf, 0, sizeof(REFEREE_TX_BUF_LENGTH));
   referee_send_seq = 0;
 
   // Initialize FIFO

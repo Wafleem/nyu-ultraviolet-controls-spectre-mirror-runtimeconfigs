@@ -332,7 +332,7 @@ typedef struct //0x0310
 
 extern void ref_structs_init(void);
 extern void ref_structs_solve(uint8_t *frame);
-extern void build_hud_data(robot_interaction_data_t *data);
+extern void build_hud_data(uint8_t *buf);
 extern uint8_t get_robot_id(void);
 extern void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat);
 
