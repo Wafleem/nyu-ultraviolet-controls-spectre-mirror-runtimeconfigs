@@ -114,6 +114,7 @@ typedef struct {
                                          // - GM6020: GM6020 yaw when head and chassis are aligned
     float feeder_speed;                  // Feeder/turntable motor speed
     float friction_wheel_speed;          // Friction wheel motor speed
+    int32_t pusher_retracted_angle;      // Pusher retracted angle (encoder units)
     int32_t pusher_extended_angle;       // Pusher extended angle (encoder units)
 } RobotConfig_t;
 
