@@ -206,8 +206,8 @@ static const RobotConfig_t g_robot_config_hero = {
     .aligned_yaw = 55.0f,
     .feeder_speed = 3000.0f,
     .friction_wheel_speed = 7500.0f,
-    .pusher_retracted_angle = (int32_t)(10.0f * 8192.0f),
-    .pusher_extended_angle = (int32_t)(-15.0f * 8192.0f)
+    .pusher_retracted_angle = (int32_t)(15.0f * 8192.0f),
+    .pusher_extended_angle = (int32_t)(-10.0f * 8192.0f)
 };
 
 #endif // HERO_H
