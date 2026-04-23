@@ -54,6 +54,7 @@ typedef struct {
     float kd;              // Derivative gain
     float output_max;      // Maximum output value
     float integral_max;    // Maximum integral value (anti-windup)
+    float error_max;       // Maximum error value
 } PIDParams_t;
 
 /**

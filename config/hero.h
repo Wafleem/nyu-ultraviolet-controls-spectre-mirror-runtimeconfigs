@@ -28,8 +28,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },  // Speed PID
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }           // Not used
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },  // Speed PID
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }           // Not used
     },
 
     // Front-right chassis motor (ID 1)
@@ -45,8 +45,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
     // Back-left chassis motor (ID 2)
@@ -62,8 +62,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
     // Back-right chassis motor (ID 3)
@@ -79,8 +79,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f },
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
     },
 
     // ========== GIMBAL MOTORS (2x GM6020) on CAN1 ==========
@@ -100,8 +100,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
             .gravity_compensation = 0.0f,
             .initial_angle = -1.0f //4096.0f  // Center position (needs calibration) Currently set to -1 to skip
         },
-        .pid_outer = { 13.5f, 0.0f, 0.3f, 300.0f, 300.0f },    // Yaw angle PID
-        .pid_inner = { 50.0f, 0.0f, 3.0f, 25000.0f, 4000.0f }    // Yaw speed PID
+        .pid_outer = { 13.5f, 0.0f, 0.3f, 300.0f, 300.0f, 180.0f },    // Yaw angle PID
+        .pid_inner = { 50.0f, 0.0f, 3.0f, 25000.0f, 4000.0f, 10000.0f }    // Yaw speed PID
     },
 
     // Pitch gimbal motor (up/down) - 2 blinks
@@ -118,10 +118,10 @@ static const MotorConfig_t g_motor_configs_hero[] = {
             .angle_min = 4200.0f,
             .angle_max = 5300.0f,
             .gravity_compensation = 8000.0f,  // Gravity compensation for pitch
-            .initial_angle = 4800.0f  // Center position (needs calibration)
+            .initial_angle = 4700.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 40.0f, 1.0f, 40.0f, 30000.0f, 25000.0f },  // Pitch PID
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
+        .pid_outer = { 40.0f, 1.0f, 40.0f, 30000.0f, 25000.0f, 150.0f },  // Pitch PID
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
     // ========== SHOOTER MOTORS (2x M3508, 1x M2006) on CAN2 ==========
@@ -138,8 +138,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {5.0f, 1.0f, 0.0f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}},
+        .pid_outer = {5.0f, 1.0f, 0.0f, 15000.0f, 7500.0f, 10000.0f },
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}},
 
     // Friction wheel 1
     {
@@ -154,8 +154,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f, 10000.0f},
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
     },
 
     // Friction wheel 2
@@ -171,8 +171,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f, 10000.0f},
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
     },
 
     // Ball Pusher
@@ -188,8 +188,8 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {0.05f, 0.0f, 0.0f, 15000.0f, 7500.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+        .pid_outer = {0.05f, 0.0f, 0.0f, 15000.0f, 7500.0f, 100000.0f},
+        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
     }
 };
 

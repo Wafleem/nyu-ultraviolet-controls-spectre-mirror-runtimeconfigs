@@ -19,6 +19,7 @@ typedef struct {
   float output;
   float output_max;
   float integral_max;
+  float error_max;
   
   // Added fields for improved PID calculation
   float last_measure;
@@ -38,7 +39,7 @@ typedef struct {
   float derivative_lpf_rc;
 } PID_Controller;
 
-void PID_Init(PID_Controller *pid, float kp, float ki, float kd, float output_max, float integral_max);
+void PID_Init(PID_Controller *pid, float kp, float ki, float kd, float output_max, float integral_max, float error_max);
 float PID_Calculate(PID_Controller *pid, float target, float actual);
 void PID_Reset(PID_Controller *pid);
 float PID_RPM_Calculate(PID_Controller *pid, float target_rpm, float actual_rpm);

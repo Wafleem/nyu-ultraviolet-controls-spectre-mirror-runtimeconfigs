@@ -50,8 +50,7 @@ int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data)
     if (cmd >  max_abs) cmd =  max_abs;
     if (cmd < -max_abs) cmd = -max_abs;
 
-    // PITCH_CSV logging disabled to reduce noise
-    // LOG_CSV(LOG_TAG_GIM, "PITCH_CSV,%.2f,%.2f,%d,%.2f,%.2f\r\n",
+    // LOG_CSV(LOG_TAG_GIM, "PITCH_CSV,%.2f,%.2f,%d,%.2f,%.2f",
     //                c->angle_target,
     //                current_angle,
     //                c->speed_rpm,
