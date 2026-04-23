@@ -102,6 +102,14 @@ HAL_StatusTypeDef CAN_Manager_FlushTx(CAN_Manager_t *manager);
 HAL_StatusTypeDef CAN_Manager_SendSupercapDischarge(bool enable);
 
 /**
+ * @brief Send Wraith (supercap) per-robot charging power ceiling on CAN1.
+ *        Frame: standard ID 0x408, DLC 4, bytes 0-3 = float32 LE (watts).
+ *        Per Controls_Supercap CAN_PROTOCOL.md. Intended to be sent when
+ *        the referee system reveals (or changes) the robot ID.
+ */
+HAL_StatusTypeDef CAN_Manager_SendSupercapChargeLimit(float watts);
+
+/**
  * @brief Get CAN manager from FDCAN handle (reverse lookup)
  */
 CAN_Manager_t* CAN_Manager_FromHandle(FDCAN_HandleTypeDef *hfdcan);
