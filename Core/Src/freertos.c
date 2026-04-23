@@ -438,6 +438,7 @@ static void on_supercap_feedback(const MsgEvent *ev, void *user_data) {
  * Mirrors the chassis PMM limit policy in chassis_controller.c
  * (get_pmm_power_limit_w) so the supercap cannot out-draw the
  * referee-system budget for this robot type.
+ * TODO: CHECK HEALTH IF STANDARD TO SEE IF IN POWER OR ARMOR MODE. ASSUMING ARMOR MODE.
  */
 static float get_supercap_charge_limit_w(robot_id_t id) {
   switch (id) {
@@ -448,7 +449,7 @@ static float get_supercap_charge_limit_w(robot_id_t id) {
     case BLUE_STANDARD_1: case BLUE_STANDARD_2: case BLUE_STANDARD_3:
       return 75.0f;
     default:
-      return 80.0f;
+      return 75.0f; //Lowest Minimum. Best default guess until we check health for this.
   }
 }
 
