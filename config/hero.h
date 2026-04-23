@@ -120,7 +120,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
             .gravity_compensation = 8000.0f,  // Gravity compensation for pitch
             .initial_angle = 4800.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 50.0f, 1.0f, 40.0f, 30000.0f, 25000.0f },  // Pitch PID
+        .pid_outer = { 40.0f, 1.0f, 40.0f, 30000.0f, 25000.0f },  // Pitch PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
@@ -205,7 +205,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .chassis_yaw_source = YAW_SOURCE_GM6020,
     .aligned_yaw = 55.0f,
     .feeder_speed = 3000.0f,
-    .friction_wheel_speed = 9500.0f,
+    .friction_wheel_speed = 10000.0f,
     .pusher_retracted_angle = (int32_t)(15.0f * 8192.0f),
     .pusher_extended_angle = (int32_t)(-10.0f * 8192.0f)
 };

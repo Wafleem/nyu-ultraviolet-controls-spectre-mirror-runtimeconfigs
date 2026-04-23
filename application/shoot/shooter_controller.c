@@ -21,11 +21,13 @@ static ShootCmd s_prev_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
 static ShooterController s_ctrl;
 static bool s_initialized = false;
+static bool is_feeding_once = false;
 static RobotConfig_t s_shooter_config;
 
 // Anti Jam
 static bool is_jammed = false;
 static TimerHandle_t s_jam_timer = NULL;
+static TimerHandle_t s_feed_timer = NULL;
 static uint32_t s_unjam_start = 0;
 static bool s_unjam_active = false;
 
@@ -174,7 +176,22 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
     controller->enabled = s_last_cmd.friction_enabled;
     
     // Set turntable target (only feed when feed_enabled)
-    float turntable_target = s_last_cmd.feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
+    float turntable_target = 0.0f;
+    if (s_pusher_motor_id != 0xFF) {
+        if (s_last_cmd.feed_enabled && !s_prev_cmd.feed_enabled) {
+            is_feeding_once = true;
+            xTimerStart(s_feed_timer, 0);
+        }
+        if (!s_last_cmd.feed_enabled && s_prev_cmd.feed_enabled) {
+            is_feeding_once = false;
+            xTimerStop(s_feed_timer, 0);
+        }
+        turntable_target = (s_last_cmd.feed_enabled && is_feeding_once) ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
+    } else {
+        turntable_target = s_last_cmd.feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
+    }
+    
+    
     
     // Set shooter wheel targets
     float shooter1_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[1] : 0.0f;
@@ -361,6 +378,11 @@ static void on_jam_check(TimerHandle_t xTimer)
     is_jammed = (-50 < speed && speed < 50);
 }
 
+static void on_feed_once(TimerHandle_t xTimer)
+{
+    is_feeding_once = false;
+}
+
 void ShooterApp_Init(const RobotConfig_t *config) {
     memset(&s_last_cmd, 0, sizeof(s_last_cmd));
     memset(&s_last_sensor, 0, sizeof(s_last_sensor));
@@ -373,6 +395,7 @@ void ShooterApp_Init(const RobotConfig_t *config) {
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
         (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
         s_jam_timer = xTimerCreate("JamTimer", pdMS_TO_TICKS(3000), pdTRUE, NULL, on_jam_check);
+        s_feed_timer = xTimerCreate("FeedTimer", pdMS_TO_TICKS(1000), pdFALSE, NULL, on_feed_once);
     }
     if (config) {
         s_shooter_config = *config;
