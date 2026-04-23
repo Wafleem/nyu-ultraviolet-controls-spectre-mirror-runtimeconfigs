@@ -50,12 +50,12 @@ int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data)
     if (cmd >  max_abs) cmd =  max_abs;
     if (cmd < -max_abs) cmd = -max_abs;
 
-    // LOG_CSV(LOG_TAG_GIM, "PITCH_CSV,%.2f,%.2f,%d,%.2f,%.2f",
-    //                c->angle_target,
-    //                current_angle,
-    //                c->speed_rpm,
-    //                cmd,
-    //                error);
+    LOG_CSV(LOG_TAG_GIM, "PITCH_CSV,%.2f,%.2f,%d,%.2f,%.2f",
+                   c->angle_target,
+                   current_angle,
+                   c->speed_rpm,
+                   cmd,
+                   error);
 
     return (int16_t)cmd;
 }
@@ -108,13 +108,13 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     if (cmd_speed_to_current < -CURRENT_LIMIT) cmd_speed_to_current = -CURRENT_LIMIT;
 
     // Logging for tuning/debug
-    LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%d,%.2f,%.2f",
-          yaw->angle_target,
-          s_last_sensor.ekf_yaw,
-          cmd_angle_to_speed,
-          s_last_sensor.gyro_z,
-          cmd_speed_to_current,
-          angle_error);
+    // LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%d,%.2f,%.2f",
+    //       yaw->angle_target,
+    //       s_last_sensor.ekf_yaw,
+    //       cmd_angle_to_speed,
+    //       s_last_sensor.gyro_z,
+    //       cmd_speed_to_current,
+    //       angle_error);
 
     return (int16_t)cmd_speed_to_current;
 }
