@@ -39,7 +39,8 @@ typedef struct {
     float    chassis_w;    // 0x405 bytes 4-7, chassis output power (W)
     float    voltage_pct;  // 0x406 bytes 0-3, supercap voltage % (0..100)
     uint8_t  mode;         // 0x406 byte 4, charger mode
-                           // 0=DISABLED, 1=CHARGING, 2=DISCHARGING, 3=UNDERVOLTAGE
+                           // 0=DISABLED, 1=CHARGING, 2=DISCHARGING,
+                           // 3=UNDERVOLTAGE, 4=READY (pre-primed, discharge will be fast)
     uint32_t tick_ms;      // last update tick (HAL_GetTick)
 } SupercapFeedbackEvent;
 
