@@ -105,7 +105,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[0] = ctx->config->direction;
         }
     }
@@ -123,7 +124,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[1] = ctx->config->direction;
         }
     }
@@ -139,7 +141,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[2] = ctx->config->direction;
         }
     }
@@ -154,7 +157,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[3] = ctx->config->direction; 
         }
     }

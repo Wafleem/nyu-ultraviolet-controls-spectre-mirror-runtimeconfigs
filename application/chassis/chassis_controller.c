@@ -90,7 +90,8 @@ void ChassisController_Init(ChassisController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
 
             controller->target_speeds[i] = 0.0f;
         }
