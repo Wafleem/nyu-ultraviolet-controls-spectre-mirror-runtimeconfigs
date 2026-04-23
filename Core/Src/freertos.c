@@ -311,10 +311,11 @@ void StartControlTask(void *argument) {
   // Initialize modules that subscribe to topics
   MotorDriver_ModuleInit(s_robot_id);
   VisionComm_Init();
-  CmdController_Init();
+  CmdController_Init(robot_cfg);
   ChassisApp_Init();
   GimbalApp_Init();
   ShooterApp_Init(robot_cfg);
+  ToF_SetRobotConfig(robot_cfg);
 
   // Wait for USB and other tasks to stabilize
   osDelay(1500);
@@ -474,12 +475,15 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
       ChassisApp_Init();
       GimbalApp_Init();
       ShooterApp_Init(robot_cfg);
+      CmdController_Init(robot_cfg);
+      ToF_SetRobotConfig(robot_cfg);
 
       /* Push the per-robot charging power ceiling to Wraith over CAN (0x408).
        * Sent here (not at ControlTask startup) because robot_id is only
        * known once the referee system publishes robot_status_t. */
       float charge_limit_w = get_supercap_charge_limit_w(s_robot_id);
       CAN_Manager_SendSupercapChargeLimit(charge_limit_w);
+
     }
   }
 }

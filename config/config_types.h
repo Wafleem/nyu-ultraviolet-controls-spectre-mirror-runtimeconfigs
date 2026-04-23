@@ -37,6 +37,15 @@ typedef enum {
 } MotorRole_e;
 
 /**
+ * @brief Yaw source enumeration
+ * Defines the hardware used to measure the yaw
+ */
+typedef enum {
+    YAW_SOURCE_DEVC,               // Dev C IMU
+    YAW_SOURCE_GM6020              // GM6020 motor encoder
+} YawSource_e;
+
+/**
  * @brief PID parameters structure
  */
 typedef struct {
@@ -99,8 +108,13 @@ typedef struct {
     const MotorConfig_t *motor_configs;  // Pointer to motor configuration array
     uint8_t total_motor_count;           // Total number of motors
     uint8_t enable_imu_calibration;      // Enable IMU calibration at startup (1 = enabled, 0 = disabled)
+    YawSource_e chassis_yaw_source;      // Hardware used to measure chassis yaw
+    float aligned_yaw;                   // Depends on yaw source:
+                                         // - Dev C: Spectre IMU yaw when ToF is aligned
+                                         // - GM6020: GM6020 yaw when head and chassis are aligned
     float feeder_speed;                  // Feeder/turntable motor speed
     float friction_wheel_speed;          // Friction wheel motor speed
+    int32_t pusher_retracted_angle;      // Pusher retracted angle (encoder units)
     int32_t pusher_extended_angle;       // Pusher extended angle (encoder units)
 } RobotConfig_t;
 

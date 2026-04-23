@@ -277,9 +277,6 @@ static void on_imu_update(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(Gimbal_Sensor_Data_t)) {
         memcpy(&s_last_sensor, ev->data, sizeof(Gimbal_Sensor_Data_t));
-        // Convert IMU angle from [-180, 180] to [0, 360] so it shares a frame
-        // with yaw->angle_target (which wraps to [0, MAX_YAW_ANGLE) = [0, 360)).
-        s_last_sensor.ekf_yaw += 180.0f;
     }
 }
 

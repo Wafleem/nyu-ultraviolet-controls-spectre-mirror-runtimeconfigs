@@ -181,7 +181,7 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
     float shooter2_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[2] : 0.0f;
 
     // Set pusher target
-    controller->pusher_target = s_last_cmd.feed_enabled ? s_shooter_config.pusher_extended_angle * controller->directions[3] : 0;
+    controller->pusher_target = s_last_cmd.feed_enabled ? s_shooter_config.pusher_retracted_angle : s_shooter_config.pusher_extended_angle;
     
     // Apply ramping
     controller->ramped_turntable = RampTowards(controller->ramped_turntable, turntable_target, SHOOTER_RAMP_STEP);

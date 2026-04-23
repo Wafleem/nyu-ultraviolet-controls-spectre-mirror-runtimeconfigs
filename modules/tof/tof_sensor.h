@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "robot_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +34,11 @@ int8_t ToF_Init(void);
  *        Call this periodically from the ToF FreeRTOS task.
  */
 void ToF_Task(void);
+
+/**
+ * @brief Set the robot config
+ */
+void ToF_SetRobotConfig(const RobotConfig_t *robot_config);
 
 #ifdef __cplusplus
 }
