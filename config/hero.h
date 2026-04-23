@@ -101,7 +101,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
             .initial_angle = -1.0f //4096.0f  // Center position (needs calibration) Currently set to -1 to skip
         },
         .pid_outer = { 13.5f, 0.0f, 0.3f, 300.0f, 300.0f },    // Yaw angle PID
-        .pid_inner = { 80.0f, 0.0f, 3.0f, 25000.0f, 4000.0f }    // Yaw speed PID
+        .pid_inner = { 50.0f, 0.0f, 3.0f, 25000.0f, 4000.0f }    // Yaw speed PID
     },
 
     // Pitch gimbal motor (up/down) - 2 blinks
@@ -205,7 +205,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .chassis_yaw_source = YAW_SOURCE_GM6020,
     .aligned_yaw = 55.0f,
     .feeder_speed = 3000.0f,
-    .friction_wheel_speed = 7500.0f,
+    .friction_wheel_speed = 9500.0f,
     .pusher_retracted_angle = (int32_t)(15.0f * 8192.0f),
     .pusher_extended_angle = (int32_t)(-10.0f * 8192.0f)
 };
