@@ -82,10 +82,6 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     // ==========================
     float cmd_angle_to_speed = PID_Calculate(&yaw->pid_outer, 0.0f, -angle_error);
 
-    // Clamp speed limit for yaw control stability (from working commit 22e9ff0e7a)
-    if (cmd_angle_to_speed >  MAX_YAW_RPM) cmd_angle_to_speed =  MAX_YAW_RPM;
-    if (cmd_angle_to_speed < -MAX_YAW_RPM) cmd_angle_to_speed = -MAX_YAW_RPM;
-
     // Speed feedback source selection:
     // - Spin mode: Use IMU gyro for absolute yaw stability
     // - Normal mode: Use motor encoder for better response
@@ -102,10 +98,6 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
 
     float cmd_speed_to_current =
         PID_Calculate(&yaw->pid_inner, cmd_angle_to_speed, speed_feedback);
-
-    // Clamp current
-    if (cmd_speed_to_current >  CURRENT_LIMIT) cmd_speed_to_current =  CURRENT_LIMIT;
-    if (cmd_speed_to_current < -CURRENT_LIMIT) cmd_speed_to_current = -CURRENT_LIMIT;
 
     // Logging for tuning/debug
     LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%d,%.2f,%.2f",

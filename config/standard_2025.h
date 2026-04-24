@@ -102,7 +102,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         },
         .pid_outer = { 13.5f, 0.0f, 3.0f, 300.0f, 0.0f, 360.0f },    // IMU Yaw angle PID (P-only for tuning)
         // .pid_outer = { 0.72f, 0.0f, 0.03f, 300.0f, 300.0f },    // GM6020 Yaw angle PID
-        .pid_inner = { 20.0f, 0.0f, 0.0f, 30000.0f, 0.0f, 10000.0f }   // Yaw speed PID (P-only for tuning)
+        .pid_inner = { 20.0f, 0.0f, 0.0f, 25000.0f, 0.0f, 10000.0f }   // Yaw speed PID (P-only for tuning)
     },
 
     // Pitch gimbal motor (up/down) - 2 blinks
@@ -121,7 +121,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
             .gravity_compensation = 5000.0f,  // Gravity compensation for pitch
             .initial_angle = 7400.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 90.0f, 5.0f, 3.22f, 30000.0f, 25000.0f, 10000.0f },  // Pitch PID
+        .pid_outer = { 90.0f, 5.0f, 3.22f, 25000.0f, 25000.0f, 10000.0f },  // Pitch PID
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
@@ -132,9 +132,9 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .type = MOTOR_TYPE_M2006,
         .role = MOTOR_ROLE_SHOOTER_FEED,
         .can_channel = CAN_CHANNEL_2,
-        .can_rx_id = 0x207,
-        .can_tx_id = 0x1FF,
-        .tx_slot = 2,
+        .can_rx_id = 0x201,
+        .can_tx_id = 0x200,
+        .tx_slot = 0,
         .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f

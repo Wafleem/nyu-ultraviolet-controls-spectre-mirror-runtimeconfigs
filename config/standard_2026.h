@@ -98,7 +98,7 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 50.0f, 0.0f, 0.0f, 2000.0f, 75.0f, 180.0f },    // Yaw angle PID (needs tuning)
+        .pid_outer = { 50.0f, 0.0f, 0.0f, 1500.0f, 75.0f, 180.0f },    // Yaw angle PID (needs tuning)
         .pid_inner = { 1.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f }    // Yaw speed PID (needs tuning)
         //.pid_inner = { 7.0f, 0.0f, 0.0f, 16000.0f, 500.0f }    // Disabling yaw PID due to loose belt
     },
@@ -119,7 +119,7 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
             .gravity_compensation = 0.0f,
             .initial_angle = 5500.0f
         },
-        .pid_outer = { 40.0f, 12.0f, 37.0f, 30000.0f, 15000.0f, 200.0f },
+        .pid_outer = { 40.0f, 12.0f, 37.0f, 25000.0f, 15000.0f, 200.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
