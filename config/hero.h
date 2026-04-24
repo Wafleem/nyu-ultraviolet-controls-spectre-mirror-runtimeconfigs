@@ -201,6 +201,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .shooter_motor_count = 4,
     .motor_configs = g_motor_configs_hero,
     .total_motor_count = 10,    // 4 chassis + 2 gimbal + 4 shooter
+    .reverse_chassis = 1,
     .enable_imu_calibration = 0,
     .chassis_yaw_source = YAW_SOURCE_GM6020,
     .aligned_yaw = 55.0f,

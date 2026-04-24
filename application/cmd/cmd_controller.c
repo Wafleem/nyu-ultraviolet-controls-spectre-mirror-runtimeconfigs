@@ -222,9 +222,13 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
     // Convert to normalized values (-1.0 to 1.0)
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);
     // Transform joystick values into gimbal frame
-    float vx_f = -(float)vx_raw / max_input;
-    float vy_f = -(float)vy_raw / max_input;
+    float vx_f = (float)vx_raw / max_input;
+    float vy_f = (float)vy_raw / max_input;
     float wz_n = (float)wz_raw / max_input;
+    if (s_robot_config->reverse_chassis) {
+        vx_f = -vx_f;
+        vy_f = -vy_f;
+    }
 
     if ((spin_mode || gimbal_follow_mode) && sensor != NULL) {
         // Spin mode OR Gimbal-follow mode: joystick input is in gimbal frame.
