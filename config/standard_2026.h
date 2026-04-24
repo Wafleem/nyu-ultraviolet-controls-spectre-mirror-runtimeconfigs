@@ -98,8 +98,8 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 80.0f, 0.0f, 5.0f, 1200.0f, 75.0f, 180.0f },    // Yaw angle PID (needs tuning)
-        .pid_inner = { 15.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f }    // Yaw speed PID (needs tuning)
+        .pid_outer = { 50.0f, 0.0f, 0.0f, 2000.0f, 75.0f, 180.0f },    // Yaw angle PID (needs tuning)
+        .pid_inner = { 1.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f }    // Yaw speed PID (needs tuning)
         //.pid_inner = { 7.0f, 0.0f, 0.0f, 16000.0f, 500.0f }    // Disabling yaw PID due to loose belt
     },
 
@@ -114,12 +114,12 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .tx_slot = 1,
         .direction = +1,
         .limits.gm6020 = {
-            .angle_min = 5070.0f,
-            .angle_max = 6410.0f,
+            .angle_min = 5270.0f,
+            .angle_max = 5710.0f,
             .gravity_compensation = 0.0f,
             .initial_angle = 5500.0f
         },
-        .pid_outer = { 26.0f, 0.0f, 10.0f, 30000.0f, 20000.0f, 200.0f },
+        .pid_outer = { 40.0f, 12.0f, 37.0f, 30000.0f, 15000.0f, 200.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
@@ -188,7 +188,7 @@ static const RobotConfig_t g_robot_config_standard_2026 = {
     .chassis_yaw_source = YAW_SOURCE_DEVC,
     .aligned_yaw = 0.0f,
     .feeder_speed = 3000.0f,
-    .friction_wheel_speed = 4500.0f,
+    .friction_wheel_speed = 7000.0f,
     .pusher_extended_angle = 0.0f,
 };
 
