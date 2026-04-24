@@ -16,6 +16,14 @@
 #define ANTIJAM_ENABLED 0
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
 
+typedef enum {
+    RETRACTING = 0,
+    FORWARD_FEED = 1,
+    EXTENDING = 2,
+    INITIALIZING = 3,
+    CALIBRATING = 4
+} PusherState_e;
+
 // Shooter controller structure
 typedef struct {
     // Turntable target speed

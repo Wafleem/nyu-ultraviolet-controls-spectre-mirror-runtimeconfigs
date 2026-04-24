@@ -188,7 +188,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {0.05f, 0.0f, 0.0f, 15000.0f, 7500.0f, 100000.0f},
+        .pid_outer = {0.1f, 0.0f, 0.0f, 15000.0f, 7500.0f, 100000.0f},
         .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
     }
 };
@@ -204,9 +204,9 @@ static const RobotConfig_t g_robot_config_hero = {
     .enable_imu_calibration = 0,
     .chassis_yaw_source = YAW_SOURCE_GM6020,
     .aligned_yaw = 55.0f,
-    .feeder_speed = 3000.0f,
+    .feeder_speed = 4000.0f,
     .friction_wheel_speed = 10000.0f,
-    .pusher_retracted_angle = (int32_t)(15.0f * 8192.0f),
+    .pusher_retracted_angle = 0.0f,
     .pusher_extended_angle = (int32_t)(-10.0f * 8192.0f)
 };
 
