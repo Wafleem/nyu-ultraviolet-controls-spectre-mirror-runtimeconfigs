@@ -191,6 +191,10 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
         if (s_pusher_state == FORWARD_FEED) {
             turntable_target = s_shooter_config.feeder_speed * controller->directions[0];
         }
+        if (s_pusher_state == FEEDER_REVERSE) {
+            turntable_target = -0.3f * s_shooter_config.feeder_speed * controller->directions[0];
+            controller->pusher_target = s_shooter_config.pusher_retracted_angle;
+        }
         if (s_pusher_state == EXTENDING) {
             turntable_target = 0.0f;
             controller->pusher_target = s_shooter_config.pusher_extended_angle;
@@ -408,7 +412,7 @@ static void on_jam_check(TimerHandle_t xTimer)
 static void on_pusher_state_change(TimerHandle_t xTimer)
 {
     if (s_pusher_state != INITIALIZING && s_pusher_state != CALIBRATING) {
-        s_pusher_state = (s_pusher_state + 1) % 3;
+        s_pusher_state = (s_pusher_state + 1) % 4;
     }
 }
 

@@ -17,11 +17,12 @@
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
 
 typedef enum {
-    RETRACTING = 0,
-    FORWARD_FEED = 1,
-    EXTENDING = 2,
-    INITIALIZING = 3,
-    CALIBRATING = 4
+    RETRACTING     = 0,
+    FORWARD_FEED   = 1,
+    FEEDER_REVERSE = 2,
+    EXTENDING      = 3,
+    INITIALIZING   = 4,
+    CALIBRATING    = 5
 } PusherState_e;
 
 // Shooter controller structure
