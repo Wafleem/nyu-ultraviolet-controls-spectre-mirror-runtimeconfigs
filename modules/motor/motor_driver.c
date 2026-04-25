@@ -131,14 +131,11 @@ void MotorDriver_UpdateFeedback(uint8_t motor_id,
     ctx->feedback_current = current;
     ctx->last_feedback_time = timestamp;
 
-    // Auto-initialize angle target on first feedback
+    // Auto-initialize angle target on first feedback.
+    // Yaw angle_target is seeded later by the gimbal controller once
+    // ekf_yaw is valid — leave it at 0 here to avoid a hardcoded mismatch.
     if (!ctx->angle_initialized) {
-        // Yaw uses IMU angle, which starts at 180 degrees
-        if (ctx->config->role == MOTOR_ROLE_GIMBAL_YAW) {
-            ctx->angle_target = 180.0f;
-        } else {
-            ctx->angle_target = (float)angle_raw;
-        }
+        ctx->angle_target = (float)angle_raw;
         ctx->angle_initialized = true;
     }
 }

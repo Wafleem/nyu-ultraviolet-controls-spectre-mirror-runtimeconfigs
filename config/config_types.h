@@ -95,6 +95,9 @@ typedef struct {
     // PID control parameters
     PIDParams_t pid_outer;         // Outer loop PID (angle/position control)
     PIDParams_t pid_inner;         // Inner loop PID (speed control)
+
+    // Static friction compensation (0 = disabled)
+    float stiction_ff;             // Current units added when motor is stalled but commanded to move
 } MotorConfig_t;
 
 /**

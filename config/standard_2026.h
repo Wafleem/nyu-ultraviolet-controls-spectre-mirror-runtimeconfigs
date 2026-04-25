@@ -98,8 +98,9 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 50.0f, 0.0f, 0.0f, 7500.0f, 75.0f, 180.0f },    // Yaw angle PID (needs tuning)
-        .pid_inner = { 1.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f }    // Yaw speed PID (needs tuning)
+        .pid_outer = { 0.0f, 0.0f, 0.0f, 7500.0f, 75.0f, 45.0f },     // FRICTION TEST: gains zeroed, restore to 50/0/0
+        .pid_inner = { 0.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f },   // FRICTION TEST: gains zeroed, restore to 3/0/0
+        .stiction_ff = 0.0f         // FRICTION TEST: disabled, restore to 700
         //.pid_inner = { 7.0f, 0.0f, 0.0f, 16000.0f, 500.0f }    // Disabling yaw PID due to loose belt
     },
 

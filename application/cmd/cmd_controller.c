@@ -78,7 +78,7 @@ static ShootCmd s_shoot_cmd;
 static GimbalCmd s_gimbal_cmd;
 
 // Deadband for joystick input
-#define JOYSTICK_DEADBAND 100
+#define JOYSTICK_DEADBAND 50
 
 // RC channel valid ranges (after offset subtraction: -660 to +660)
 // At startup with no RC: channels = 0 - 1024 = -1024 (INVALID!)
