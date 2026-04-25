@@ -68,6 +68,8 @@ typedef struct {
     MotorRole_e role;              // Functional role
 
     // CAN communication parameters
+    // Note: each motor category (chassis, gimbal, shooter) must be in separate
+    // CAN frames or else there will be synchronization issues  -Ramon 4/25
     CAN_Channel_t can_channel;     // CAN bus channel (CAN_CHANNEL_1 or CAN_CHANNEL_2)
     uint16_t can_rx_id;            // CAN ID for receiving feedback
     uint16_t can_tx_id;            // CAN ID for sending commands (0x200, 0x1FF, or 0x2FF)
