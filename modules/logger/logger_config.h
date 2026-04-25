@@ -13,7 +13,7 @@
 // ============================================================================
 
 #define LOG_ENABLE_SYS    1  // System/boot messages
-#define LOG_ENABLE_CMD    0  // Command controller
+#define LOG_ENABLE_CMD    1  // Command controller
 #define LOG_ENABLE_CHA    0  // Chassis controller
 #define LOG_ENABLE_GIM    1  // Gimbal controller
 #define LOG_ENABLE_SHO    0  // Shooter controller

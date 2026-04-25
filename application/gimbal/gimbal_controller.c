@@ -100,17 +100,6 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     float cmd_speed_to_current =
         PID_Calculate(&yaw->pid_inner, cmd_angle_to_speed, speed_feedback);
 
-    // Stiction feedforward: when the inner loop is commanding motion but the
-    // motor is stalled against belt tension, inject a fixed current kick in the
-    // commanded direction. Cancels automatically once the motor starts moving.
-    if (yaw->config->stiction_ff > 0.0f &&
-        fabsf(cmd_angle_to_speed) > YAW_STICTION_CMD_THRESH &&
-        fabsf(speed_feedback) < YAW_STICTION_RPM_THRESH) {
-        cmd_speed_to_current += (cmd_angle_to_speed > 0.0f)
-                                 ?  yaw->config->stiction_ff
-                                 : -yaw->config->stiction_ff;
-    }
-
     // Logging for tuning/debug
     // Columns: angle_target, ekf_yaw, speed_setpoint, actual_rpm, gyro_z, current_cmd, angle_error, feedback_current
     LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%.2f,%d,%.2f,%.2f,%d",
