@@ -78,7 +78,7 @@ static ShootCmd s_shoot_cmd;
 static GimbalCmd s_gimbal_cmd;
 
 // Deadband for joystick input
-#define JOYSTICK_DEADBAND 100
+#define JOYSTICK_DEADBAND 50
 
 // RC channel valid ranges (after offset subtraction: -660 to +660)
 // At startup with no RC: channels = 0 - 1024 = -1024 (INVALID!)
@@ -344,6 +344,21 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
 
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);
     float yaw_rate_manual = (float)yaw_raw / max_input;
+
+    // Asymmetric yaw scaling: compensates for belt drive resistance/assistance.
+    float yaw_raw_normalized = yaw_rate_manual;
+    float yaw_scale_applied  = 1.0f;
+    if (yaw_rate_manual > 0.0f && s_robot_config->yaw_left_scale  != 0.0f) {
+        yaw_scale_applied = s_robot_config->yaw_left_scale;
+        yaw_rate_manual  *= yaw_scale_applied;
+    } else if (yaw_rate_manual < 0.0f && s_robot_config->yaw_right_scale != 0.0f) {
+        yaw_scale_applied = s_robot_config->yaw_right_scale;
+        yaw_rate_manual  *= yaw_scale_applied;
+    }
+    // Columns: raw_stick(-1to1), scale_applied, scaled_output(-1to1)
+    LOG_CSV(LOG_TAG_CMD, "YAWSCALE,%.3f,%.2f,%.3f",
+            yaw_raw_normalized, yaw_scale_applied, yaw_rate_manual);
+
     s_gimbal_cmd.pitch_rate = (float)pitch_raw / max_input;
 
     if (spin_mode && sensor != NULL) {

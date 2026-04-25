@@ -98,9 +98,9 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = { 50.0f, 0.0f, 0.0f, 7500.0f, 75.0f, 180.0f },    // Yaw angle PID (needs tuning)
-        .pid_inner = { 1.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f }    // Yaw speed PID (needs tuning)
-        //.pid_inner = { 7.0f, 0.0f, 0.0f, 16000.0f, 500.0f }    // Disabling yaw PID due to loose belt
+        .pid_outer = { 50.0f, 0.0f, 0.0f, 7500.0f, 75.0f, 45.0f },     // Yaw angle PID (needs tuning)
+        .pid_inner = { 10.0f, 0.0f, 0.0f, 16000.0f, 4000.0f, 10000.0f },   // Yaw speed PID (needs tuning)
+//.pid_inner = { 7.0f, 0.0f, 0.0f, 16000.0f, 500.0f }    // Disabling yaw PID due to loose belt
     },
 
     // Pitch gimbal motor (up/down) - GM6020 ID 2, 2 blinks
@@ -119,7 +119,7 @@ static const MotorConfig_t g_motor_configs_standard_2026[] = {
             .gravity_compensation = 0.0f,
             .initial_angle = 5600.0f
         },
-        .pid_outer = { 30.0f, 12.0f, 60.0f, 25000.0f, 15000.0f, 200.0f },
+        .pid_outer = { 50.0f, 0.0f, 10.0f, 25000.0f, 11000.0f, 200.0f },
         .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
     },
 
@@ -191,6 +191,8 @@ static const RobotConfig_t g_robot_config_standard_2026 = {
     .feeder_speed = 3000.0f,
     .friction_wheel_speed = 7000.0f,
     .pusher_extended_angle = 0.0f,
+    .yaw_left_scale  = 1.2f,    // belt resists left  — boost it (tune up if still slow)
+    .yaw_right_scale = 0.8f,    // belt assists right — reduce it (tune down if still fast)
 };
 
 #endif // STANDARD_2026_H

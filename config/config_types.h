@@ -97,6 +97,7 @@ typedef struct {
     // PID control parameters
     PIDParams_t pid_outer;         // Outer loop PID (angle/position control)
     PIDParams_t pid_inner;         // Inner loop PID (speed control)
+
 } MotorConfig_t;
 
 /**
@@ -120,6 +121,8 @@ typedef struct {
     float friction_wheel_speed;          // Friction wheel motor speed
     int32_t pusher_retracted_angle;      // Pusher retracted angle (encoder units)
     int32_t pusher_extended_angle;       // Pusher extended angle (encoder units)
+    float yaw_left_scale;               // Yaw rate multiplier going left  (>1 boosts, 0 = use 1.0)
+    float yaw_right_scale;              // Yaw rate multiplier going right (<1 reduces, 0 = use 1.0)
 } RobotConfig_t;
 
 #endif // CONFIG_TYPES_H

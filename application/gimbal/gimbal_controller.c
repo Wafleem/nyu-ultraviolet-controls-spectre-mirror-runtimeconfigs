@@ -15,6 +15,7 @@ static uint8_t s_yaw_motor_id = 0xFF;
 static GimbalCmd s_last_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
 static bool s_initialized = false;
+static bool s_yaw_target_seeded = false;
 static uint32_t last_tick = 0;
 static float dt = 0.0f;
 
@@ -100,13 +101,16 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
         PID_Calculate(&yaw->pid_inner, cmd_angle_to_speed, speed_feedback);
 
     // Logging for tuning/debug
-    LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%d,%.2f,%.2f",
+    // Columns: angle_target, ekf_yaw, speed_setpoint, actual_rpm, gyro_z, current_cmd, angle_error, feedback_current
+    LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%.2f,%d,%.2f,%.2f,%d",
           yaw->angle_target,
           s_last_sensor.ekf_yaw,
           cmd_angle_to_speed,
+          speed_feedback,
           s_last_sensor.gyro_z,
           cmd_speed_to_current,
-          angle_error);
+          angle_error,
+          (int)yaw->feedback_current);
 
     return (int16_t)cmd_speed_to_current;
 }
@@ -221,6 +225,18 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
         pitch->angle_target += pitch_direction * MAX_PITCH_ANGLE_CHANGE * powf(cmd->pitch_rate, 3.0f) * dt;
     }
 
+    // Clamp target lead: prevent angle_target from running away from actual yaw
+    // when the motor can't keep up (e.g. belt drive asymmetry). Without this,
+    // releasing the stick after sustained hard input leaves a large accumulated
+    // error that causes violent oscillation.
+    {
+        float lead = yaw->angle_target - current_yaw;
+        while (lead >  MAX_YAW_ANGLE / 2.0f) lead -= MAX_YAW_ANGLE;
+        while (lead < -MAX_YAW_ANGLE / 2.0f) lead += MAX_YAW_ANGLE;
+        if      (lead >  MAX_YAW_TARGET_LEAD) yaw->angle_target = current_yaw + MAX_YAW_TARGET_LEAD;
+        else if (lead < -MAX_YAW_TARGET_LEAD) yaw->angle_target = current_yaw - MAX_YAW_TARGET_LEAD;
+    }
+
     // Set target angles to be in valid angle space
     while (yaw->angle_target >= MAX_YAW_ANGLE) yaw->angle_target -= MAX_YAW_ANGLE;
     while (yaw->angle_target < 0.0f) yaw->angle_target += MAX_YAW_ANGLE;
@@ -239,6 +255,15 @@ static void on_gimbal_cmd(const MsgEvent *ev, void *user) {
         if (s_last_cmd.enabled) {
             MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
             MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
+
+            // Seed yaw angle_target from ekf_yaw on the first enabled cycle so
+            // the controller starts with zero error regardless of IMU init timing.
+            if (yaw && yaw->angle_initialized && !s_yaw_target_seeded) {
+                yaw->angle_target = s_last_sensor.ekf_yaw;
+                PID_Reset(&yaw->pid_outer);
+                PID_Reset(&yaw->pid_inner);
+                s_yaw_target_seeded = true;
+            }
             bool use_spin_hold = (!s_last_cmd.vision_valid) && (s_last_cmd.yaw_rate_memo > 0.5f);
 
             // Update dt
