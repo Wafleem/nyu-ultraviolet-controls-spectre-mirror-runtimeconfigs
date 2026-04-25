@@ -188,7 +188,7 @@ static const MotorConfig_t g_motor_configs_hero[] = {
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
-        .pid_outer = {0.1f, 0.0f, 0.0f, 15000.0f, 7500.0f, 100000.0f},
+        .pid_outer = {0.15f, 0.0f, 0.0f, 15000.0f, 7500.0f, 100000.0f},
         .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
     }
 };

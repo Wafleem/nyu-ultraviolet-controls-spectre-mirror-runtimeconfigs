@@ -413,6 +413,8 @@ static void on_pusher_state_change(TimerHandle_t xTimer)
 {
     if (s_pusher_state != INITIALIZING && s_pusher_state != CALIBRATING) {
         s_pusher_state = (s_pusher_state + 1) % 4;
+        uint32_t next_period_ms = (s_pusher_state == FORWARD_FEED) ? 1500 : 1000;
+        xTimerChangePeriod(xTimer, pdMS_TO_TICKS(next_period_ms), 0);
     }
 }
 
