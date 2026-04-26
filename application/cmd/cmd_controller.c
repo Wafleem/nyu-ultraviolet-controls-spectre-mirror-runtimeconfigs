@@ -32,17 +32,7 @@
 #define SPIN_WZ_NORM                 (0.33f)   // chassis spin rate command (normalized, 0-1)
 #define SPIN_TRANSLATE_LIMIT_NORM    (1.00f)   // max translation velocity in spin mode (normalized)
 #define SPIN_GIMBAL_YAW_ADJ_DEG_PER_S (150.0f) // manual yaw adjustment rate when in spin mode (deg/s)
-//
-// Beyblade scaling: keep total intended power equal to the v=0 baseline.
-// Model: P = τ · Σ|ω_wheel|, τ assumed constant. In normalized command space,
-// SPIN_WZ_NORM and SPIN_TRANSLATE_LIMIT_NORM are the per-DOF equipower
-// references, so the constant-power locus is the linear ramp
-//
-//     T / SPIN_TRANSLATE_LIMIT_NORM  +  |wz| / SPIN_WZ_NORM  =  1
-//
-// → wz = SPIN_WZ_NORM · (1 − T / SPIN_TRANSLATE_LIMIT_NORM).
-// At T=0 we recover the original stationary spin rate; at T = translate-limit
-// we hand the entire power budget to translation (wz = 0).
+
 
 static bool  s_spin_mode = false;
 static float s_spin_hold_yaw_deg = 0.0f;       // target absolute yaw (deg, gimbal IMU yaw_total_angle)
@@ -281,10 +271,6 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
                 vx_c *= scale;
                 vy_c *= scale;
             }
-
-            LOG_CSV(LOG_TAG_CMD, "BBSCALE,%.3f,%.3f,%.3f",
-                    t_demand, t_norm, omega);
-
             s_chassis_cmd.vx = vx_c;
             s_chassis_cmd.vy = vy_c;
             s_chassis_cmd.wz = omega;
