@@ -363,8 +363,13 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
     s_gimbal_cmd.pitch_rate = (float)pitch_raw / max_input;
 
     if (spin_mode && sensor != NULL) {
+        // Re-aim rate scales with chassis spin so aim feel stays consistent.
+        // process_chassis_command runs first and sets s_chassis_cmd.wz = scaled omega,
+        // so dividing by SPIN_WZ_NORM recovers the same (1 - T/T_LIMIT) factor.
+        const float spin_scale = s_chassis_cmd.wz / SPIN_WZ_NORM;
+
         // Allow manual yaw adjustment by shifting hold target (deg/s).
-        s_spin_hold_yaw_deg += yaw_rate_manual * SPIN_GIMBAL_YAW_ADJ_DEG_PER_S * (float)REFRESH_DT;
+        s_spin_hold_yaw_deg += yaw_rate_manual * SPIN_GIMBAL_YAW_ADJ_DEG_PER_S * spin_scale * (float)REFRESH_DT;
 
         // Provide absolute yaw hold target to gimbal controller.
         // We reuse existing memo fields to avoid changing message struct.
