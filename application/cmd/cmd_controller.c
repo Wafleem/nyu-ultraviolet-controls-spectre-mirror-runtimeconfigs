@@ -363,16 +363,10 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
     s_gimbal_cmd.pitch_rate = (float)pitch_raw / max_input;
 
     if (spin_mode && sensor != NULL) {
-        // Re-aim rate tracks the same beyblade scale as chassis spin so the aim feel
-        // stays consistent across the throttle range: full re-aim at stationary spin,
-        // tapering to zero as translation eats the spin budget.
-        int16_t lvx_raw = apply_deadband((int16_t)(rc->rc.ch[2]), JOYSTICK_DEADBAND);
-        int16_t lvy_raw = apply_deadband((int16_t)(rc->rc.ch[3]), JOYSTICK_DEADBAND);
-        float lvx_n = (float)lvx_raw / max_input;
-        float lvy_n = (float)lvy_raw / max_input;
-        float t_norm = sqrtf(lvx_n * lvx_n + lvy_n * lvy_n) / SPIN_TRANSLATE_LIMIT_NORM;
-        if (t_norm > 1.0f) t_norm = 1.0f;
-        const float spin_scale = 1.0f - t_norm;
+        // Re-aim rate scales with chassis spin so aim feel stays consistent.
+        // process_chassis_command runs first and sets s_chassis_cmd.wz = scaled omega,
+        // so dividing by SPIN_WZ_NORM recovers the same (1 - T/T_LIMIT) factor.
+        const float spin_scale = s_chassis_cmd.wz / SPIN_WZ_NORM;
 
         // Allow manual yaw adjustment by shifting hold target (deg/s).
         s_spin_hold_yaw_deg += yaw_rate_manual * SPIN_GIMBAL_YAW_ADJ_DEG_PER_S * spin_scale * (float)REFRESH_DT;
