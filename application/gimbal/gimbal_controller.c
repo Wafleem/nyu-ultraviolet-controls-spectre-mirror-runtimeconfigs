@@ -51,12 +51,12 @@ int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data)
     if (cmd >  max_abs) cmd =  max_abs;
     if (cmd < -max_abs) cmd = -max_abs;
 
-    // LOG_CSV(LOG_TAG_GIM, "PITCH_CSV,%.2f,%.2f,%d,%.2f,%.2f",
-    //                c->angle_target,
-    //                current_angle,
-    //                c->speed_rpm,
-    //                cmd,
-    //                error);
+    LOG_CSV(LOG_TAG_PITCH, "PITCH_CSV,%.2f,%.2f,%d,%.2f,%.2f",
+                    c->angle_target,
+                    current_angle,
+                    c->speed_rpm,
+                    cmd,
+                    error);
 
     return (int16_t)cmd;
 }
@@ -102,7 +102,7 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
 
     // Logging for tuning/debug
     // Columns: angle_target, ekf_yaw, speed_setpoint, actual_rpm, gyro_z, current_cmd, angle_error, feedback_current
-    LOG_CSV(LOG_TAG_GIM, "YAW_CSV,%.2f,%.2f,%.2f,%.2f,%d,%.2f,%.2f,%d",
+    LOG_CSV(LOG_TAG_YAW, "YAW_CSV,%.2f,%.2f,%.2f,%.2f,%d,%.2f,%.2f,%d",
           yaw->angle_target,
           s_last_sensor.ekf_yaw,
           cmd_angle_to_speed,
@@ -198,7 +198,7 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
 
             // Beyblading diagnostic: target(deg), current(deg), raw err, wrapped err,
             // encoder angle_raw, computed angle_target (ticks)
-            LOG_CSV(LOG_TAG_GIM, "SPINHOLD,%.2f,%.2f,%.2f,%.1f,%.1f\r\n",
+            LOG_CSV(LOG_TAG_YAW, "SPINHOLD,%.2f,%.2f,%.2f,%.1f,%.1f\r\n",
                     cmd->yaw_target_memo,
                     current_yaw,
                     yaw_err_deg,

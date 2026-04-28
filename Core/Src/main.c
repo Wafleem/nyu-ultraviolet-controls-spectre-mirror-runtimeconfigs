@@ -169,7 +169,7 @@ int main(void)
   Logger_Init();
   Logger_SetRate(LOG_TAG_CMD, 100);   // 10Hz for command controller CSV (SPINDBG)
   Logger_SetRate(LOG_TAG_IMU, 100);   // 10Hz for IMU CSV data
-  Logger_SetRate(LOG_TAG_GIM, 50);    // 20Hz for gimbal PID tuning (PITCH/YAW_CSV)
+  Logger_SetRate(LOG_TAG_YAW, 50);    // 20Hz for gimbal PID tuning (PITCH/YAW_CSV)
   Logger_SetRate(LOG_TAG_RC, 0);      // No rate limit for RC (full 100Hz+ output)
   Logger_SetRate(LOG_TAG_CHA, 200);   // 5Hz for chassis status
   Logger_SetRate(LOG_TAG_VIS, 200);   // 5Hz for vision

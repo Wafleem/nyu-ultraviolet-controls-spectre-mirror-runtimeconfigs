@@ -23,7 +23,8 @@ static const char* s_tag_names[LOG_TAG_COUNT] = {
     "SYS",      // LOG_TAG_SYS
     "CMD",      // LOG_TAG_CMD
     "CHA",      // LOG_TAG_CHA
-    "GIM",      // LOG_TAG_GIM
+    "YAW",      // LOG_TAG_YAW
+    "PITCH",    // LOG_TAG_PITCH
     "SHO",      // LOG_TAG_SHO
     "SEN",      // LOG_TAG_SEN
     "MOT",      // LOG_TAG_MOT

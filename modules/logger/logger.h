@@ -17,7 +17,8 @@ typedef enum {
     LOG_TAG_SYS = 0,    // System/boot messages
     LOG_TAG_CMD,        // Command controller
     LOG_TAG_CHA,        // Chassis controller
-    LOG_TAG_GIM,        // Gimbal controller
+    LOG_TAG_YAW,        // Gimbal yaw controller
+    LOG_TAG_PITCH,      // Gimbal pitch controller
     LOG_TAG_SHO,        // Shooter controller
     LOG_TAG_SEN,        // Sentry controller (swerve chassis variant)
     LOG_TAG_MOT,        // Motor driver
@@ -95,7 +96,8 @@ void Logger_CSV(LogTag_t tag, const char *fmt, ...);
     ((tag == LOG_TAG_SYS && LOG_ENABLE_SYS) || \
      (tag == LOG_TAG_CMD && LOG_ENABLE_CMD) || \
      (tag == LOG_TAG_CHA && LOG_ENABLE_CHA) || \
-     (tag == LOG_TAG_GIM && LOG_ENABLE_GIM) || \
+     (tag == LOG_TAG_YAW && LOG_ENABLE_YAW) || \
+     (tag == LOG_TAG_PITCH && LOG_ENABLE_PITCH) || \
      (tag == LOG_TAG_SHO && LOG_ENABLE_SHO) || \
      (tag == LOG_TAG_SEN && LOG_ENABLE_SEN) || \
      (tag == LOG_TAG_MOT && LOG_ENABLE_MOT) || \

@@ -31,7 +31,7 @@ LOG_ERROR(LOG_TAG_MOT, "Motor %d not responding", motor_id);
 LOG_WARN(LOG_TAG_CAN, "TX mailbox full");
 
 // Debug messages (verbose, can be disabled)
-LOG_DEBUG(LOG_TAG_GIM, "Yaw angle: %.2f degrees", yaw_angle);
+LOG_DEBUG(LOG_TAG_YAW, "Yaw angle: %.2f degrees", yaw_angle);
 ```
 
 Output format: `[TAG][LEVEL] message`
@@ -47,7 +47,7 @@ For real-time data visualization and PID tuning:
 
 ```c
 // Gimbal PID tuning
-LOG_CSV(LOG_TAG_GIM, "PITCH,%.2f,%.2f,%d,%.2f",
+LOG_CSV(LOG_TAG_PITCH, "PITCH,%.2f,%.2f,%d,%.2f",
         angle_target, angle_current, speed_rpm, pid_output);
 
 // IMU sensor data
@@ -78,7 +78,7 @@ Logger_Init();
 // Configure rates (milliseconds between logs)
 Logger_SetRate(LOG_TAG_CMD, 100);   // 10Hz
 Logger_SetRate(LOG_TAG_IMU, 100);   // 10Hz
-Logger_SetRate(LOG_TAG_GIM, 50);    // 20Hz (fast for PID tuning)
+Logger_SetRate(LOG_TAG_YAW, 50);    // 20Hz (fast for PID tuning)
 Logger_SetRate(LOG_TAG_SYS, 0);     // No limit (boot messages)
 ```
 
@@ -94,7 +94,7 @@ Edit `modules/logger/logger_config.h`:
 // Enable only the tags you need
 #define LOG_ENABLE_SYS    1  // System messages (keep enabled)
 #define LOG_ENABLE_CMD    1  // Command controller
-#define LOG_ENABLE_GIM    1  // Gimbal (for PID tuning)
+#define LOG_ENABLE_YAW    1  // Gimbal (for PID tuning)
 #define LOG_ENABLE_IMU    1  // IMU data
 #define LOG_ENABLE_CAN    0  // Disable CAN (too verbose)
 #define LOG_ENABLE_DEBUG  0  // Disable debug in production
@@ -173,7 +173,7 @@ The smart logger automatically detects CSV sub-formats:
 1. **Enable gimbal logging** in firmware:
    ```c
    // In gimbal_controller.c (already implemented)
-   LOG_CSV(LOG_TAG_GIM, "PITCH,%.2f,%.2f,%d,%.2f,%.2f,%.2f",
+   LOG_CSV(LOG_TAG_PITCH, "PITCH,%.2f,%.2f,%d,%.2f,%.2f,%.2f",
            angle_target, angle_current, speed_rpm, cmd, error, rate);
    ```
 
@@ -245,8 +245,8 @@ All old scripts are in `script/deprecated/` for reference.
 
 1. Adjust rate limit in `main.c`:
    ```c
-   Logger_SetRate(LOG_TAG_GIM, 50);  // Faster (20Hz)
-   Logger_SetRate(LOG_TAG_GIM, 200); // Slower (5Hz)
+   Logger_SetRate(LOG_TAG_YAW, 50);  // Faster (20Hz)
+   Logger_SetRate(LOG_TAG_YAW, 200); // Slower (5Hz)
    ```
 
 2. Rebuild and reflash firmware
