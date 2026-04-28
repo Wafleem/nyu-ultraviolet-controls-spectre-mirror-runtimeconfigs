@@ -134,7 +134,7 @@ const osThreadAttr_t SDCardTask_attributes = {
 /* USER CODE BEGIN FunctionPrototypes */
 static void on_robot_status(const MsgEvent *ev, void *user_data);
 static void on_supercap_feedback(const MsgEvent *ev, void *user_data);
-static float get_supercap_charge_limit_w(robot_id_t id);
+static void configure_robot(robot_status_t *robot_status);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -309,16 +309,10 @@ void StartControlTask(void *argument)
   s_robot_id = 0;
   memset(&s_robot_status, 0, sizeof(robot_status_t));
   (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
-  const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
 
   // Initialize modules that subscribe to topics
-  MotorDriver_ModuleInit(s_robot_id);
   VisionComm_Init();
-  CmdController_Init(robot_cfg);
-  ChassisApp_Init();
-  GimbalApp_Init();
-  ShooterApp_Init(robot_cfg);
-  ToF_SetRobotConfig(robot_cfg);
+  configure_robot(&s_robot_status);
 
   // Wait for USB and other tasks to stabilize
   osDelay(1500);
@@ -469,59 +463,37 @@ static void on_supercap_feedback(const MsgEvent *ev, void *user_data) {
             (unsigned long)sc->tick_ms);
 }
 
-/**
- * @brief Per-robot supercap charging power ceiling in watts.
- *
- * Mirrors the chassis PMM limit policy in chassis_controller.c
- * (get_pmm_power_limit_w) so the supercap cannot out-draw the
- * referee-system budget for this robot type.
- * TODO: CHECK HEALTH IF STANDARD TO SEE IF IN POWER OR ARMOR MODE. ASSUMING ARMOR MODE.
- */
-static float get_supercap_charge_limit_w(robot_id_t id) {
-  switch (id) {
-    case RED_HERO:    case BLUE_HERO:
-    case RED_SENTRY:  case BLUE_SENTRY:
-      return 100.0f;
-    case RED_STANDARD_1:  case RED_STANDARD_2:  case RED_STANDARD_3:
-    case BLUE_STANDARD_1: case BLUE_STANDARD_2: case BLUE_STANDARD_3:
-      return 75.0f;
-    default:
-      return 75.0f; //Lowest Minimum. Best default guess until we check health for this.
-  }
-}
-
 // If robot ID changes, restart ControlTask with new robot config
 static void on_robot_status(const MsgEvent *ev, void *user_data) {
   (void)user_data;
   if (ev->size == sizeof(robot_status_t)) {
     memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
     if (s_robot_status.robot_id != s_robot_id) {
-      const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
-      s_robot_id = s_robot_status.robot_id;
-      LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
-
-      // Restart motor registries used in CAN managers
-      MotorRegistry_Init(can1_manager.registry, robot_cfg,
-                         can1_manager.channel);
-      MotorRegistry_Init(can2_manager.registry, robot_cfg,
-                         can2_manager.channel);
-
-      // Restart Controls modules and applications
-      MotorDriver_ModuleInit(s_robot_status.robot_id);
-      ChassisApp_Init();
-      GimbalApp_Init();
-      ShooterApp_Init(robot_cfg);
-      CmdController_Init(robot_cfg);
-      ToF_SetRobotConfig(robot_cfg);
-
-      /* Push the per-robot charging power ceiling to Wraith over CAN (0x408).
-       * Sent here (not at ControlTask startup) because robot_id is only
-       * known once the referee system publishes robot_status_t. */
-      float charge_limit_w = get_supercap_charge_limit_w(s_robot_id);
-      CAN_Manager_SendSupercapChargeLimit(charge_limit_w);
-
+      configure_robot(&s_robot_status);
     }
   }
+}
+
+static void configure_robot(robot_status_t *robot_status) {
+  const RobotConfig_t *robot_cfg = RobotConfig_Get(robot_status->robot_id);
+  s_robot_id = robot_status->robot_id;
+  LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
+
+  // Restart motor registries used in CAN managers
+  MotorRegistry_Init(can1_manager.registry, robot_cfg, can1_manager.channel);
+  MotorRegistry_Init(can2_manager.registry, robot_cfg, can2_manager.channel);
+
+  // Restart Controls modules and applications
+  MotorDriver_ModuleInit(robot_status->robot_id);
+  ChassisApp_Init();
+  GimbalApp_Init();
+  ShooterApp_Init(robot_cfg);
+  CmdController_Init(robot_cfg);
+  ToF_SetRobotConfig(robot_cfg);
+
+  /* Push the per-robot charging power ceiling to Wraith over CAN (0x408) */
+  float charge_limit_w = SupercapLimit_Get(s_robot_id);
+  CAN_Manager_SendSupercapChargeLimit(charge_limit_w);
 }
 
 /* USER CODE END Application */

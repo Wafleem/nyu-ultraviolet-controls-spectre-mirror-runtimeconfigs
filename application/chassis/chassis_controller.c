@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "ref_structs.h"
 #include "cmd_controller.h"
+#include "robot_config.h"
 
 #define MOTOR_FEEDBACK_TIMEOUT_MS (100U)
 
@@ -17,26 +18,6 @@
 #define PMM_TRICKLE_THRESHOLD_W 2.0f
 
 typedef struct { float x; float y; } Pair;
-
-/**
- * @brief Get PMM power limit in watts based on robot type
- *
- * Per RoboMaster rules: Hero/Sentry = 100W, Standard = 75W.
- * Default to 80W for unknown/pre-identified robots.
- */
-static float get_pmm_power_limit_w(robot_id_t id)
-{
-    switch (id) {
-        case RED_HERO:    case BLUE_HERO:
-        case RED_SENTRY:  case BLUE_SENTRY:
-            return 100.0f;
-        case RED_STANDARD_1:  case RED_STANDARD_2:  case RED_STANDARD_3:
-        case BLUE_STANDARD_1: case BLUE_STANDARD_2: case BLUE_STANDARD_3:
-            return 75.0f;
-        default:
-            return 80.0f;
-    }
-}
 
 // Static variables for app wrapper
 static ChassisCmd s_last_cmd;
@@ -161,7 +142,7 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
     // Only engage when PMM is actively delivering power (>1.0W threshold).
     // During supercap discharge, PMM draws only trickle power (~0.3-0.4W), so we skip.
     if (!supercap_discharging && s_last_supercap.pmm_w > PMM_TRICKLE_THRESHOLD_W) {
-        float limit_w = get_pmm_power_limit_w((robot_id_t)s_last_robot_status.robot_id);
+        float limit_w = PMMLimit_Get((robot_id_t)s_last_robot_status.robot_id);
         float target_w = limit_w * 0.90f;  // 90% headroom before hard cap
 
         if (s_last_supercap.pmm_w > target_w) {
