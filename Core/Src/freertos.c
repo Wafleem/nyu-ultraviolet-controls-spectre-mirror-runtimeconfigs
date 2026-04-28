@@ -19,9 +19,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -85,52 +85,50 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for MsgDispatch */
 osThreadId_t MsgDispatchHandle;
 const osThreadAttr_t MsgDispatch_attributes = {
   .name = "MsgDispatch",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityAboveNormal7,
+  .priority = (osPriority_t) osPriorityAboveNormal7,
 };
 /* Definitions for ControlTask */
 osThreadId_t ControlTaskHandle;
 const osThreadAttr_t ControlTask_attributes = {
   .name = "ControlTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for RefereeTask */
 osThreadId_t RefereeTaskHandle;
 const osThreadAttr_t RefereeTask_attributes = {
   .name = "RefereeTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
 const osThreadAttr_t IMUTask_attributes = {
   .name = "IMUTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for ToFTask */
 osThreadId_t ToFTaskHandle;
 const osThreadAttr_t ToFTask_attributes = {
   .name = "ToFTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
-
-/* Definitions for LoggerTask */
+/* Definitions for SDCardTask */
 osThreadId_t SDCardTaskHandle;
 const osThreadAttr_t SDCardTask_attributes = {
   .name = "SDCardTask",
-  .stack_size = 512 * 4,   
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
-
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -200,10 +198,12 @@ void MX_FREERTOS_Init(void) {
   /* creation of ToFTask */
   ToFTaskHandle = osThreadNew(StartToFTask, NULL, &ToFTask_attributes);
 
+  /* creation of SDCardTask */
+  SDCardTaskHandle = osThreadNew(StartSDCardTask, NULL, &SDCardTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
-  SDCardTaskHandle = osThreadNew(StartSDCardTask, NULL, &SDCardTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -219,7 +219,8 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
   /* USER CODE BEGIN StartDefaultTask */
 
 
@@ -274,7 +275,8 @@ void StartDefaultTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartMsgDispatchTask */
-void StartMsgDispatchTask(void *argument) {
+void StartMsgDispatchTask(void *argument)
+{
   /* USER CODE BEGIN StartMsgDispatchTask */
   /*
    * This task processes all message center events.
@@ -297,7 +299,8 @@ void StartMsgDispatchTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument) {
+void StartControlTask(void *argument)
+{
   /* USER CODE BEGIN StartControlTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(5); // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -336,7 +339,8 @@ void StartControlTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartRefereeTask */
-void StartRefereeTask(void *argument) {
+void StartRefereeTask(void *argument)
+{
   /* USER CODE BEGIN StartRefereeTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10ms = 100Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -355,7 +359,8 @@ void StartRefereeTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartIMUTask */
-void StartIMUTask(void *argument) {
+void StartIMUTask(void *argument)
+{
   /* USER CODE BEGIN StartIMUTask */
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(5); /* 5ms = 200Hz */
@@ -384,7 +389,15 @@ void StartIMUTask(void *argument) {
   /* USER CODE END StartIMUTask */
 }
 
-void StartToFTask(void *argument) {
+/* USER CODE BEGIN Header_StartToFTask */
+/**
+* @brief Function implementing the ToFTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartToFTask */
+void StartToFTask(void *argument)
+{
   /* USER CODE BEGIN StartToFTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(50); /* 50ms = 20Hz */
   TickType_t xLastWakeTime;
@@ -411,6 +424,29 @@ void StartToFTask(void *argument) {
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END StartToFTask */
+}
+
+/* USER CODE BEGIN Header_StartSDCardTask */
+/**
+* @brief Function implementing the SDCardTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSDCardTask */
+void StartSDCardTask(void *argument)
+{
+  /* USER CODE BEGIN StartSDCardTask */
+  const TickType_t log_period_ticks   = pdMS_TO_TICKS(100);   // 10Hz
+  TickType_t last_wake_time = xTaskGetTickCount();
+
+  osDelay(300);
+  SDCard_Logger_Init();
+  for (;;)
+  {
+    SDCard_Logger_Task();
+    vTaskDelayUntil(&last_wake_time, log_period_ticks);
+  }
+  /* USER CODE END StartSDCardTask */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -485,22 +521,6 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
       CAN_Manager_SendSupercapChargeLimit(charge_limit_w);
 
     }
-  }
-}
-
-void StartSDCardTask(void *argument)
-{
-  (void)argument;
-
-  const TickType_t log_period_ticks   = pdMS_TO_TICKS(100);   // 10Hz
-  TickType_t last_wake_time = xTaskGetTickCount();
-
-  osDelay(300);
-  SDCard_Logger_Init();
-  for (;;)
-  {
-    SDCard_Logger_Task();
-    vTaskDelayUntil(&last_wake_time, log_period_ticks);
   }
 }
 
