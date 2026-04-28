@@ -68,9 +68,11 @@ static int s_shoot_count = 0;
 static uint8_t s_yaw_motor_id = 0xFF;
 
 // RC health tracking
+static RC_State_e s_rc_state = RC_FAILSAFE; //Start assuming Disabled
+static RC_State_e s_prev_rc_state = RC_FAILSAFE;
+
 static uint32_t s_last_rc_update_time = 0;
 static bool s_rc_ever_connected = false;  // Track if we've ever received valid RC data
-static bool s_waiting_for_neutral = true;     // Track if the stick had reached neutral position at least once
 #define RC_TIMEOUT_MS 100  // 100ms timeout (DR16 sends at ~100Hz = 10ms, so ~10 missed frames)
 
 // Command messages to publish
@@ -86,6 +88,18 @@ static GimbalCmd s_gimbal_cmd;
 static bool is_rc_data_valid(const RC_ctrl_t *rc) {
     if (!rc) return false;
 
+    /*
+    This check determines if the RC failsafe bit was sent
+    Meaning, the RC is disconnected. So, we can now use is_rc_data_valid
+    to determine failsafe status, so we can transition states of RC health
+    */
+    if (rc->rc.failsafe_active) {
+        return false;  // RC is in failsafe mode!!!
+    }
+
+    /*
+    Extra redundent checks for value ranges. 
+    */
     // Check if all channels are within valid range
     // Valid range after offset: -784 to +784 (raw 240-1808, offset 1024)
     for (int i = 0; i < 6; i++) {
@@ -93,7 +107,6 @@ static bool is_rc_data_valid(const RC_ctrl_t *rc) {
             return false;  // Out of valid range (likely uninitialized or corrupt)
         }
     }
-
     // Check switches are valid (1, 2, or 3)
     for (int i = 0; i < 4; i++) {
         if (rc->rc.s[i] < 1 || rc->rc.s[i] > 3) {
@@ -102,6 +115,54 @@ static bool is_rc_data_valid(const RC_ctrl_t *rc) {
     }
 
     return true;
+}
+
+static void update_rc_state(const RC_ctrl_t *rc) {
+    // ========== RC HEALTH CHECK (FAIL-SAFE) ==========
+    // Check if RC is healthy: must have valid data AND recent update
+    uint32_t time_since_last_rc = HAL_GetTick() - s_last_rc_update_time;
+    bool rc_timeout = (s_rc_ever_connected && time_since_last_rc > RC_TIMEOUT_MS);
+    bool rc_invalid_data = !is_rc_data_valid(rc);
+    bool rc_healthy = s_rc_ever_connected && !rc_timeout && !rc_invalid_data;
+
+    // ========== RC STATE MACHINE ==========
+    // FAILSAFE: RC unhealthy, motors disabled
+    // WAIT:     RC healthy but ch[2] not yet seen at neutral since reconnect
+    // ACTIVE:   RC healthy and stick was neutral at least once — normal operation
+    switch (s_rc_state) {
+        case RC_FAILSAFE:
+            if (rc_healthy) s_rc_state = RC_WAIT;
+            break;
+        case RC_WAIT:
+            if (!rc_healthy) {
+                s_rc_state = RC_FAILSAFE;
+            } else if (abs(rc->rc.ch[2]) <= JOYSTICK_DEADBAND) {
+                s_rc_state = RC_ACTIVE;
+            }
+            break;
+        case RC_ACTIVE:
+            if (!rc_healthy) s_rc_state = RC_FAILSAFE;
+            break;
+    }
+
+    if (s_rc_state != s_prev_rc_state) {
+        switch (s_rc_state) {
+            case RC_FAILSAFE:
+                if (rc_timeout) {
+                    LOG_INFO(LOG_TAG_SYS, "[RC] SIGNAL LOST (timeout: %lu ms)\r\n", time_since_last_rc);
+                } else {
+                    LOG_INFO(LOG_TAG_SYS, "[RC] SIGNAL LOST (invalid frame / failsafe)\r\n");
+                }
+                break;
+            case RC_WAIT:
+                LOG_INFO(LOG_TAG_SYS, "[RC] Signal restored - waiting for stick neutral\r\n");
+                break;
+            case RC_ACTIVE:
+                LOG_INFO(LOG_TAG_SYS, "[RC] Active - robot enabled\r\n");
+                break;
+        }
+    }
+    s_prev_rc_state = s_rc_state;
 }
 
 // Normalize angle to [-180, 180] range
@@ -460,50 +521,11 @@ void CmdController_Task(uint32_t current_tick) {
         return;
     }
 
-    // ========== RC HEALTH CHECK (FAIL-SAFE) ==========
-    // Check if RC is healthy: must have valid data AND recent update
-    uint32_t time_since_last_rc = HAL_GetTick() - s_last_rc_update_time;
-    bool rc_timeout = (s_rc_ever_connected && time_since_last_rc > RC_TIMEOUT_MS);
-    bool rc_invalid_data = !is_rc_data_valid(&s_last_rc);
-    bool rc_healthy = s_rc_ever_connected && !rc_timeout && !s_last_rc.rc.failsafe_active;
+    update_rc_state(&s_last_rc);
+    const RC_ctrl_t *rc_ptr = (s_rc_state == RC_ACTIVE) ? &s_last_rc : NULL;
 
-    // If RC is unhealthy, pass NULL to stop robot gracefully
-    const RC_ctrl_t *rc_ptr = rc_healthy ? &s_last_rc : NULL;
-
-    // Log RC state changes
-    static bool last_rc_healthy = false;
-    static bool prev_rc_failsafe_active = false;
-
-    // If RC turns on, wait for its sticks to be in neutral
-    if (!s_last_rc.rc.failsafe_active && prev_rc_failsafe_active){
-        s_waiting_for_neutral = true;
-    }
-    // If sticks are in neutral, stop waiting. Otherwise, mark RC as unhealthy
-    if (!s_last_rc.rc.failsafe_active && s_waiting_for_neutral){
-        if (-JOYSTICK_DEADBAND <= s_last_rc.rc.ch[2] && s_last_rc.rc.ch[2] <= JOYSTICK_DEADBAND){
-            s_waiting_for_neutral = false;
-        } else {
-            rc_healthy = false;
-            s_waiting_for_neutral = true;
-        }
-    }
-    
-    if (rc_healthy != last_rc_healthy) {
-        if (!rc_healthy) {
-            if (rc_timeout) {
-                USB_CDC_Printf("[RC] SIGNAL LOST - Robot stopped (timeout: %lu ms)\r\n", time_since_last_rc);
-            } else if (rc_invalid_data) {
-                USB_CDC_Printf("[RC] Waiting for valid RC data...\r\n");
-            }
-        } else {
-            USB_CDC_Printf("[RC] Signal restored - Robot active\r\n");
-        }
-        last_rc_healthy = rc_healthy;
-        prev_rc_failsafe_active = s_last_rc.rc.failsafe_active;
-    }
-
-    // If RC is unhealthy, disable all modes and pass NULL (robot stops)
-    if (!rc_healthy) {
+    // If not ACTIVE (i.e. FAILSAFE or WAIT), disable all modes and pass NULL
+    if (s_rc_state != RC_ACTIVE) {
         s_spin_mode = false;
 
         // Disable chassis and shooter (no RC = no movement/shooting)

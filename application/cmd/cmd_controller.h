@@ -10,6 +10,14 @@
 extern "C" {
 #endif
 
+// Failsafe and RC unhealthy states
+typedef enum {
+    RC_FAILSAFE,
+    RC_WAIT,
+    RC_ACTIVE
+} RC_State_e;
+
+
 // Chassis command structure
 typedef struct {
     float vx;          // X-axis velocity (forward/backward)
