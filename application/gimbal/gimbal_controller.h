@@ -14,7 +14,7 @@ extern "C" {
 // #define MAX_YAW_ANGLE_PER_SEC   2000.0f
 #define MAX_YAW_ANGLE           360.0f
 #define MAX_YAW_ANGLE_CHANGE    150.0f
-#define MAX_YAW_TARGET_LEAD       20.0f  // deg: how far angle_target can lead actual yaw (tune up if sluggish)
+#define MAX_YAW_TARGET_LEAD       50.0f  // deg: how far angle_target can lead actual yaw (tune up if sluggish)
 #define MAX_PITCH_ANGLE         8192.0f   // Can be overwritten by robot config
 #define MAX_PITCH_ANGLE_CHANGE  1500.0f
 
