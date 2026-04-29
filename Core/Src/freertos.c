@@ -497,3 +497,4 @@ static void configure_robot(robot_status_t *robot_status) {
 }
 
 /* USER CODE END Application */
+

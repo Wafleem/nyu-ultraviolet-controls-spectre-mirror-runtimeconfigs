@@ -151,7 +151,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_rx_id = 0x202,
         .can_tx_id = 0x200,
         .tx_slot = 1,
-        .direction = +1,
+        .direction = -1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
@@ -168,7 +168,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_rx_id = 0x203,
         .can_tx_id = 0x200,
         .tx_slot = 2,
-        .direction = -1,
+        .direction = +1,
         .limits.m3508 = {
             .speed_limit = 10000.0f
         },
