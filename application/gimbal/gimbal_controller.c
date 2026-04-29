@@ -250,42 +250,6 @@ static void on_gimbal_cmd(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(GimbalCmd)) {
         memcpy(&s_last_cmd, ev->data, sizeof(GimbalCmd));
-        
-        // Execute gimbal control when command arrives
-        if (s_last_cmd.enabled) {
-            MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
-            MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
-
-            // Seed yaw angle_target from ekf_yaw on the first enabled cycle so
-            // the controller starts with zero error regardless of IMU init timing.
-            if (yaw && yaw->angle_initialized && !s_yaw_target_seeded) {
-                yaw->angle_target = s_last_sensor.ekf_yaw;
-                PID_Reset(&yaw->pid_outer);
-                PID_Reset(&yaw->pid_inner);
-                s_yaw_target_seeded = true;
-            }
-            bool use_spin_hold = (!s_last_cmd.vision_valid) && (s_last_cmd.yaw_rate_memo > 0.5f);
-
-            // Update dt
-            uint32_t now = HAL_GetTick();
-            dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
-            last_tick = now;
-
-            // Compute motor currents
-            GimbalController_UpdateTargets(&s_last_cmd, yaw, pitch);
-            int16_t pitch_current = GimbalController_PitchControl(&s_last_sensor);
-            int16_t yaw_current = GimbalController_YawControlWithCompensation(&s_last_sensor, use_spin_hold);
-
-            // Send motor currents (module layer handles CAN)
-            MotorDriver_SendCurrent(s_pitch_motor_id, pitch_current);
-            MotorDriver_SendCurrent(s_yaw_motor_id, yaw_current);
-            MotorDriver_FlushAll();
-        } else {
-            // Gimbal disabled, send zero current
-            MotorDriver_SendCurrent(s_pitch_motor_id, 0);
-            MotorDriver_SendCurrent(s_yaw_motor_id, 0);
-            MotorDriver_FlushAll();
-        }
     }
 }
 
@@ -319,6 +283,42 @@ void GimbalApp_Init(void) {
     }
 
     s_initialized = true;
+}
+
+void GimbalApp_Tick(void) {
+    // Update dt
+    uint32_t now = HAL_GetTick();
+    dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
+    last_tick = now;
+
+    // Gimbal disabled, send zero current
+    if (!s_last_cmd.enabled) {
+        MotorDriver_SendCurrent(s_pitch_motor_id, 0);
+        MotorDriver_SendCurrent(s_yaw_motor_id, 0);
+        return;
+    }
+
+    MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
+    MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
+
+    // Seed yaw angle_target from ekf_yaw on the first enabled cycle so
+    // the controller starts with zero error regardless of IMU init timing.
+    if (yaw && yaw->angle_initialized && !s_yaw_target_seeded) {
+        yaw->angle_target = s_last_sensor.ekf_yaw;
+        PID_Reset(&yaw->pid_outer);
+        PID_Reset(&yaw->pid_inner);
+        s_yaw_target_seeded = true;
+    }
+    bool use_spin_hold = (!s_last_cmd.vision_valid) && (s_last_cmd.yaw_rate_memo > 0.5f);
+
+    // Compute motor currents
+    GimbalController_UpdateTargets(&s_last_cmd, yaw, pitch);
+    int16_t pitch_current = GimbalController_PitchControl(&s_last_sensor);
+    int16_t yaw_current = GimbalController_YawControlWithCompensation(&s_last_sensor, use_spin_hold);
+
+    // Send motor currents (module layer handles CAN)
+    MotorDriver_SendCurrent(s_pitch_motor_id, pitch_current);
+    MotorDriver_SendCurrent(s_yaw_motor_id, yaw_current);
 }
 
 /**

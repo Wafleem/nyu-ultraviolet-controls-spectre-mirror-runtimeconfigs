@@ -257,14 +257,11 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
         }
         // Otherwise, send the computed pusher current
         else {
-             MotorDriver_SendCurrent(s_pusher_motor_id, controller->output_currents[3]);
+            MotorDriver_SendCurrent(s_pusher_motor_id, controller->output_currents[3]);
         }
     }
 
-    // Flush all pending motor commands
-    MotorDriver_FlushAll();
-
-        // --- Tuning print: target vs actual shooter speeds  ---
+    // --- Tuning print: target vs actual shooter speeds  ---
     if (current_tick - s_last_print_ms >= SHOOTER_PRINT_PERIOD_MS) {
         s_last_print_ms = current_tick;
 
@@ -374,13 +371,6 @@ static void on_shoot_cmd(const MsgEvent *ev, void *user) {
     if (ev->size == sizeof(ShootCmd)) {
         s_prev_cmd = s_last_cmd;  // store previous state
         memcpy(&s_last_cmd, ev->data, sizeof(ShootCmd));
-
-        // Update controller and compute currents when command arrives
-        ShooterController_Update(&s_ctrl, &s_last_sensor);
-        ShooterController_ComputeCurrents(&s_ctrl, HAL_GetTick());
-        if (ANTIJAM_ENABLED) {
-            ToggleJamDetection();
-        }
     }
 }
 
@@ -444,6 +434,15 @@ void ShooterApp_Init(const RobotConfig_t *config) {
         s_shooter_config = *config;
     }
     s_initialized = true;
+}
+
+void ShooterApp_Tick(void) {
+    if (!s_initialized) return;
+    ShooterController_Update(&s_ctrl, &s_last_sensor);
+    ShooterController_ComputeCurrents(&s_ctrl, HAL_GetTick());
+    if (ANTIJAM_ENABLED) {
+        ToggleJamDetection();
+    }
 }
 
 ShooterController* ShooterApp_GetController(void) {

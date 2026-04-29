@@ -162,9 +162,6 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
     for (int i = 0; i < s_chassis_motor_count; i++) {
         MotorDriver_SendCurrent(s_chassis_motor_ids[i], controller->output_currents[i]);
     }
-
-    // Flush all pending motor commands
-    MotorDriver_FlushAll();
 }
 
 void ChassisController_SetTargetSpeeds(ChassisController *controller, const float speeds[CHASSIS_MOTOR_COUNT])
@@ -210,9 +207,6 @@ static void on_chassis_cmd(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(ChassisCmd)) {
         memcpy(&s_last_cmd, ev->data, sizeof(ChassisCmd));
-        // Update controller and compute currents when command arrives
-        ChassisController_Update(&s_ctrl, &s_last_sensor);
-        ChassisController_ComputeCurrents(&s_ctrl, HAL_GetTick());
     }
 }
 
@@ -270,6 +264,12 @@ void ChassisApp_Init(void) {
         (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
     }
     s_initialized = true;
+}
+
+void ChassisApp_Tick(void) {
+    if (!s_initialized) return;
+    ChassisController_Update(&s_ctrl, &s_last_sensor);
+    ChassisController_ComputeCurrents(&s_ctrl, HAL_GetTick());
 }
 
 ChassisController* ChassisApp_GetController(void) {

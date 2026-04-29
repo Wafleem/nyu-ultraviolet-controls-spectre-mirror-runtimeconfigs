@@ -62,6 +62,12 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
 void GimbalApp_Init(void);
 
 /**
+ * @brief Run gimbal PID control loop.
+ */
+void GimbalApp_Tick(void);
+
+
+/**
  * @brief Wait for gimbal to reach initial alignment position
  * @note This function sends gimbal commands and waits for both yaw and pitch
  *       to reach their initial positions before returning.

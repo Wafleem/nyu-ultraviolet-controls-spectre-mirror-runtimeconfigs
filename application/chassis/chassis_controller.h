@@ -111,5 +111,10 @@ void ChassisController_UpdateMotorFeedback(ChassisController *controller, uint8_
  */
 void ChassisApp_Init(void);
 
+/**
+ * @brief Run one chassis PID cycle.
+ */
+void ChassisApp_Tick(void);
+
 #endif // CHASSIS_CONTROLLER_H
 

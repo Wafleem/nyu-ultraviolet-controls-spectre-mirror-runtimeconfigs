@@ -107,5 +107,10 @@ void ShooterController_UpdateMotorFeedback(ShooterController *controller, uint8_
  */
 void ShooterController_Unjam(ShooterController *controller);
 
+/**
+ * @brief Run one shooter PID cycle.
+ */
+void ShooterApp_Tick(void);
+
 #endif // SHOOTER_CONTROLLER_H
 
