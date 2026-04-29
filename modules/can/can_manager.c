@@ -463,8 +463,7 @@ HAL_StatusTypeDef CAN_Manager_FlushTx(CAN_Manager_t *manager)
             }
             manager->last_tx_time = HAL_GetTick();
 
-            // Not clearing currents in case multiple apps write and flush the same CAN frame
-            // memset(tx_frame->currents, 0, sizeof(tx_frame->currents));
+            memset(tx_frame->currents, 0, sizeof(tx_frame->currents));
             tx_frame->pending = 0;
         }
     }

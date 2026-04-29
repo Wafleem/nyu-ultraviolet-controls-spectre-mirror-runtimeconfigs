@@ -320,6 +320,11 @@ void StartControlTask(void *argument)
 
   for (;;) {
     CmdController_Task(HAL_GetTick());
+    ChassisApp_Tick();
+    GimbalApp_Tick();
+    ShooterApp_Tick();
+    MotorDriver_FlushAll();
+
     // vTaskDelayUntil ensures consistent period even if execution time varies
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
