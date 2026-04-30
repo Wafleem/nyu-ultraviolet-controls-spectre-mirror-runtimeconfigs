@@ -117,6 +117,7 @@ typedef struct {
     float aligned_yaw;                   // Depends on yaw source:
                                          // - Dev C: Spectre IMU yaw when ToF is aligned
                                          // - GM6020: GM6020 yaw when head and chassis are aligned
+    float supercap_limit;                // Supercap power limit in watts
     float feeder_speed;                  // Feeder/turntable motor speed
     float friction_wheel_speed;          // Friction wheel motor speed
     int32_t pusher_retracted_angle;      // Pusher retracted angle (encoder units)

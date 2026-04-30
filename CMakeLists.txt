@@ -21,26 +21,6 @@ endif()
 # Set the project name
 set(CMAKE_PROJECT_NAME Spectre_Controls)
 
-# ------------------------------------------------------------
-# Robot configuration type
-# (Override from CLI or VS Code task with -DROBOT_TYPE=...)
-# ------------------------------------------------------------
-set(ROBOT_TYPE "infantry_standard" CACHE STRING "Robot configuration type")
-
-# Optional: show available values in GUIs (ccmake/cmake-gui)
-set_property(CACHE ROBOT_TYPE PROPERTY STRINGS
-    infantry_standard
-)
-
-# Optional: validate to fail fast on typos
-set(_valid_robot_types infantry_standard)
-list(FIND _valid_robot_types "${ROBOT_TYPE}" _robot_type_idx)
-if(_robot_type_idx EQUAL -1)
-    message(FATAL_ERROR "Invalid ROBOT_TYPE='${ROBOT_TYPE}'. Valid: ${_valid_robot_types}")
-endif()
-
-message(STATUS "Selected ROBOT_TYPE: ${ROBOT_TYPE}")
-
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 

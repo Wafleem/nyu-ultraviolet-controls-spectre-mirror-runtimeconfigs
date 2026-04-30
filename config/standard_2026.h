@@ -188,6 +188,7 @@ static const RobotConfig_t g_robot_config_standard_2026 = {
     .enable_imu_calibration = 0,
     .chassis_yaw_source = YAW_SOURCE_DEVC,
     .aligned_yaw = 0.0f,
+    .supercap_limit = 75.0f,
     .feeder_speed = 3000.0f,
     .friction_wheel_speed = 7000.0f,
     .pusher_extended_angle = 0.0f,

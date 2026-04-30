@@ -142,15 +142,14 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
     // Only engage when PMM is actively delivering power (>1.0W threshold).
     // During supercap discharge, PMM draws only trickle power (~0.3-0.4W), so we skip.
     if (!supercap_discharging && s_last_supercap.pmm_w > PMM_TRICKLE_THRESHOLD_W) {
-        float limit_w = PMMLimit_Get((robot_id_t)s_last_robot_status.robot_id);
-        float target_w = limit_w * 0.90f;  // 90% headroom before hard cap
+        float target_w = s_last_robot_status.chassis_power_limit * 0.90f;  // 90% headroom before hard cap
 
         if (s_last_supercap.pmm_w > target_w) {
             float ratio = target_w / s_last_supercap.pmm_w;
             if (ratio > 1.0f) ratio = 1.0f;  // Never scale UP, only down
 
             LOG_INFO(LOG_TAG_CHA, "PMM SCALE: pmm=%.1fW limit=%.0fW scale=%.3f\r\n",
-                     s_last_supercap.pmm_w, limit_w, ratio);
+                     s_last_supercap.pmm_w, s_last_robot_status.chassis_power_limit, ratio);
 
             for (int j = 0; j < s_chassis_motor_count; j++) {
                 controller->output_currents[j] = (int16_t)((float)controller->output_currents[j] * ratio);
@@ -237,6 +236,17 @@ static void on_supercap_feedback(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(SupercapFeedbackEvent)) {
         memcpy(&s_last_supercap, ev->data, sizeof(SupercapFeedbackEvent));
+
+        static const char *const mode_names[] = {
+            "DISABLED", "CHARGING", "DISCHARGING", "UNDERVOLTAGE"
+        };
+        const char *mode_str = (s_last_supercap.mode < 4) ? mode_names[s_last_supercap.mode] : "UNKNOWN";
+
+        LOG_INFO(LOG_TAG_DEBUG,
+                "[Wraith] PMM=%.1fW Chassis=%.1fW Cap=%.1f%% Mode=%s tick=%lu\r\n",
+                (double)s_last_supercap.pmm_w, (double)s_last_supercap.chassis_w,
+                (double)s_last_supercap.voltage_pct, mode_str,
+                (unsigned long)s_last_supercap.tick_ms);
     }
 }
 
@@ -244,7 +254,8 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(robot_status_t)) {
         memcpy(&s_last_robot_status, ev->data, sizeof(robot_status_t));
-        LOG_INFO(LOG_TAG_DEBUG, "ROBOT_ID=%u\r\n", s_last_robot_status.robot_id);
+        LOG_INFO(LOG_TAG_DEBUG, "ROBOT_ID=%u,CHASSIS_LIMIT=%u\r\n",
+                 s_last_robot_status.robot_id, s_last_robot_status.chassis_power_limit);
     }
 }
 

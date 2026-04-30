@@ -205,6 +205,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .enable_imu_calibration = 0,
     .chassis_yaw_source = YAW_SOURCE_GM6020,
     .aligned_yaw = 55.0f,
+    .supercap_limit = 100.0f,
     .feeder_speed = 4000.0f,
     .friction_wheel_speed = 10000.0f,
     .pusher_retracted_angle = 0.0f,
