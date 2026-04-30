@@ -61,7 +61,7 @@ int16_t GimbalController_PitchControl(Gimbal_Sensor_Data_t* sensor_data)
     return (int16_t)cmd;
 }
 
-int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor_data, bool use_imu_feedback)
+int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor_data)
 {
     MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
     if (!yaw || !yaw->angle_initialized) return 0;
@@ -82,21 +82,7 @@ int16_t GimbalController_YawControlWithCompensation(Gimbal_Sensor_Data_t* sensor
     // OUTER LOOP: angle → speed
     // ==========================
     float cmd_angle_to_speed = PID_Calculate(&yaw->pid_outer, 0.0f, -angle_error);
-
-    // Speed feedback source selection:
-    // - Spin mode: Use IMU gyro for absolute yaw stability
-    // - Normal mode: Use motor encoder for better response
-    // float speed_feedback;
-    // if (use_imu_feedback) {
-    //     // IMU gyro feedback (for spin mode)
-    //     // Convert IMU gyro (rad/s) to RPM: 1 rad/s = 30/π RPM ≈ 9.549 RPM
-    //     speed_feedback = -s_last_sensor.gyro_z * 30.0f / (float)M_PI;  // negative because IMU z-axis convention
-    // } else {
-    //     // Motor encoder speed feedback (for normal mode)
-    //     speed_feedback = (float)yaw->speed_rpm;
-    // }
     float speed_feedback = (float)yaw->speed_rpm;
-
     float cmd_speed_to_current =
         PID_Calculate(&yaw->pid_inner, cmd_angle_to_speed, speed_feedback);
 
@@ -309,12 +295,11 @@ void GimbalApp_Tick(void) {
         PID_Reset(&yaw->pid_inner);
         s_yaw_target_seeded = true;
     }
-    bool use_spin_hold = (!s_last_cmd.vision_valid) && (s_last_cmd.yaw_rate_memo > 0.5f);
 
     // Compute motor currents
     GimbalController_UpdateTargets(&s_last_cmd, yaw, pitch);
     int16_t pitch_current = GimbalController_PitchControl(&s_last_sensor);
-    int16_t yaw_current = GimbalController_YawControlWithCompensation(&s_last_sensor, use_spin_hold);
+    int16_t yaw_current = GimbalController_YawControlWithCompensation(&s_last_sensor);
 
     // Send motor currents (module layer handles CAN)
     MotorDriver_SendCurrent(s_pitch_motor_id, pitch_current);

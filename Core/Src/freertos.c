@@ -133,7 +133,6 @@ const osThreadAttr_t SDCardTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void on_robot_status(const MsgEvent *ev, void *user_data);
-static void on_supercap_feedback(const MsgEvent *ev, void *user_data);
 static void configure_robot(robot_status_t *robot_status);
 
 /* USER CODE END FunctionPrototypes */
@@ -229,10 +228,6 @@ void StartDefaultTask(void *argument)
   Debug_Printf("   FreeRTOS Started Successfully!\r\n");
   Debug_Printf("========================================\r\n");
   Debug_Printf("[DefaultTask] Running!\r\n");
-
-  // Subscribe to Wraith (supercap) telemetry. Callback runs in MsgDispatch
-  // task context and prints the latest snapshot via the logger.
-  (void)MsgCenter_Subscribe(TOPIC_SUPERCAP_FEEDBACK, on_supercap_feedback, NULL);
 
   // External CAN managers for status reporting
   extern CAN_Manager_t can1_manager;
@@ -451,23 +446,6 @@ void StartSDCardTask(void *argument)
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
-static void on_supercap_feedback(const MsgEvent *ev, void *user_data) {
-  (void)user_data;
-  if (ev->size != sizeof(SupercapFeedbackEvent)) return;
-  const SupercapFeedbackEvent *sc = (const SupercapFeedbackEvent *)ev->data;
-
-  static const char *const mode_names[] = {
-      "DISABLED", "CHARGING", "DISCHARGING", "UNDERVOLTAGE"
-  };
-  const char *mode_str = (sc->mode < 4) ? mode_names[sc->mode] : "UNKNOWN";
-
-  LOG_INFO(LOG_TAG_CAN,
-            "[Wraith] PMM=%.1fW Chassis=%.1fW Cap=%.1f%% Mode=%s tick=%lu\r\n",
-            (double)sc->pmm_w, (double)sc->chassis_w,
-            (double)sc->voltage_pct, mode_str,
-            (unsigned long)sc->tick_ms);
-}
-
 // If robot ID changes, restart ControlTask with new robot config
 static void on_robot_status(const MsgEvent *ev, void *user_data) {
   (void)user_data;
@@ -497,8 +475,8 @@ static void configure_robot(robot_status_t *robot_status) {
   ToF_SetRobotConfig(robot_cfg);
 
   /* Push the per-robot charging power ceiling to Wraith over CAN (0x408) */
-  float charge_limit_w = SupercapLimit_Get(s_robot_id);
-  CAN_Manager_SendSupercapChargeLimit(charge_limit_w);
+  LOG_INFO(LOG_TAG_SYS, "Supercap limit set to %f watts\r\n", robot_cfg->supercap_limit);
+  CAN_Manager_SendSupercapChargeLimit(robot_cfg->supercap_limit);
 }
 
 /* USER CODE END Application */

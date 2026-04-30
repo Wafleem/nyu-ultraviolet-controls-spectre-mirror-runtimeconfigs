@@ -1,18 +1,6 @@
 {
   "version": "2.0.0",
 
-  "inputs": [
-    {
-      "id": "robotType",
-      "type": "pickString",
-      "description": "Choose robot configuration",
-      "options": [
-        "infantry_standard",
-      ],
-      "default": "infantry_standard"
-    }
-  ],
-
   "tasks": [
     {
       "label": "cmake: configure (choose robot)",

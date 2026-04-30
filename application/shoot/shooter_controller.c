@@ -247,7 +247,7 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
     }
     if (s_pusher_motor_id != 0xFF) {
         // If pusher is initializing, make it calibrate for some duration
-        if (s_pusher_state == INITIALIZING) {
+        if (s_pusher_state == INITIALIZING && controller->pusher_initialized) {
             xTimerStart(s_pusher_calibration_timer, 0);
             s_pusher_state = CALIBRATING;
         }

@@ -9,7 +9,5 @@
  * @return Pointer to the active robot configuration structure
  */
 const RobotConfig_t* RobotConfig_Get(robot_id_t robot_id);
-float PMMLimit_Get(robot_id_t id);
-float SupercapLimit_Get(robot_id_t id);
 
 #endif // ROBOT_CONFIG_H
