@@ -153,10 +153,10 @@ int main(void)
   MX_USB_DEVICE_Init();
   
   /* Only init SDMMC if card is physically present (PB7 low = inserted) */
-  if (SDCard_Inserted()) {
-      MX_SDMMC2_SD_Init();
-      MX_FATFS_Init();
-  }
+  // if (SDCard_Inserted()) {
+  //     MX_SDMMC2_SD_Init();
+  //     MX_FATFS_Init();
+  // }
 
   // Wait for USB to enumerate
   HAL_Delay(1000);
@@ -356,7 +356,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
     REMOTE_IDLE_Handler(huart);
   }
   else if (huart == REFEREE_UART_HANDLE) {
-    referee_IDLE_Handler(huart);
+    referee_IDLE_Handler(huart, Size);
   }
   else if (huart == &VISION_UART_HANDLE) {
     extern void VisionComm_RxCallback(uint8_t *buf, uint32_t len);

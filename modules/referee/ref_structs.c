@@ -7,6 +7,7 @@
 #include "ref_structs.h"
 #include "ref_protocol.h"
 #include "message_center.h"
+#include "printing.h"
 #include "string.h"
 #include "stdio.h"
 
@@ -103,6 +104,8 @@ void ref_structs_solve(uint8_t *frame)
         case GAME_STATE_CMD_ID:
         {
             memcpy(&game_state, frame + index, sizeof(game_state_t));
+            USB_CDC_Printf("[GAME] progress=%u remain=%us\r\n",
+                           game_state.game_progress, game_state.stage_remain_time);
         }
         break;
         case GAME_RESULT_CMD_ID:
@@ -253,71 +256,30 @@ void ref_structs_solve(uint8_t *frame)
     }
 }
 
-static void write_bits(uint8_t *buf, int *bit, uint32_t val, int width)
-{
-    // Mask val into the appropriate width (0xFFF...)
-    val &= (width == 32) ? 0xFFFFFFFF : ((1U << width) - 1);
-    // Loop over each bit
-    for (int i = 0; i < width; i++) {
-        // Check if bit i is set in val
-        int src_bit = width - 1 - i; 
-        if (val & (1U << src_bit)) {
-            // Get the byte and bit indices
-            int byte_index = (*bit + i) / 8;
-            int bit_index = 7 - ((*bit + i) % 8);
-            // Write into the byte and bit position within buf
-            buf[byte_index] |= 1U << bit_index;
-        }
-    }
-    // Move the cursor forward
-    *bit += width;
-}
-
 void build_hud_data(uint8_t *buf)
 {
-    // data->data_cmd_id = 0x0101;
-    // data->sender_id = robot_status.robot_id;
-    // data->receiver_id = robot_status.robot_id + 0x100;
-    // data->interaction_figure.figure_name[0] = 0;
-    // data->interaction_figure.figure_name[1] = 0;
-    // data->interaction_figure.figure_name[2] = 0;
-    // data->interaction_figure.operate_type = ADD;
-    // data->interaction_figure.figure_type = RECTANGLE;
-    // data->interaction_figure.layer = 1;
-    // data->interaction_figure.color = TEAM_COLOR;
-    // data->interaction_figure.details_a = 0;
-    // data->interaction_figure.details_b = 0;
-    // data->interaction_figure.width = 10;
-    // data->interaction_figure.start_x = 1000;
-    // data->interaction_figure.start_y = 500;
-    // data->interaction_figure.details_c = 0;
-    // data->interaction_figure.details_d = 1500;
-    // data->interaction_figure.details_e = 700;
-    uint16_t sender_id = robot_status.robot_id;
-    uint16_t receiver_id = robot_status.robot_id + 0x100;
+    robot_interaction_data_t data;
+    memset(&data, 0, sizeof(data));
 
-    buf[0] = 0x0101 & 0xFF;
-    buf[1] = (0x0101 >> 8) & 0xFF;
-    buf[2] = sender_id & 0xFF;
-    buf[3] = (sender_id >> 8) & 0xFF;
-    buf[4] = receiver_id & 0xFF;
-    buf[5] = (receiver_id >> 8) & 0xFF;
-    buf[6] = 0;
-    buf[7] = 0;
-    buf[8] = 0;
+    data.data_cmd_id = 0x0101;
+    data.sender_id   = robot_status.robot_id;
+    data.receiver_id = robot_status.robot_id + 0x100;
 
-    uint8_t *bits = buf + 9;
-    int bit = 0;
-    write_bits(bits, &bit, ADD,        3);
-    write_bits(bits, &bit, RECTANGLE,  3);
-    write_bits(bits, &bit, 1,          4);  // layer
-    write_bits(bits, &bit, TEAM_COLOR, 4);
-    write_bits(bits, &bit, 0,          9);  // details_a
-    write_bits(bits, &bit, 0,          9);  // details_b
-    write_bits(bits, &bit, 10,         10); // width
-    write_bits(bits, &bit, 1000,       11); // start_x
-    write_bits(bits, &bit, 500,        11); // start_y
-    write_bits(bits, &bit, 0,          10); // details_c
-    write_bits(bits, &bit, 1500,       11); // details_d
-    write_bits(bits, &bit, 700,        11); // details_e
+    data.interaction_figure.figure_name[0] = 'r';
+    data.interaction_figure.figure_name[1] = '0';
+    data.interaction_figure.figure_name[2] = '0';
+    data.interaction_figure.operate_type = ADD;
+    data.interaction_figure.figure_type  = RECTANGLE;
+    data.interaction_figure.layer        = 1;
+    data.interaction_figure.color        = WHITE;
+    data.interaction_figure.details_a    = 0;
+    data.interaction_figure.details_b    = 0;
+    data.interaction_figure.width        = 3;
+    data.interaction_figure.start_x      = 1000;
+    data.interaction_figure.start_y      = 500;
+    data.interaction_figure.details_c    = 0;
+    data.interaction_figure.details_d    = 1500;
+    data.interaction_figure.details_e    = 700;
+
+    memcpy(buf, &data, sizeof(data));
 }

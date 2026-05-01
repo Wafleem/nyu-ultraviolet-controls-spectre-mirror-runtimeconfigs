@@ -17,7 +17,7 @@ extern void get_referee_buffer(uint8_t out[REFEREE_RX_BUF_LENGTH]);
 extern void referee_init(void);
 extern void referee_unpack_fifo_data(void);
 extern void referee_send_data(void);
-extern void referee_IDLE_Handler(UART_HandleTypeDef *huart);
+extern void referee_IDLE_Handler(UART_HandleTypeDef *huart, uint16_t size);
 void referee_Error_Handler(UART_HandleTypeDef *huart);
 int get_temp();
 

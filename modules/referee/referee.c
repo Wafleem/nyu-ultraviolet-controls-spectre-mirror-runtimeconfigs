@@ -13,6 +13,9 @@ fifo_s_t referee_fifo;
 unpack_data_t referee_unpack_obj;
 uint8_t referee_send_seq;
 
+volatile uint32_t referee_rx_byte_count = 0;
+volatile uint32_t referee_rx_callback_count = 0;
+
 // Get the referee buffer for debugging purposes
 void get_referee_buffer(uint8_t out[REFEREE_RX_BUF_LENGTH]) {
     if (!out) return;
@@ -129,9 +132,14 @@ void referee_unpack_fifo_data(void)
 
 void referee_send_data(void)
 {
+  USB_CDC_Printf("[REF LINK] rx_bytes=%lu callbacks=%lu\r\n",
+                 (unsigned long)referee_rx_byte_count,
+                 (unsigned long)referee_rx_callback_count);
   uint16_t data_len = sizeof(robot_interaction_data_t);
   uint16_t cmd_id = 0x0301;
+  uint16_t frame_len = 7 + data_len + 2;
 
+  memset(referee_tx_buf, 0, frame_len);
   referee_tx_buf[0] = 0xA5;
   referee_tx_buf[1] = data_len & 0xFF;
   referee_tx_buf[2] = (data_len >> 8) & 0xFF;
@@ -141,13 +149,13 @@ void referee_send_data(void)
   referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
   build_hud_data(referee_tx_buf + 7);
   // memcpy(referee_tx_buf + 7, &hud_data, data_len);
-  append_CRC16_check_sum(referee_tx_buf, 7 + data_len + 2);
+  append_CRC16_check_sum(referee_tx_buf, frame_len);
   ptr = out;
-  for (int i = 0; i < REFEREE_TX_BUF_LENGTH; i++) {
+  for (int i = 0; i < frame_len; i++) {
     ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
   }
   USB_CDC_Printf("%s\r\n", out);
-  HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, REFEREE_TX_BUF_LENGTH, HAL_MAX_DELAY);
+  HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, HAL_MAX_DELAY);
 
   referee_send_seq++;
 }
@@ -157,7 +165,7 @@ void referee_init(void)
 {
   // Initialize referee structs
   ref_structs_init();
-  memset(referee_tx_buf, 0, sizeof(REFEREE_TX_BUF_LENGTH));
+  memset(referee_tx_buf, 0, sizeof(referee_tx_buf));
   referee_send_seq = 0;
 
   // Initialize FIFO
@@ -168,10 +176,12 @@ void referee_init(void)
 }
 
 // Put this in HAL_UARTEx_RxEventCallback
-void referee_IDLE_Handler(UART_HandleTypeDef *huart)
+void referee_IDLE_Handler(UART_HandleTypeDef *huart, uint16_t size)
 {
   // Add received bytes to FIFO
-  uint16_t rx_len = REFEREE_RX_BUF_LENGTH - __HAL_DMA_GET_COUNTER(huart->hdmarx);
+  uint16_t rx_len = size;
+  referee_rx_byte_count += rx_len;
+  referee_rx_callback_count++;
   fifo_s_puts(&referee_fifo, (char*)referee_rx_buf, rx_len);
 
   // Restart DMA reception
