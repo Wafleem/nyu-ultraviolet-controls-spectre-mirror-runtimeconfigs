@@ -23,13 +23,8 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_1,
         .can_rx_id = 0x201,
         .can_tx_id = 0x200,
-        .tx_slot = 0,
         .direction = -1,  // Mecanum kinematics correction
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },  // Speed PID
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }           // Not used
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f }   // Speed PID
     },
 
     // Front-right chassis motor (ID 1)
@@ -40,13 +35,8 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_1,
         .can_rx_id = 0x202,
         .can_tx_id = 0x200,
-        .tx_slot = 1,
         .direction = +1,
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f }
     },
 
     // Back-left chassis motor (ID 2)
@@ -57,13 +47,8 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_1,
         .can_rx_id = 0x203,
         .can_tx_id = 0x200,
-        .tx_slot = 2,
         .direction = -1,
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f }
     },
 
     // Back-right chassis motor (ID 3)
@@ -74,13 +59,8 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_1,
         .can_rx_id = 0x204,
         .can_tx_id = 0x200,
-        .tx_slot = 3,
         .direction = +1,
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f },
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }
+        .pid_outer = { 10.0f, 0.0f, 0.1f, 15000.0f, 7500.0f, 10000.0f }
     },
 
     // ========== GIMBAL MOTORS (2x GM6020) on CAN1 ==========
@@ -92,7 +72,6 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_1,  // CAN1 - same bus as chassis
         .can_rx_id = 0x205,  // GM6020: 0x204 + 1 = 0x205
         .can_tx_id = 0x1FF,  // Motors 1-4 use 0x1FF
-        .tx_slot = 0,        // Motor 1 -> slot 0 (motor_id - 1)
         .direction = +1,
         .limits.gm6020 = {
             .angle_min = 0.0f,
@@ -113,7 +92,6 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_1,  // CAN1 - same bus as chassis
         .can_rx_id = 0x206,  // GM6020: 0x204 + 2 = 0x206
         .can_tx_id = 0x1FF,  // Motors 1-4 use 0x1FF
-        .tx_slot = 1,        // Motor 2 -> slot 1 (motor_id - 1)
         .direction = -1,     // Pitch direction correction
         .limits.gm6020 = {
             .angle_min = 6700.0f,
@@ -121,8 +99,7 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
             .gravity_compensation = 5000.0f,  // Gravity compensation for pitch
             .initial_angle = 7400.0f  // Center position (needs calibration)
         },
-        .pid_outer = { 90.0f, 5.0f, 3.22f, 25000.0f, 25000.0f, 10000.0f },  // Pitch PID
-        .pid_inner = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }            // Not used for pitch
+        .pid_outer = { 90.0f, 5.0f, 3.22f, 25000.0f, 25000.0f, 10000.0f }   // Pitch PID
     },
 
     // ========== SHOOTER MOTORS (2x M3508, 1x M2006) on CAN2 ==========
@@ -134,13 +111,9 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_2,
         .can_rx_id = 0x201,
         .can_tx_id = 0x200,
-        .tx_slot = 0,
         .direction = +1,
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = {5.0f, 1.0f, 0.0f, 15000.0f, 7500.0f, 10000.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}},
+        .pid_outer = {5.0f, 1.0f, 0.0f, 15000.0f, 7500.0f, 10000.0f}
+    },
 
     // Friction wheel 1
     {
@@ -150,13 +123,8 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_2,
         .can_rx_id = 0x202,
         .can_tx_id = 0x200,
-        .tx_slot = 1,
         .direction = -1,
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f, 10000.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f, 10000.0f}
     },
 
     // Friction wheel 2
@@ -167,25 +135,17 @@ static const MotorConfig_t g_motor_configs_standard_2025[] = {
         .can_channel = CAN_CHANNEL_2,
         .can_rx_id = 0x203,
         .can_tx_id = 0x200,
-        .tx_slot = 2,
         .direction = +1,
-        .limits.m3508 = {
-            .speed_limit = 10000.0f
-        },
-        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f, 10000.0f},
-        .pid_inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}}
+        .pid_outer = {1.0f, 0.5f, 0.05f, 15000.0f, 7500.0f, 10000.0f}
+    }
 };
 
 // Robot configuration structure
 static const RobotConfig_t g_robot_config_standard_2025 = {
     .name = "Infantry",
-    .chassis_motor_count = 4,
-    .gimbal_motor_count = 2,
-    .shooter_motor_count = 3,
     .motor_configs = g_motor_configs_standard_2025,
     .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
     .reverse_chassis = 1,
-    .enable_imu_calibration = 0,
     .chassis_yaw_source = YAW_SOURCE_DEVC,
     .aligned_yaw = 0.0f,
     .supercap_limit = 75.0f,
