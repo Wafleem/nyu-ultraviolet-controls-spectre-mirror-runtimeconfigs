@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "ref_structs.h"
 #include "cmd_controller.h"
+#include "robot_config.h"
 
 #define MOTOR_FEEDBACK_TIMEOUT_MS (100U)
 
@@ -17,26 +18,6 @@
 #define PMM_TRICKLE_THRESHOLD_W 2.0f
 
 typedef struct { float x; float y; } Pair;
-
-/**
- * @brief Get PMM power limit in watts based on robot type
- *
- * Per RoboMaster rules: Hero/Sentry = 100W, Standard = 75W.
- * Default to 80W for unknown/pre-identified robots.
- */
-static float get_pmm_power_limit_w(robot_id_t id)
-{
-    switch (id) {
-        case RED_HERO:    case BLUE_HERO:
-        case RED_SENTRY:  case BLUE_SENTRY:
-            return 100.0f;
-        case RED_STANDARD_1:  case RED_STANDARD_2:  case RED_STANDARD_3:
-        case BLUE_STANDARD_1: case BLUE_STANDARD_2: case BLUE_STANDARD_3:
-            return 75.0f;
-        default:
-            return 80.0f;
-    }
-}
 
 // Static variables for app wrapper
 static ChassisCmd s_last_cmd;
@@ -90,7 +71,8 @@ void ChassisController_Init(ChassisController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
 
             controller->target_speeds[i] = 0.0f;
         }
@@ -160,15 +142,14 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
     // Only engage when PMM is actively delivering power (>1.0W threshold).
     // During supercap discharge, PMM draws only trickle power (~0.3-0.4W), so we skip.
     if (!supercap_discharging && s_last_supercap.pmm_w > PMM_TRICKLE_THRESHOLD_W) {
-        float limit_w = get_pmm_power_limit_w((robot_id_t)s_last_robot_status.robot_id);
-        float target_w = limit_w * 0.90f;  // 90% headroom before hard cap
+        float target_w = s_last_robot_status.chassis_power_limit * 0.90f;  // 90% headroom before hard cap
 
         if (s_last_supercap.pmm_w > target_w) {
             float ratio = target_w / s_last_supercap.pmm_w;
             if (ratio > 1.0f) ratio = 1.0f;  // Never scale UP, only down
 
             LOG_INFO(LOG_TAG_CHA, "PMM SCALE: pmm=%.1fW limit=%.0fW scale=%.3f\r\n",
-                     s_last_supercap.pmm_w, limit_w, ratio);
+                     s_last_supercap.pmm_w, s_last_robot_status.chassis_power_limit, ratio);
 
             for (int j = 0; j < s_chassis_motor_count; j++) {
                 controller->output_currents[j] = (int16_t)((float)controller->output_currents[j] * ratio);
@@ -180,9 +161,6 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
     for (int i = 0; i < s_chassis_motor_count; i++) {
         MotorDriver_SendCurrent(s_chassis_motor_ids[i], controller->output_currents[i]);
     }
-
-    // Flush all pending motor commands
-    MotorDriver_FlushAll();
 }
 
 void ChassisController_SetTargetSpeeds(ChassisController *controller, const float speeds[CHASSIS_MOTOR_COUNT])
@@ -228,9 +206,6 @@ static void on_chassis_cmd(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(ChassisCmd)) {
         memcpy(&s_last_cmd, ev->data, sizeof(ChassisCmd));
-        // Update controller and compute currents when command arrives
-        ChassisController_Update(&s_ctrl, &s_last_sensor);
-        ChassisController_ComputeCurrents(&s_ctrl, HAL_GetTick());
     }
 }
 
@@ -261,6 +236,17 @@ static void on_supercap_feedback(const MsgEvent *ev, void *user) {
     (void)user;
     if (ev->size == sizeof(SupercapFeedbackEvent)) {
         memcpy(&s_last_supercap, ev->data, sizeof(SupercapFeedbackEvent));
+
+        static const char *const mode_names[] = {
+            "DISABLED", "CHARGING", "DISCHARGING", "UNDERVOLTAGE"
+        };
+        const char *mode_str = (s_last_supercap.mode < 4) ? mode_names[s_last_supercap.mode] : "UNKNOWN";
+
+        LOG_INFO(LOG_TAG_DEBUG,
+                "[Wraith] PMM=%.1fW Chassis=%.1fW Cap=%.1f%% Mode=%s tick=%lu\r\n",
+                (double)s_last_supercap.pmm_w, (double)s_last_supercap.chassis_w,
+                (double)s_last_supercap.voltage_pct, mode_str,
+                (unsigned long)s_last_supercap.tick_ms);
     }
 }
 
@@ -268,7 +254,8 @@ static void on_robot_status(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(robot_status_t)) {
         memcpy(&s_last_robot_status, ev->data, sizeof(robot_status_t));
-        LOG_INFO(LOG_TAG_DEBUG, "ROBOT_ID=%u\r\n", s_last_robot_status.robot_id);
+        LOG_INFO(LOG_TAG_DEBUG, "ROBOT_ID=%u,CHASSIS_LIMIT=%u\r\n",
+                 s_last_robot_status.robot_id, s_last_robot_status.chassis_power_limit);
     }
 }
 
@@ -288,6 +275,12 @@ void ChassisApp_Init(void) {
         (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
     }
     s_initialized = true;
+}
+
+void ChassisApp_Tick(void) {
+    if (!s_initialized) return;
+    ChassisController_Update(&s_ctrl, &s_last_sensor);
+    ChassisController_ComputeCurrents(&s_ctrl, HAL_GetTick());
 }
 
 ChassisController* ChassisApp_GetController(void) {

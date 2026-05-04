@@ -16,6 +16,15 @@
 #define ANTIJAM_ENABLED 0
 #define SHOOTER_RAMP_STEP 50.0f      // Acceleration step
 
+typedef enum {
+    RETRACTING     = 0,
+    FORWARD_FEED   = 1,
+    FEEDER_REVERSE = 2,
+    EXTENDING      = 3,
+    INITIALIZING   = 4,
+    CALIBRATING    = 5
+} PusherState_e;
+
 // Shooter controller structure
 typedef struct {
     // Turntable target speed
@@ -97,6 +106,11 @@ void ShooterController_UpdateMotorFeedback(ShooterController *controller, uint8_
  * @param controller Shooter controller pointer
  */
 void ShooterController_Unjam(ShooterController *controller);
+
+/**
+ * @brief Run one shooter PID cycle.
+ */
+void ShooterApp_Tick(void);
 
 #endif // SHOOTER_CONTROLLER_H
 

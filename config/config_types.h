@@ -37,6 +37,15 @@ typedef enum {
 } MotorRole_e;
 
 /**
+ * @brief Yaw source enumeration
+ * Defines the hardware used to measure the yaw
+ */
+typedef enum {
+    YAW_SOURCE_DEVC,               // Dev C IMU
+    YAW_SOURCE_GM6020              // GM6020 motor encoder
+} YawSource_e;
+
+/**
  * @brief PID parameters structure
  */
 typedef struct {
@@ -45,6 +54,7 @@ typedef struct {
     float kd;              // Derivative gain
     float output_max;      // Maximum output value
     float integral_max;    // Maximum integral value (anti-windup)
+    float error_max;       // Maximum error value
 } PIDParams_t;
 
 /**
@@ -58,6 +68,8 @@ typedef struct {
     MotorRole_e role;              // Functional role
 
     // CAN communication parameters
+    // Note: each motor category (chassis, gimbal, shooter) must be in separate
+    // CAN frames or else there will be synchronization issues  -Ramon 4/25
     CAN_Channel_t can_channel;     // CAN bus channel (CAN_CHANNEL_1 or CAN_CHANNEL_2)
     uint16_t can_rx_id;            // CAN ID for receiving feedback
     uint16_t can_tx_id;            // CAN ID for sending commands (0x200, 0x1FF, or 0x2FF)
@@ -85,6 +97,7 @@ typedef struct {
     // PID control parameters
     PIDParams_t pid_outer;         // Outer loop PID (angle/position control)
     PIDParams_t pid_inner;         // Inner loop PID (speed control)
+
 } MotorConfig_t;
 
 /**
@@ -98,10 +111,19 @@ typedef struct {
     uint8_t shooter_motor_count;         // Number of shooter motors
     const MotorConfig_t *motor_configs;  // Pointer to motor configuration array
     uint8_t total_motor_count;           // Total number of motors
+    uint8_t reverse_chassis;             // Whether to reverse the controller input for driving
     uint8_t enable_imu_calibration;      // Enable IMU calibration at startup (1 = enabled, 0 = disabled)
+    YawSource_e chassis_yaw_source;      // Hardware used to measure chassis yaw
+    float aligned_yaw;                   // Depends on yaw source:
+                                         // - Dev C: Spectre IMU yaw when ToF is aligned
+                                         // - GM6020: GM6020 yaw when head and chassis are aligned
+    float supercap_limit;                // Supercap power limit in watts
     float feeder_speed;                  // Feeder/turntable motor speed
     float friction_wheel_speed;          // Friction wheel motor speed
+    int32_t pusher_retracted_angle;      // Pusher retracted angle (encoder units)
     int32_t pusher_extended_angle;       // Pusher extended angle (encoder units)
+    float yaw_left_scale;               // Yaw rate multiplier going left  (>1 boosts, 0 = use 1.0)
+    float yaw_right_scale;              // Yaw rate multiplier going right (<1 reduces, 0 = use 1.0)
 } RobotConfig_t;
 
 #endif // CONFIG_TYPES_H

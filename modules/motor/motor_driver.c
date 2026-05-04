@@ -89,7 +89,8 @@ bool MotorDriver_Init(uint8_t motor_id, const MotorConfig_t *config)
              config->pid_outer.ki,
              config->pid_outer.kd,
              config->pid_outer.output_max,
-             config->pid_outer.integral_max);
+             config->pid_outer.integral_max,
+             config->pid_outer.error_max);
 
     // Inner loop PID (if configured)
     if (config->pid_inner.kp != 0.0f || config->pid_inner.output_max != 0.0f) {
@@ -98,7 +99,8 @@ bool MotorDriver_Init(uint8_t motor_id, const MotorConfig_t *config)
                  config->pid_inner.ki,
                  config->pid_inner.kd,
                  config->pid_inner.output_max,
-                 config->pid_inner.integral_max);
+                 config->pid_inner.integral_max,
+                 config->pid_inner.error_max);
     }
 
     ctx->initialized = true;
@@ -129,14 +131,11 @@ void MotorDriver_UpdateFeedback(uint8_t motor_id,
     ctx->feedback_current = current;
     ctx->last_feedback_time = timestamp;
 
-    // Auto-initialize angle target on first feedback
+    // Auto-initialize angle target on first feedback.
+    // Yaw angle_target is seeded later by the gimbal controller once
+    // ekf_yaw is valid — leave it at 0 here to avoid a hardcoded mismatch.
     if (!ctx->angle_initialized) {
-        // Yaw uses IMU angle, which starts at 180 degrees
-        if (ctx->config->role == MOTOR_ROLE_GIMBAL_YAW) {
-            ctx->angle_target = 180.0f;
-        } else {
-            ctx->angle_target = (float)angle_raw;
-        }
+        ctx->angle_target = (float)angle_raw;
         ctx->angle_initialized = true;
     }
 }

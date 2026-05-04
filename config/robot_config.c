@@ -15,12 +15,11 @@ const RobotConfig_t* RobotConfig_Get(robot_id_t robot_id)
         case RED_STANDARD_2:
         case BLUE_STANDARD_1:
         case BLUE_STANDARD_2:
-            return &g_robot_config_standard_2025;
+            return &g_robot_config_standard_2026;
 
-        // Use Standard 2026 config when MCM ID is set to the last Standard
         case RED_STANDARD_3:
         case BLUE_STANDARD_3:
-            return &g_robot_config_standard_2026;
+            return &g_robot_config_standard_2025;
     
         default:
             return &g_robot_config_unknown;

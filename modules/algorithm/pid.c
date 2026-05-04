@@ -18,8 +18,9 @@ static uint32_t get_time_us(void) {
  * @param kd Derivative gain
  * @param output_max Maximum output value (saturation limit)
  * @param integral_max Maximum integral value (anti-windup limit)
+ * @param error_max Maximum error value
  */
-void PID_Init(PID_Controller *pid, float kp, float ki, float kd, float output_max, float integral_max)
+void PID_Init(PID_Controller *pid, float kp, float ki, float kd, float output_max, float integral_max, float error_max)
 {
   pid->Kp = kp;
   pid->Ki = ki;
@@ -27,6 +28,7 @@ void PID_Init(PID_Controller *pid, float kp, float ki, float kd, float output_ma
   
   pid->output_max = output_max;
   pid->integral_max = integral_max;
+  pid->error_max = error_max;
   
   pid->target = 0.0f;
   pid->error[0] = 0.0f;
@@ -84,6 +86,13 @@ float PID_Calculate(PID_Controller *pid, float target, float actual)
   pid->error[2] = pid->error[1];
   pid->error[1] = pid->error[0];
   pid->error[0] = pid->target - pid->actual;
+
+  // Apply error limits
+  if (pid->error[0] > pid->error_max) {
+    pid->error[0] = pid->error_max;
+  } else if (pid->error[0] < -pid->error_max) {
+    pid->error[0] = -pid->error_max;
+  }
   
   // Proportional term
   pid->pout = pid->Kp * pid->error[0];

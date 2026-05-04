@@ -3,11 +3,20 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "config_types.h"
 #include "gimbal_controller.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// Failsafe and RC unhealthy states
+typedef enum {
+    RC_FAILSAFE,
+    RC_WAIT,
+    RC_ACTIVE
+} RC_State_e;
+
 
 // Chassis command structure
 typedef struct {
@@ -26,7 +35,7 @@ typedef struct {
 /**
  * @brief Initialize command controller
  */
-void CmdController_Init(void);
+void CmdController_Init(const RobotConfig_t *robot_config);
 
 /**
  * @brief Process remote control input and publish commands

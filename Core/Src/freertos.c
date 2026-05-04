@@ -19,9 +19,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -86,57 +86,55 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for MsgDispatch */
 osThreadId_t MsgDispatchHandle;
 const osThreadAttr_t MsgDispatch_attributes = {
   .name = "MsgDispatch",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityAboveNormal7,
+  .priority = (osPriority_t) osPriorityAboveNormal7,
 };
 /* Definitions for ControlTask */
 osThreadId_t ControlTaskHandle;
 const osThreadAttr_t ControlTask_attributes = {
   .name = "ControlTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for RefereeTask */
 osThreadId_t RefereeTaskHandle;
 const osThreadAttr_t RefereeTask_attributes = {
   .name = "RefereeTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
 const osThreadAttr_t IMUTask_attributes = {
   .name = "IMUTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for ToFTask */
 osThreadId_t ToFTaskHandle;
 const osThreadAttr_t ToFTask_attributes = {
   .name = "ToFTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t)osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal,
 };
-
-/* Definitions for LoggerTask */
+/* Definitions for SDCardTask */
 osThreadId_t SDCardTaskHandle;
 const osThreadAttr_t SDCardTask_attributes = {
   .name = "SDCardTask",
-  .stack_size = 512 * 4,   
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
-
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void on_robot_status(const MsgEvent *ev, void *user_data);
-static void on_supercap_feedback(const MsgEvent *ev, void *user_data);
+static void configure_robot(robot_status_t *robot_status);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -200,17 +198,20 @@ void MX_FREERTOS_Init(void) {
   /* creation of ToFTask */
   ToFTaskHandle = osThreadNew(StartToFTask, NULL, &ToFTask_attributes);
 
+  /* creation of SDCardTask */
+  SDCardTaskHandle = osThreadNew(StartSDCardTask, NULL, &SDCardTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
   //
-  // 
-  // 
-  // 
-  // 
-  // 
-  // 
-  // 
+  //
+  //
+  //
+  //
+  //
+  //
+  //
   // SDCardTaskHandle = osThreadNew(StartSDCardTask, NULL, &SDCardTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
@@ -227,7 +228,8 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
   /* USER CODE BEGIN StartDefaultTask */
 
 
@@ -236,10 +238,6 @@ void StartDefaultTask(void *argument) {
   Debug_Printf("   FreeRTOS Started Successfully!\r\n");
   Debug_Printf("========================================\r\n");
   Debug_Printf("[DefaultTask] Running!\r\n");
-
-  // Subscribe to Wraith (supercap) telemetry. Callback runs in MsgDispatch
-  // task context and prints the latest snapshot via the logger.
-  (void)MsgCenter_Subscribe(TOPIC_SUPERCAP_FEEDBACK, on_supercap_feedback, NULL);
 
   // External CAN managers for status reporting
   extern CAN_Manager_t can1_manager;
@@ -282,7 +280,8 @@ void StartDefaultTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartMsgDispatchTask */
-void StartMsgDispatchTask(void *argument) {
+void StartMsgDispatchTask(void *argument)
+{
   /* USER CODE BEGIN StartMsgDispatchTask */
   /*
    * This task processes all message center events.
@@ -305,7 +304,8 @@ void StartMsgDispatchTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument) {
+void StartControlTask(void *argument)
+{
   /* USER CODE BEGIN StartControlTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(5); // 5ms = 200Hz
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -314,15 +314,10 @@ void StartControlTask(void *argument) {
   s_robot_id = 0;
   memset(&s_robot_status, 0, sizeof(robot_status_t));
   (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
-  const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
 
   // Initialize modules that subscribe to topics
-  MotorDriver_ModuleInit(s_robot_id);
   VisionComm_Init();
-  CmdController_Init();
-  ChassisApp_Init();
-  GimbalApp_Init();
-  ShooterApp_Init(robot_cfg);
+  configure_robot(&s_robot_status);
 
   // Wait for USB and other tasks to stabilize
   osDelay(1500);
@@ -330,6 +325,11 @@ void StartControlTask(void *argument) {
 
   for (;;) {
     CmdController_Task(HAL_GetTick());
+    ChassisApp_Tick();
+    GimbalApp_Tick();
+    ShooterApp_Tick();
+    MotorDriver_FlushAll();
+
     // vTaskDelayUntil ensures consistent period even if execution time varies
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
@@ -343,7 +343,8 @@ void StartControlTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartRefereeTask */
-void StartRefereeTask(void *argument) {
+void StartRefereeTask(void *argument)
+{
   /* USER CODE BEGIN StartRefereeTask */
   const TickType_t xTaskFrequency = pdMS_TO_TICKS(10);  // 10ms = 100Hz
   const TickType_t xSendFrequency = pdMS_TO_TICKS(1000); // 100ms = 10Hz
@@ -367,7 +368,8 @@ void StartRefereeTask(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartIMUTask */
-void StartIMUTask(void *argument) {
+void StartIMUTask(void *argument)
+{
   /* USER CODE BEGIN StartIMUTask */
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(5); /* 5ms = 200Hz */
@@ -396,7 +398,15 @@ void StartIMUTask(void *argument) {
   /* USER CODE END StartIMUTask */
 }
 
-void StartToFTask(void *argument) {
+/* USER CODE BEGIN Header_StartToFTask */
+/**
+* @brief Function implementing the ToFTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartToFTask */
+void StartToFTask(void *argument)
+{
   /* USER CODE BEGIN StartToFTask */
   const TickType_t xFrequency = pdMS_TO_TICKS(50); /* 50ms = 20Hz */
   TickType_t xLastWakeTime;
@@ -425,55 +435,16 @@ void StartToFTask(void *argument) {
   /* USER CODE END StartToFTask */
 }
 
-/* Private application code --------------------------------------------------*/
-/* USER CODE BEGIN Application */
-
-static void on_supercap_feedback(const MsgEvent *ev, void *user_data) {
-  (void)user_data;
-  if (ev->size != sizeof(SupercapFeedbackEvent)) return;
-  const SupercapFeedbackEvent *sc = (const SupercapFeedbackEvent *)ev->data;
-
-  static const char *const mode_names[] = {
-      "DISABLED", "CHARGING", "DISCHARGING", "UNDERVOLTAGE"
-  };
-  const char *mode_str = (sc->mode < 4) ? mode_names[sc->mode] : "UNKNOWN";
-
-  LOG_INFO(LOG_TAG_CAN,
-            "[Wraith] PMM=%.1fW Chassis=%.1fW Cap=%.1f%% Mode=%s tick=%lu\r\n",
-            (double)sc->pmm_w, (double)sc->chassis_w,
-            (double)sc->voltage_pct, mode_str,
-            (unsigned long)sc->tick_ms);
-}
-
-// If robot ID changes, restart ControlTask with new robot config
-static void on_robot_status(const MsgEvent *ev, void *user_data) {
-  (void)user_data;
-  if (ev->size == sizeof(robot_status_t)) {
-    memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
-    if (s_robot_status.robot_id != s_robot_id) {
-      const RobotConfig_t *robot_cfg = RobotConfig_Get(s_robot_status.robot_id);
-      s_robot_id = s_robot_status.robot_id;
-      LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
-
-      // Restart motor registries used in CAN managers
-      MotorRegistry_Init(can1_manager.registry, robot_cfg,
-                         can1_manager.channel);
-      MotorRegistry_Init(can2_manager.registry, robot_cfg,
-                         can2_manager.channel);
-
-      // Restart Controls modules and applications
-      MotorDriver_ModuleInit(s_robot_status.robot_id);
-      ChassisApp_Init();
-      GimbalApp_Init();
-      ShooterApp_Init(robot_cfg);
-    }
-  }
-}
-
+/* USER CODE BEGIN Header_StartSDCardTask */
+/**
+* @brief Function implementing the SDCardTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSDCardTask */
 void StartSDCardTask(void *argument)
 {
-  (void)argument;
-
+  /* USER CODE BEGIN StartSDCardTask */
   const TickType_t log_period_ticks   = pdMS_TO_TICKS(100);   // 10Hz
   TickType_t last_wake_time = xTaskGetTickCount();
 
@@ -484,6 +455,44 @@ void StartSDCardTask(void *argument)
     SDCard_Logger_Task();
     vTaskDelayUntil(&last_wake_time, log_period_ticks);
   }
+  /* USER CODE END StartSDCardTask */
+}
+
+/* Private application code --------------------------------------------------*/
+/* USER CODE BEGIN Application */
+
+// If robot ID changes, restart ControlTask with new robot config
+static void on_robot_status(const MsgEvent *ev, void *user_data) {
+  (void)user_data;
+  if (ev->size == sizeof(robot_status_t)) {
+    memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
+    if (s_robot_status.robot_id != s_robot_id) {
+      configure_robot(&s_robot_status);
+    }
+  }
+}
+
+static void configure_robot(robot_status_t *robot_status) {
+  const RobotConfig_t *robot_cfg = RobotConfig_Get(robot_status->robot_id);
+  s_robot_id = robot_status->robot_id;
+  LOG_INFO(LOG_TAG_SYS, "Changing robot config to %s\r\n", robot_cfg->name);
+
+  // Restart motor registries used in CAN managers
+  MotorRegistry_Init(can1_manager.registry, robot_cfg, can1_manager.channel);
+  MotorRegistry_Init(can2_manager.registry, robot_cfg, can2_manager.channel);
+
+  // Restart Controls modules and applications
+  MotorDriver_ModuleInit(robot_status->robot_id);
+  ChassisApp_Init();
+  GimbalApp_Init();
+  ShooterApp_Init(robot_cfg);
+  CmdController_Init(robot_cfg);
+  ToF_SetRobotConfig(robot_cfg);
+
+  /* Push the per-robot charging power ceiling to Wraith over CAN (0x408) */
+  LOG_INFO(LOG_TAG_SYS, "Supercap limit set to %f watts\r\n", robot_cfg->supercap_limit);
+  CAN_Manager_SendSupercapChargeLimit(robot_cfg->supercap_limit);
 }
 
 /* USER CODE END Application */
+

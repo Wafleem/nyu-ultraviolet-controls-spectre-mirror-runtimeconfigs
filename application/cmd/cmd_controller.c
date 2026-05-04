@@ -29,9 +29,10 @@
 //  - Gimbal yaw: hold gimbal IMU absolute yaw steady (controlled by gimbal module's internal PID).
 //
 // NOTE: Tune these parameters on robot if needed.
-#define SPIN_WZ_NORM                 (1.00f)   // chassis spin rate command (normalized, 0-1)
+#define SPIN_WZ_NORM                 (0.33f)   // chassis spin rate command (normalized, 0-1)
 #define SPIN_TRANSLATE_LIMIT_NORM    (1.00f)   // max translation velocity in spin mode (normalized)
 #define SPIN_GIMBAL_YAW_ADJ_DEG_PER_S (150.0f) // manual yaw adjustment rate when in spin mode (deg/s)
+
 
 static bool  s_spin_mode = false;
 static float s_spin_hold_yaw_deg = 0.0f;       // target absolute yaw (deg, gimbal IMU yaw_total_angle)
@@ -54,6 +55,7 @@ static float yaw_storage=0.0f;
 static uint32_t s_last_spin_dbg_tick = 0; // rate limiter for SPINDBG prints (tagged)
 
 // Local state storage
+static const RobotConfig_t *s_robot_config;
 static RC_ctrl_t s_last_rc;
 static Gimbal_Sensor_Data_t s_gimbal_imu;
 static ChassisIMUFeedbackEvent s_chassis_imu;
@@ -63,11 +65,14 @@ static CanRxFrame s_last_can;
 static bool s_initialized = false;
 static projectile_allowance_t s_last_allowance;
 static int s_shoot_count = 0;
+static uint8_t s_yaw_motor_id = 0xFF;
 
 // RC health tracking
+static RC_State_e s_rc_state = RC_FAILSAFE; //Start assuming Disabled
+static RC_State_e s_prev_rc_state = RC_FAILSAFE;
+
 static uint32_t s_last_rc_update_time = 0;
 static bool s_rc_ever_connected = false;  // Track if we've ever received valid RC data
-static bool s_waiting_for_neutral = true;     // Track if the stick had reached neutral position at least once
 #define RC_TIMEOUT_MS 100  // 100ms timeout (DR16 sends at ~100Hz = 10ms, so ~10 missed frames)
 
 // Command messages to publish
@@ -76,13 +81,25 @@ static ShootCmd s_shoot_cmd;
 static GimbalCmd s_gimbal_cmd;
 
 // Deadband for joystick input
-#define JOYSTICK_DEADBAND 100
+#define JOYSTICK_DEADBAND 50
 
 // RC channel valid ranges (after offset subtraction: -660 to +660)
 // At startup with no RC: channels = 0 - 1024 = -1024 (INVALID!)
 static bool is_rc_data_valid(const RC_ctrl_t *rc) {
     if (!rc) return false;
 
+    /*
+    This check determines if the RC failsafe bit was sent
+    Meaning, the RC is disconnected. So, we can now use is_rc_data_valid
+    to determine failsafe status, so we can transition states of RC health
+    */
+    if (rc->rc.failsafe_active) {
+        return false;  // RC is in failsafe mode!!!
+    }
+
+    /*
+    Extra redundent checks for value ranges. 
+    */
     // Check if all channels are within valid range
     // Valid range after offset: -784 to +784 (raw 240-1808, offset 1024)
     for (int i = 0; i < 6; i++) {
@@ -90,7 +107,6 @@ static bool is_rc_data_valid(const RC_ctrl_t *rc) {
             return false;  // Out of valid range (likely uninitialized or corrupt)
         }
     }
-
     // Check switches are valid (1, 2, or 3)
     for (int i = 0; i < 4; i++) {
         if (rc->rc.s[i] < 1 || rc->rc.s[i] > 3) {
@@ -101,11 +117,59 @@ static bool is_rc_data_valid(const RC_ctrl_t *rc) {
     return true;
 }
 
+static void update_rc_state(const RC_ctrl_t *rc) {
+    // ========== RC HEALTH CHECK (FAIL-SAFE) ==========
+    // Check if RC is healthy: must have valid data AND recent update
+    uint32_t time_since_last_rc = HAL_GetTick() - s_last_rc_update_time;
+    bool rc_timeout = (s_rc_ever_connected && time_since_last_rc > RC_TIMEOUT_MS);
+    bool rc_invalid_data = !is_rc_data_valid(rc);
+    bool rc_healthy = s_rc_ever_connected && !rc_timeout && !rc_invalid_data;
+
+    // ========== RC STATE MACHINE ==========
+    // FAILSAFE: RC unhealthy, motors disabled
+    // WAIT:     RC healthy but ch[2] not yet seen at neutral since reconnect
+    // ACTIVE:   RC healthy and stick was neutral at least once — normal operation
+    switch (s_rc_state) {
+        case RC_FAILSAFE:
+            if (rc_healthy) s_rc_state = RC_WAIT;
+            break;
+        case RC_WAIT:
+            if (!rc_healthy) {
+                s_rc_state = RC_FAILSAFE;
+            } else if (abs(rc->rc.ch[2]) <= JOYSTICK_DEADBAND) {
+                s_rc_state = RC_ACTIVE;
+            }
+            break;
+        case RC_ACTIVE:
+            if (!rc_healthy) s_rc_state = RC_FAILSAFE;
+            break;
+    }
+
+    if (s_rc_state != s_prev_rc_state) {
+        switch (s_rc_state) {
+            case RC_FAILSAFE:
+                if (rc_timeout) {
+                    LOG_INFO(LOG_TAG_SYS, "[RC] SIGNAL LOST (timeout: %lu ms)\r\n", time_since_last_rc);
+                } else {
+                    LOG_INFO(LOG_TAG_SYS, "[RC] SIGNAL LOST (invalid frame / failsafe)\r\n");
+                }
+                break;
+            case RC_WAIT:
+                LOG_INFO(LOG_TAG_SYS, "[RC] Signal restored - waiting for stick neutral\r\n");
+                break;
+            case RC_ACTIVE:
+                LOG_INFO(LOG_TAG_SYS, "[RC] Active - robot enabled\r\n");
+                break;
+        }
+    }
+    s_prev_rc_state = s_rc_state;
+}
+
 // Normalize angle to [-180, 180] range
-static float normalize_angle_180(float angle_deg)
+static float normalize_angle_360(float angle_deg)
 {
-    while (angle_deg > 180.0f) angle_deg -= 360.0f;
-    while (angle_deg < -180.0f) angle_deg += 360.0f;
+    while (angle_deg > 360.0f) angle_deg -= 360.0f;
+    while (angle_deg < 0.0f) angle_deg += 360.0f;
     return angle_deg;
 }
 
@@ -144,8 +208,6 @@ static void on_chassis_imu(const MsgEvent *ev, void *user_data) {
     (void)user_data;
     if (ev->size == sizeof(ChassisIMUFeedbackEvent)) {
         memcpy(&s_chassis_imu, ev->data, sizeof(ChassisIMUFeedbackEvent));
-        // Move chassis yaw reading from [0, 3600] to [-180, 180]
-        s_chassis_imu.yaw = s_chassis_imu.yaw / 10 - 180;
     }
 }
 static void on_chassis_calib(const MsgEvent *ev, void *user_data) {
@@ -222,9 +284,13 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
     // Convert to normalized values (-1.0 to 1.0)
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);
     // Transform joystick values into gimbal frame
-    float vx_f = -(float)vx_raw / max_input;
-    float vy_f = -(float)vy_raw / max_input;
+    float vx_f = (float)vx_raw / max_input;
+    float vy_f = (float)vy_raw / max_input;
     float wz_n = (float)wz_raw / max_input;
+    if (s_robot_config->reverse_chassis) {
+        vx_f = -vx_f;
+        vy_f = -vy_f;
+    }
 
     if ((spin_mode || gimbal_follow_mode) && sensor != NULL) {
         // Spin mode OR Gimbal-follow mode: joystick input is in gimbal frame.
@@ -233,28 +299,39 @@ static void process_chassis_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Dat
         // Calculate offset angle: chassis yaw - gimbal yaw
         // No separate chassis IMU on this hardware, so offset is 0
         // (chassis frame == gimbal frame for field-oriented control)
-        float gimbal_yaw_norm = normalize_angle_180(sensor->ekf_yaw);
-        float chassis_yaw = normalize_angle_180((float)s_chassis_imu.yaw);    
-        float offset_angle = normalize_angle_180(chassis_yaw - gimbal_yaw_norm);
+        float offset_angle = 0.0f;
+        if (s_robot_config->chassis_yaw_source == YAW_SOURCE_DEVC) {
+            float gimbal_yaw_norm = normalize_angle_360(sensor->ekf_yaw);
+            float chassis_yaw = normalize_angle_360((float)s_chassis_imu.yaw);    
+            offset_angle = normalize_angle_360(chassis_yaw - gimbal_yaw_norm);
+        }
+        else if (s_robot_config->chassis_yaw_source == YAW_SOURCE_GM6020) {
+            MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
+            if (yaw && yaw->angle_initialized) {
+                float current_yaw = (float)yaw->angle_raw * 360 / 8192;
+                // Negating offset because GM6020 axes seem reversed compared to chassis frame
+                offset_angle = -normalize_angle_360(current_yaw - s_robot_config->aligned_yaw);
+            }
+        }
 
         // Rotate joystick input from gimbal frame to chassis frame
         float vx_c = 0.0f, vy_c = 0.0f;
         gimbal_to_chassis_frame(vx_f, vy_f, offset_angle, &vx_c, &vy_c);
 
         if (spin_mode) {
-            // Spin mode: chassis auto-rotates at constant speed
-            const float omega = SPIN_WZ_NORM;
+            // Constant-power scaling: T/T_LIMIT + |wz|/WZ_NORM = 1.
+            float t_demand = sqrtf(vx_f * vx_f + vy_f * vy_f);
+            float t_norm   = t_demand / SPIN_TRANSLATE_LIMIT_NORM;
+            if (t_norm > 1.0f) t_norm = 1.0f;
+            const float omega = SPIN_WZ_NORM * (1.0f - t_norm);
 
-            // Limit translation velocity to prevent wheel saturation
-            // Use L2 norm (magnitude) instead of L1 norm for better control
+            // Existing translation magnitude clamp (chassis frame, post-rotation).
             float mag = sqrtf(vx_c * vx_c + vy_c * vy_c);
             if (mag > SPIN_TRANSLATE_LIMIT_NORM) {
                 float scale = SPIN_TRANSLATE_LIMIT_NORM / mag;
                 vx_c *= scale;
                 vy_c *= scale;
             }
-
-            // Swap vx_c and vy_c to match chassis coordinate system, negate vy for correct direction
             s_chassis_cmd.vx = vx_c;
             s_chassis_cmd.vy = vy_c;
             s_chassis_cmd.wz = omega;
@@ -329,11 +406,31 @@ static void process_gimbal_command(const RC_ctrl_t *rc, const Gimbal_Sensor_Data
 
     const float max_input = (float)(RC_CH_VALUE_MAX - RC_CH_VALUE_OFFSET);
     float yaw_rate_manual = (float)yaw_raw / max_input;
+
+    // Asymmetric yaw scaling: compensates for belt drive resistance/assistance.
+    float yaw_raw_normalized = yaw_rate_manual;
+    float yaw_scale_applied  = 1.0f;
+    if (yaw_rate_manual > 0.0f && s_robot_config->yaw_left_scale  != 0.0f) {
+        yaw_scale_applied = s_robot_config->yaw_left_scale;
+        yaw_rate_manual  *= yaw_scale_applied;
+    } else if (yaw_rate_manual < 0.0f && s_robot_config->yaw_right_scale != 0.0f) {
+        yaw_scale_applied = s_robot_config->yaw_right_scale;
+        yaw_rate_manual  *= yaw_scale_applied;
+    }
+    // Columns: raw_stick(-1to1), scale_applied, scaled_output(-1to1)
+    LOG_CSV(LOG_TAG_CMD, "YAWSCALE,%.3f,%.2f,%.3f",
+            yaw_raw_normalized, yaw_scale_applied, yaw_rate_manual);
+
     s_gimbal_cmd.pitch_rate = (float)pitch_raw / max_input;
 
     if (spin_mode && sensor != NULL) {
+        // Re-aim rate scales with chassis spin so aim feel stays consistent.
+        // process_chassis_command runs first and sets s_chassis_cmd.wz = scaled omega,
+        // so dividing by SPIN_WZ_NORM recovers the same (1 - T/T_LIMIT) factor.
+        const float spin_scale = s_chassis_cmd.wz / SPIN_WZ_NORM;
+
         // Allow manual yaw adjustment by shifting hold target (deg/s).
-        s_spin_hold_yaw_deg += yaw_rate_manual * SPIN_GIMBAL_YAW_ADJ_DEG_PER_S * (float)REFRESH_DT;
+        s_spin_hold_yaw_deg += yaw_rate_manual * SPIN_GIMBAL_YAW_ADJ_DEG_PER_S * spin_scale * (float)REFRESH_DT;
 
         // Provide absolute yaw hold target to gimbal controller.
         // We reuse existing memo fields to avoid changing message struct.
@@ -382,10 +479,7 @@ static void process_vision_command(Vision_Recv_s* vision) {
             s_gimbal_cmd.vision_valid);
 }
 
-void CmdController_Init(void) {
-    if (s_initialized) {
-        return;
-    }
+void CmdController_Init(const RobotConfig_t *robot_config) {
     memset(&s_last_rc, 0, sizeof(s_last_rc));
     memset(&s_gimbal_imu, 0, sizeof(Gimbal_Sensor_Data_t));
     memset(&s_chassis_imu, 0, sizeof(ChassisIMUFeedbackEvent));
@@ -393,16 +487,28 @@ void CmdController_Init(void) {
     memset(&s_chassis_cmd, 0, sizeof(s_chassis_cmd));
     memset(&s_shoot_cmd, 0, sizeof(s_shoot_cmd));
     memset(&s_gimbal_cmd, 0, sizeof(s_gimbal_cmd));
-    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_IMU, on_chassis_imu, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CALIB, on_chassis_calib, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_gimbal_imu, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_VISION_DATA, on_vision_update, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_SHOOT_DATA, on_shoot_data, NULL);
-    (void)MsgCenter_Subscribe(TOPIC_PROJECTILE_ALLOWANCE, on_projectile_allowance, NULL);
-    // Avoid subscription overhead if CAN logger is disabled
-    if (LOG_ENABLE_CAN) {
-        (void)MsgCenter_Subscribe(TOPIC_CAN_RX, on_can_rx, NULL);
+
+    if (!s_initialized) {
+        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_IMU, on_chassis_imu, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_CHASSIS_CALIB, on_chassis_calib, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_RC_UPDATE, on_rc_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_gimbal_imu, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_VISION_DATA, on_vision_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_SHOOT_DATA, on_shoot_data, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_PROJECTILE_ALLOWANCE, on_projectile_allowance, NULL);
+        // Avoid subscription overhead if CAN logger is disabled
+        if (LOG_ENABLE_CAN) {
+            (void)MsgCenter_Subscribe(TOPIC_CAN_RX, on_can_rx, NULL);
+        }
+    }
+
+    if (robot_config != NULL) {
+        s_robot_config = robot_config;
+    }
+
+    uint8_t yaw_motors[1];
+    if (MotorDriver_FindByRole(MOTOR_ROLE_GIMBAL_YAW, yaw_motors, 1) > 0) {
+        s_yaw_motor_id = yaw_motors[0];
     }
 
     s_initialized = true;
@@ -415,50 +521,11 @@ void CmdController_Task(uint32_t current_tick) {
         return;
     }
 
-    // ========== RC HEALTH CHECK (FAIL-SAFE) ==========
-    // Check if RC is healthy: must have valid data AND recent update
-    uint32_t time_since_last_rc = HAL_GetTick() - s_last_rc_update_time;
-    bool rc_timeout = (s_rc_ever_connected && time_since_last_rc > RC_TIMEOUT_MS);
-    bool rc_invalid_data = !is_rc_data_valid(&s_last_rc);
-    bool rc_healthy = s_rc_ever_connected && !rc_timeout && !s_last_rc.rc.failsafe_active;
+    update_rc_state(&s_last_rc);
+    const RC_ctrl_t *rc_ptr = (s_rc_state == RC_ACTIVE) ? &s_last_rc : NULL;
 
-    // If RC is unhealthy, pass NULL to stop robot gracefully
-    const RC_ctrl_t *rc_ptr = rc_healthy ? &s_last_rc : NULL;
-
-    // Log RC state changes
-    static bool last_rc_healthy = false;
-    static bool prev_rc_failsafe_active = false;
-
-    // If RC turns on, wait for its sticks to be in neutral
-    if (!s_last_rc.rc.failsafe_active && prev_rc_failsafe_active){
-        s_waiting_for_neutral = true;
-    }
-    // If sticks are in neutral, stop waiting. Otherwise, mark RC as unhealthy
-    if (!s_last_rc.rc.failsafe_active && s_waiting_for_neutral){
-        if (-JOYSTICK_DEADBAND <= s_last_rc.rc.ch[2] && s_last_rc.rc.ch[2] <= JOYSTICK_DEADBAND){
-            s_waiting_for_neutral = false;
-        } else {
-            rc_healthy = false;
-            s_waiting_for_neutral = true;
-        }
-    }
-    
-    if (rc_healthy != last_rc_healthy) {
-        if (!rc_healthy) {
-            if (rc_timeout) {
-                USB_CDC_Printf("[RC] SIGNAL LOST - Robot stopped (timeout: %lu ms)\r\n", time_since_last_rc);
-            } else if (rc_invalid_data) {
-                USB_CDC_Printf("[RC] Waiting for valid RC data...\r\n");
-            }
-        } else {
-            USB_CDC_Printf("[RC] Signal restored - Robot active\r\n");
-        }
-        last_rc_healthy = rc_healthy;
-        prev_rc_failsafe_active = s_last_rc.rc.failsafe_active;
-    }
-
-    // If RC is unhealthy, disable all modes and pass NULL (robot stops)
-    if (!rc_healthy) {
+    // If not ACTIVE (i.e. FAILSAFE or WAIT), disable all modes and pass NULL
+    if (s_rc_state != RC_ACTIVE) {
         s_spin_mode = false;
 
         // Disable chassis and shooter (no RC = no movement/shooting)
@@ -497,12 +564,9 @@ void CmdController_Task(uint32_t current_tick) {
     bool aimbot_now = switch_is_up(s_last_rc.rc.s[3]);
 
     // Spin mode rising edge: latch current gimbal absolute yaw as hold target.
-    // NOTE: gimbal_controller shifts ekf_yaw by +180 so its internal frame is
-    // [0, 360] (same frame as yaw->angle_target). We must capture the target
-    // in that same [0, 360] frame
     if (spin_now && !s_spin_mode)
     {
-        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw + 180.0f;
+        s_spin_hold_yaw_deg = s_gimbal_imu.ekf_yaw;
     }
 
     // Supercap (Wraith) discharge command edge detection. Send only on transitions.

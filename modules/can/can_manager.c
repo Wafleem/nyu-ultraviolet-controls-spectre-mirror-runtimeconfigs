@@ -238,10 +238,16 @@ void CAN_Manager_ProcessCallback(CAN_Manager_t *manager, FDCAN_HandleTypeDef *hf
         int16_t raw_roll  = (int16_t)((d[0] << 8) | d[1]);
         int16_t raw_pitch = (int16_t)((d[2] << 8) | d[3]);
         int16_t raw_yaw   = (int16_t)((d[4] << 8) | d[5]);
+
         ChassisIMUFeedbackEvent yev;
         memcpy(&yev.roll,  &raw_roll,  sizeof(raw_roll));
         memcpy(&yev.pitch, &raw_pitch, sizeof(raw_pitch));
         memcpy(&yev.yaw,   &raw_yaw,   sizeof(raw_yaw));
+
+        // Move angle readings from [0, 3600] to [0, 360]
+        yev.roll = yev.roll / 10;
+        yev.pitch = yev.pitch / 10;
+        yev.yaw = yev.yaw / 10;
         (void)MsgCenter_PublishFromISR(TOPIC_CHASSIS_IMU, &yev, sizeof(yev));
     }
     /* Dynamic motor feedback processing using registry */
@@ -490,6 +496,39 @@ HAL_StatusTypeDef CAN_Manager_SendSupercapDischarge(bool enable)
     if (st == HAL_OK) can1_manager.tx_ok++;
     else              can1_manager.tx_err++;
     can1_manager.last_tx_time = HAL_GetTick();
+    return st;
+}
+
+/* Send Wraith (supercap) charging power ceiling on CAN1.
+ * Standard ID 0x408, DLC 4, float32 LE watts. Per Controls_Supercap
+ * CAN_PROTOCOL.md. Clamping is handled on the Wraith side. */
+HAL_StatusTypeDef CAN_Manager_SendSupercapChargeLimit(float watts)
+{
+    if (!can1_manager.initialized || can1_manager.hfdcan == NULL) {
+        return HAL_ERROR;
+    }
+
+    FDCAN_TxHeaderTypeDef tx;
+    memset(&tx, 0, sizeof(tx));
+    tx.Identifier          = 0x408;
+    tx.IdType              = FDCAN_STANDARD_ID;
+    tx.TxFrameType         = FDCAN_DATA_FRAME;
+    tx.DataLength          = FDCAN_DLC_BYTES_4;
+    tx.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx.BitRateSwitch       = FDCAN_BRS_OFF;
+    tx.FDFormat            = FDCAN_CLASSIC_CAN;
+    tx.TxEventFifoControl  = FDCAN_NO_TX_EVENTS;
+
+    uint8_t d[4];
+    memcpy(d, &watts, sizeof(float));
+
+    HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(can1_manager.hfdcan, &tx, d);
+    if (st == HAL_OK) can1_manager.tx_ok++;
+    else              can1_manager.tx_err++;
+    can1_manager.last_tx_time = HAL_GetTick();
+
+    // USB_CDC_Printf("[0x408] Wraith charge limit -> %.1fW (tx=%d)\r\n", (double)watts, (int)st);
+
     return st;
 }
 

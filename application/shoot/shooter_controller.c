@@ -21,11 +21,14 @@ static ShootCmd s_prev_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
 static ShooterController s_ctrl;
 static bool s_initialized = false;
+static PusherState_e s_pusher_state = INITIALIZING;
 static RobotConfig_t s_shooter_config;
 
 // Anti Jam
 static bool is_jammed = false;
 static TimerHandle_t s_jam_timer = NULL;
+static TimerHandle_t s_pusher_calibration_timer = NULL;
+static TimerHandle_t s_pusher_state_timer = NULL;
 static uint32_t s_unjam_start = 0;
 static bool s_unjam_active = false;
 
@@ -59,7 +62,7 @@ static int16_t ComputePusherCurrent(ShooterController *controller)
     }
 
     int16_t current_cmd = PID_Calculate(&controller->pusher_pid, controller->pusher_target, controller->pusher_total_angle);
-
+    
     // Speed damping: oppose motor velocity to prevent overshoot
     float speed_damping = 1.5f * (float)controller->pusher_feedback.speed;
     int32_t damped = (int32_t)current_cmd - (int32_t)speed_damping;
@@ -103,7 +106,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[0] = ctx->config->direction;
         }
     }
@@ -121,7 +125,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[1] = ctx->config->direction;
         }
     }
@@ -137,7 +142,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[2] = ctx->config->direction;
         }
     }
@@ -152,7 +158,8 @@ void ShooterController_Init(ShooterController *controller)
                      ctx->config->pid_outer.ki,
                      ctx->config->pid_outer.kd,
                      ctx->config->pid_outer.output_max,
-                     ctx->config->pid_outer.integral_max);
+                     ctx->config->pid_outer.integral_max,
+                     ctx->config->pid_outer.error_max);
             controller->directions[3] = ctx->config->direction; 
         }
     }
@@ -174,15 +181,44 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
     controller->enabled = s_last_cmd.friction_enabled;
     
     // Set turntable target (only feed when feed_enabled)
-    float turntable_target = s_last_cmd.feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
+    float turntable_target = 0.0f;
+    if (s_pusher_motor_id != 0xFF) {
+        // Pusher state machine
+        if (s_pusher_state == RETRACTING) {
+            turntable_target = 0.0f;
+            controller->pusher_target = s_shooter_config.pusher_retracted_angle;
+        }
+        if (s_pusher_state == FORWARD_FEED) {
+            turntable_target = s_shooter_config.feeder_speed * controller->directions[0];
+        }
+        if (s_pusher_state == FEEDER_REVERSE) {
+            turntable_target = -0.3f * s_shooter_config.feeder_speed * controller->directions[0];
+            controller->pusher_target = s_shooter_config.pusher_retracted_angle;
+        }
+        if (s_pusher_state == EXTENDING) {
+            turntable_target = 0.0f;
+            controller->pusher_target = s_shooter_config.pusher_extended_angle;
+        }
+        // If starting to feed, start pusher state machine
+        if (s_last_cmd.feed_enabled && !s_prev_cmd.feed_enabled) {
+            s_pusher_state = RETRACTING;
+            xTimerStart(s_pusher_state_timer, 0);
+        }
+        // If stopping feed, stop pusher state machine
+        if (!s_last_cmd.feed_enabled && s_prev_cmd.feed_enabled) {
+            s_pusher_state = RETRACTING;
+            xTimerStop(s_pusher_state_timer, 0);
+        }
+    } else {
+        turntable_target = s_last_cmd.feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
+    }
+    
+    
     
     // Set shooter wheel targets
     float shooter1_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[1] : 0.0f;
     float shooter2_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[2] : 0.0f;
 
-    // Set pusher target
-    controller->pusher_target = s_last_cmd.feed_enabled ? s_shooter_config.pusher_extended_angle : 0;
-    
     // Apply ramping
     controller->ramped_turntable = RampTowards(controller->ramped_turntable, turntable_target, SHOOTER_RAMP_STEP);
     controller->ramped_shooter1 = RampTowards(controller->ramped_shooter1, shooter1_target, SHOOTER_RAMP_STEP);
@@ -210,13 +246,22 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
         MotorDriver_SendCurrent(s_friction2_motor_id, controller->output_currents[2]);
     }
     if (s_pusher_motor_id != 0xFF) {
-        MotorDriver_SendCurrent(s_pusher_motor_id, controller->output_currents[3]);
+        // If pusher is initializing, make it calibrate for some duration
+        if (s_pusher_state == INITIALIZING && controller->pusher_initialized) {
+            xTimerStart(s_pusher_calibration_timer, 0);
+            s_pusher_state = CALIBRATING;
+        }
+        // If pusher is calibrating, retract it
+        else if (s_pusher_state == CALIBRATING) {    
+            MotorDriver_SendCurrent(s_pusher_motor_id, 500);
+        }
+        // Otherwise, send the computed pusher current
+        else {
+            MotorDriver_SendCurrent(s_pusher_motor_id, controller->output_currents[3]);
+        }
     }
 
-    // Flush all pending motor commands
-    MotorDriver_FlushAll();
-
-        // --- Tuning print: target vs actual shooter speeds  ---
+    // --- Tuning print: target vs actual shooter speeds  ---
     if (current_tick - s_last_print_ms >= SHOOTER_PRINT_PERIOD_MS) {
         s_last_print_ms = current_tick;
 
@@ -326,13 +371,6 @@ static void on_shoot_cmd(const MsgEvent *ev, void *user) {
     if (ev->size == sizeof(ShootCmd)) {
         s_prev_cmd = s_last_cmd;  // store previous state
         memcpy(&s_last_cmd, ev->data, sizeof(ShootCmd));
-
-        // Update controller and compute currents when command arrives
-        ShooterController_Update(&s_ctrl, &s_last_sensor);
-        ShooterController_ComputeCurrents(&s_ctrl, HAL_GetTick());
-        if (ANTIJAM_ENABLED) {
-            ToggleJamDetection();
-        }
     }
 }
 
@@ -361,6 +399,22 @@ static void on_jam_check(TimerHandle_t xTimer)
     is_jammed = (-50 < speed && speed < 50);
 }
 
+static void on_pusher_state_change(TimerHandle_t xTimer)
+{
+    if (s_pusher_state != INITIALIZING && s_pusher_state != CALIBRATING) {
+        s_pusher_state = (s_pusher_state + 1) % 4;
+        uint32_t next_period_ms = (s_pusher_state == FORWARD_FEED) ? 1500 : 1000;
+        xTimerChangePeriod(xTimer, pdMS_TO_TICKS(next_period_ms), 0);
+    }
+}
+
+static void on_pusher_calibrate_end(TimerHandle_t xTimer)
+{
+    s_pusher_state = RETRACTING;
+    s_ctrl.pusher_total_angle = 0;
+}
+
+
 void ShooterApp_Init(const RobotConfig_t *config) {
     memset(&s_last_cmd, 0, sizeof(s_last_cmd));
     memset(&s_last_sensor, 0, sizeof(s_last_sensor));
@@ -373,11 +427,22 @@ void ShooterApp_Init(const RobotConfig_t *config) {
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
         (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
         s_jam_timer = xTimerCreate("JamTimer", pdMS_TO_TICKS(3000), pdTRUE, NULL, on_jam_check);
+        s_pusher_state_timer = xTimerCreate("PusherStateTimer", pdMS_TO_TICKS(1000), pdTRUE, NULL, on_pusher_state_change);
+        s_pusher_calibration_timer = xTimerCreate("PusherCalibrationTimer", pdMS_TO_TICKS(2000), pdFALSE, NULL, on_pusher_calibrate_end);
     }
     if (config) {
         s_shooter_config = *config;
     }
     s_initialized = true;
+}
+
+void ShooterApp_Tick(void) {
+    if (!s_initialized) return;
+    ShooterController_Update(&s_ctrl, &s_last_sensor);
+    ShooterController_ComputeCurrents(&s_ctrl, HAL_GetTick());
+    if (ANTIJAM_ENABLED) {
+        ToggleJamDetection();
+    }
 }
 
 ShooterController* ShooterApp_GetController(void) {
