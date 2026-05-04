@@ -44,7 +44,8 @@ typedef struct {
     bool pusher_initialized;
     
     // Running state
-    bool enabled;
+    bool feed_enabled;
+    bool friction_enabled;
     
     // PID controllers (turntable and shooter wheels)
     PID_Controller turntable_pid;

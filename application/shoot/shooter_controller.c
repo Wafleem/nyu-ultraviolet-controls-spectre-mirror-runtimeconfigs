@@ -23,6 +23,8 @@ static ShooterController s_ctrl;
 static bool s_initialized = false;
 static PusherState_e s_pusher_state = INITIALIZING;
 static RobotConfig_t s_shooter_config;
+static robot_status_t s_robot_status;
+static power_heat_data_t s_power_heat;
 
 // Anti Jam
 static bool is_jammed = false;
@@ -88,6 +90,8 @@ void ShooterController_Init(ShooterController *controller)
 {
     if (controller == NULL) return;
     memset(controller, 0, sizeof(ShooterController));
+    memset(&s_robot_status, 0, sizeof(robot_status_t));
+    memset(&s_power_heat, 0, sizeof(power_heat_data_t));
 
     // Find shooter motors by role (module layer handles config)
     uint8_t feed_motors[1];
@@ -176,9 +180,22 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
         ShooterController_Unjam(controller);
         return;
     }
+
+    // Check if overheating
+    bool is_overheating = false;
+    if (s_robot_status.robot_id == RED_HERO || s_robot_status.robot_id == BLUE_HERO) {
+        // Calculate heat limit with buffer of 1 shot (100 heat per shot)
+        uint16_t heat_limit = s_robot_status.shooter_barrel_heat_limit - 100;
+        is_overheating = s_power_heat.shooter_heat_42mm > heat_limit;
+    } else {
+        // Calculate heat limit with buffer of multiple shots (10 heat per shot)
+        uint16_t heat_limit = s_robot_status.shooter_barrel_heat_limit - 10 * 5;
+        is_overheating = s_power_heat.shooter_heat_17mm > heat_limit;
+    }
     
     // Use standardized command from cmd_controller
-    controller->enabled = s_last_cmd.friction_enabled;
+    controller->feed_enabled = s_last_cmd.feed_enabled && !is_overheating;
+    controller->friction_enabled = s_last_cmd.friction_enabled;
     
     // Set turntable target (only feed when feed_enabled)
     float turntable_target = 0.0f;
@@ -200,24 +217,24 @@ void ShooterController_Update(ShooterController *controller, Gimbal_Sensor_Data_
             controller->pusher_target = s_shooter_config.pusher_extended_angle;
         }
         // If starting to feed, start pusher state machine
-        if (s_last_cmd.feed_enabled && !s_prev_cmd.feed_enabled) {
+        if (controller->feed_enabled && !s_prev_cmd.feed_enabled) {
             s_pusher_state = RETRACTING;
             xTimerStart(s_pusher_state_timer, 0);
         }
         // If stopping feed, stop pusher state machine
-        if (!s_last_cmd.feed_enabled && s_prev_cmd.feed_enabled) {
+        if (!controller->feed_enabled && s_prev_cmd.feed_enabled) {
             s_pusher_state = RETRACTING;
             xTimerStop(s_pusher_state_timer, 0);
         }
     } else {
-        turntable_target = s_last_cmd.feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
+        turntable_target = controller->feed_enabled ? s_shooter_config.feeder_speed * controller->directions[0] : 0.0f;
     }
     
     
     
     // Set shooter wheel targets
-    float shooter1_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[1] : 0.0f;
-    float shooter2_target = s_last_cmd.friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[2] : 0.0f;
+    float shooter1_target = controller->friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[1] : 0.0f;
+    float shooter2_target = controller->friction_enabled ? s_shooter_config.friction_wheel_speed * controller->directions[2] : 0.0f;
 
     // Apply ramping
     controller->ramped_turntable = RampTowards(controller->ramped_turntable, turntable_target, SHOOTER_RAMP_STEP);
@@ -280,7 +297,8 @@ void ShooterController_ComputeCurrents(ShooterController *controller, uint32_t c
 void ShooterController_Stop(ShooterController *controller)
 {
     if (controller == NULL) return;
-    controller->enabled = false;
+    controller->feed_enabled = false;
+    controller->friction_enabled = false;
     controller->turntable_target = 0.0f;
     controller->shooter1_target = 0.0f;
     controller->shooter2_target = 0.0f;
@@ -393,6 +411,20 @@ static void on_motor_feedback(const MsgEvent *ev, void *user) {
     }
 }
 
+static void on_robot_status(const MsgEvent *ev, void *user_data) {
+    (void)user_data;
+    if (ev->size == sizeof(robot_status_t)) {
+        memcpy(&s_robot_status, ev->data, sizeof(robot_status_t));
+    }
+}
+
+static void on_power_heat(const MsgEvent *ev, void *user_data) {
+    (void)user_data;
+    if (ev->size == sizeof(power_heat_data_t)) {
+        memcpy(&s_power_heat, ev->data, sizeof(power_heat_data_t));
+    }
+}
+
 static void on_jam_check(TimerHandle_t xTimer) 
 {
     int16_t speed = s_ctrl.turntable_feedback.speed;
@@ -426,6 +458,8 @@ void ShooterApp_Init(const RobotConfig_t *config) {
         (void)MsgCenter_Subscribe(TOPIC_SHOOT_CMD, on_shoot_cmd, NULL);
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
         (void)MsgCenter_Subscribe(TOPIC_MOTOR_FEEDBACK, on_motor_feedback, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_BARREL_HEAT, on_power_heat, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_ROBOT_STATUS, on_robot_status, NULL);
         s_jam_timer = xTimerCreate("JamTimer", pdMS_TO_TICKS(3000), pdTRUE, NULL, on_jam_check);
         s_pusher_state_timer = xTimerCreate("PusherStateTimer", pdMS_TO_TICKS(1000), pdTRUE, NULL, on_pusher_state_change);
         s_pusher_calibration_timer = xTimerCreate("PusherCalibrationTimer", pdMS_TO_TICKS(2000), pdFALSE, NULL, on_pusher_calibrate_end);
