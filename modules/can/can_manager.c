@@ -421,8 +421,15 @@ HAL_StatusTypeDef CAN_Manager_SendMotorCurrent(CAN_Manager_t *manager,
         return HAL_ERROR;
     }
 
-    if (motor->tx_slot < 4) {
-        tx_frame->currents[motor->tx_slot] = current;
+    /* Compute TX slot from CAN RX ID and motor type:
+     *   M2006/M3508: slot = (can_rx_id - 0x201) % 4
+     *   GM6020:      slot = (can_rx_id - 0x205) % 4
+     */
+    uint16_t base_id = (motor->type == MOTOR_TYPE_GM6020) ? 0x205 : 0x201;
+    uint8_t tx_slot = (uint8_t)((motor->can_rx_id - base_id) % 4);
+
+    if (tx_slot < 4) {
+        tx_frame->currents[tx_slot] = current;
         tx_frame->pending = 1;
     } else {
         return HAL_ERROR;
