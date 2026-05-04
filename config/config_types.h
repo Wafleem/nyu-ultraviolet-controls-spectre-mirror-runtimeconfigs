@@ -103,6 +103,7 @@ typedef struct {
     const MotorConfig_t *motor_configs;  // Pointer to motor configuration array
     uint8_t total_motor_count;           // Total number of motors
     uint8_t reverse_chassis;             // Whether to reverse the controller input for driving
+    uint8_t enable_startup_alignment;    // Spin gimbal at startup to align head and chassis
     YawSource_e chassis_yaw_source;      // Hardware used to measure chassis yaw
     float aligned_yaw;                   // Depends on yaw source:
                                          // - Dev C: Spectre IMU yaw when ToF is aligned

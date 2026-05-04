@@ -68,12 +68,8 @@ void GimbalApp_Tick(void);
 
 /**
  * @brief Wait for gimbal to reach initial alignment position
- * @note This function sends gimbal commands and waits for both yaw and pitch
- *       to reach their initial positions before returning.
- *       Timeout: 10 seconds
  */
-void Gimbal_WaitForAlignment(void);
-
+void GimbalApp_WaitForAlignment(void);
 
 #ifdef __cplusplus
 }

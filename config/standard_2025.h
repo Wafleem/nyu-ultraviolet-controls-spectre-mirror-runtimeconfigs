@@ -146,6 +146,7 @@ static const RobotConfig_t g_robot_config_standard_2025 = {
     .motor_configs = g_motor_configs_standard_2025,
     .total_motor_count = 9,    // 4 chassis + 2 gimbal + 3 shooter
     .reverse_chassis = 1,
+    .enable_startup_alignment = 0,
     .chassis_yaw_source = YAW_SOURCE_DEVC,
     .aligned_yaw = 0.0f,
     .supercap_limit = 75.0f,
