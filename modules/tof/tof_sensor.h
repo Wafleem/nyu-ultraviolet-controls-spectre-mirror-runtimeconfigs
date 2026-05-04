@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/* 8-bit I2C address (7-bit 0x29 << 1) */
+#define TOF_I2C_ADDR 0x52
+#define TOF_RESET_THRESHOLD_MM 25
+
 /* ToF measurement data published via TOPIC_TOF_UPDATE */
 typedef struct {
   uint16_t distance_mm;  /* Distance in millimeters (0 if invalid) */

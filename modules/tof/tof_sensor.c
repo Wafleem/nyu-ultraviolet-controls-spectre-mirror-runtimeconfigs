@@ -20,9 +20,7 @@
 #define TOF_DELAY(ms) HAL_Delay(ms)
 #endif
 
-/* 8-bit I2C address (7-bit 0x29 << 1) */
-#define TOF_I2C_ADDR 0x52
-#define TOF_RESET_THRESHOLD_MM 25
+
 
 /* Published data */
 ToF_Data_t ToF_Data;
