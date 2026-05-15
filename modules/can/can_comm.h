@@ -54,4 +54,11 @@ typedef struct {
     float offset[3];
     float normal[3];
 } ChassisCalibEvent;
+
+// Operator-state snapshot for HUD overlay (chassis mode + auto-aim engage)
+typedef struct {
+    uint8_t spin_mode;       // 1 = small-gyro spin, 0 = no spin
+    uint8_t gimbal_follow;   // 1 = chassis follows gimbal, 0 = chassis-frame
+    uint8_t aimbot_engaged;  // 1 = vision auto-aim toggle on, 0 = off
+} HudOpStateEvent;
 #endif // CAN_COMM_H

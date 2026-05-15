@@ -11,6 +11,41 @@
 #include "string.h"
 #include "stdio.h"
 
+#if 0  // ===== HUD-extension code (commented out for Friday-baseline test) =====
+#include "main.h"
+
+#define RETICLE_X_PX 960
+#define RETICLE_Y_PX 540
+#define HEAT_WARN_NUM 80u
+#define HEAT_WARN_DEN 100u
+#define VISION_STALE_MS 100u
+
+static struct {
+    float    sc_voltage_pct;
+    uint8_t  sc_mode;
+    uint8_t  vision_target_state;
+    uint32_t last_vision_tick_ms;
+    uint8_t  spin_mode;
+    uint8_t  gimbal_follow;
+    uint8_t  aimbot_engaged;
+} s_hud_state;
+
+void hud_state_set_supercap(float voltage_pct, uint8_t mode) {
+    s_hud_state.sc_voltage_pct = voltage_pct;
+    s_hud_state.sc_mode = mode;
+}
+
+void hud_state_set_vision(uint8_t target_state, uint32_t tick_ms) {
+    s_hud_state.vision_target_state = target_state;
+    s_hud_state.last_vision_tick_ms = tick_ms;
+}
+
+void hud_state_set_opstate(uint8_t spin_mode, uint8_t gimbal_follow, uint8_t aimbot_engaged) {
+    s_hud_state.spin_mode = spin_mode;
+    s_hud_state.gimbal_follow = gimbal_follow;
+    s_hud_state.aimbot_engaged = aimbot_engaged;
+}
+#endif  // ===== end HUD-extension code =====
 
 frame_header_struct_t referee_receive_header;
 
@@ -46,6 +81,16 @@ map_data_t map_data;
 robot_custom_data_1_t robot_custom_data_1;
 robot_custom_data_2_t robot_custom_data_2;
 
+uint8_t get_robot_id(void) {
+    return robot_status.robot_id;
+}
+
+#if 0  // unused for Friday-baseline test
+void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat) {
+    if (heat_limit) *heat_limit = robot_status.shooter_barrel_heat_limit;
+    if (heat)       *heat       = power_heat_data.shooter_heat_17mm;
+}
+#endif
 
 // Initialize referee structs
 void ref_structs_init(void)
@@ -256,12 +301,68 @@ void ref_structs_solve(uint8_t *frame)
     }
 }
 
+#if 0  // ===== fill helpers (commented out, only single rectangle below) =====
+static void fill_name(interaction_figure_t *f, const char name[3])
+{
+    f->figure_name[0] = (uint8_t)name[0];
+    f->figure_name[1] = (uint8_t)name[1];
+    f->figure_name[2] = (uint8_t)name[2];
+}
+
+static void fill_line(interaction_figure_t *f, const char name[3],
+                      uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
+                      hud_color_t color, uint16_t width)
+{
+    fill_name(f, name);
+    f->operate_type = ADD;
+    f->figure_type  = LINE;
+    f->layer        = 0;
+    f->color        = color;
+    f->width        = width;
+    f->start_x      = x0;
+    f->start_y      = y0;
+    f->details_d    = x1;
+    f->details_e    = y1;
+}
+
+static void fill_rect(interaction_figure_t *f, const char name[3],
+                      uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
+                      hud_color_t color, uint16_t width)
+{
+    fill_name(f, name);
+    f->operate_type = ADD;
+    f->figure_type  = RECTANGLE;
+    f->layer        = 0;
+    f->color        = color;
+    f->width        = width;
+    f->start_x      = x0;
+    f->start_y      = y0;
+    f->details_d    = x1;
+    f->details_e    = y1;
+}
+
+static void fill_circle(interaction_figure_t *f, const char name[3],
+                        uint16_t cx, uint16_t cy, uint16_t radius,
+                        hud_color_t color, uint16_t width)
+{
+    fill_name(f, name);
+    f->operate_type = ADD;
+    f->figure_type  = CIRCLE;
+    f->layer        = 0;
+    f->color        = color;
+    f->width        = width;
+    f->start_x      = cx;
+    f->start_y      = cy;
+    f->details_c    = radius;
+}
+#endif
+
 void build_hud_data(uint8_t *buf)
 {
     robot_interaction_data_t data;
     memset(&data, 0, sizeof(data));
 
-    data.data_cmd_id = 0x0101;
+    data.data_cmd_id = UI_CMD_GRAPHIC_ONE;  // 0x0101 single-graphic sub-cmd
     data.sender_id   = robot_status.robot_id;
     data.receiver_id = robot_status.robot_id + 0x100;
 
@@ -283,3 +384,4 @@ void build_hud_data(uint8_t *buf)
 
     memcpy(buf, &data, sizeof(data));
 }
+

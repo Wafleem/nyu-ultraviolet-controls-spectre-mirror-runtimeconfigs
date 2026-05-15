@@ -549,6 +549,10 @@ void CmdController_Task(uint32_t current_tick) {
         (void)MsgCenter_Publish(TOPIC_CHASSIS_CMD, &s_chassis_cmd, sizeof(s_chassis_cmd), 0);
         (void)MsgCenter_Publish(TOPIC_SHOOT_CMD, &s_shoot_cmd, sizeof(s_shoot_cmd), 0);
         (void)MsgCenter_Publish(TOPIC_GIMBAL_CMD, &s_gimbal_cmd, sizeof(s_gimbal_cmd), 0);
+
+        HudOpStateEvent op_safe = {0};
+        op_safe.gimbal_follow = s_gimbal_follow_mode ? 1u : 0u;
+        (void)MsgCenter_Publish(TOPIC_HUD_OPSTATE, &op_safe, sizeof(op_safe), 0);
         return;
     }
 
@@ -621,4 +625,11 @@ void CmdController_Task(uint32_t current_tick) {
     (void)MsgCenter_Publish(TOPIC_CHASSIS_CMD, &s_chassis_cmd, sizeof(s_chassis_cmd), 0);
     (void)MsgCenter_Publish(TOPIC_SHOOT_CMD, &s_shoot_cmd, sizeof(s_shoot_cmd), 0);
     (void)MsgCenter_Publish(TOPIC_GIMBAL_CMD, &s_gimbal_cmd, sizeof(s_gimbal_cmd), 0);
+
+    HudOpStateEvent op = {
+        .spin_mode      = s_spin_mode ? 1u : 0u,
+        .gimbal_follow  = s_gimbal_follow_mode ? 1u : 0u,
+        .aimbot_engaged = aimbot_now ? 1u : 0u,
+    };
+    (void)MsgCenter_Publish(TOPIC_HUD_OPSTATE, &op, sizeof(op), 0);
 }

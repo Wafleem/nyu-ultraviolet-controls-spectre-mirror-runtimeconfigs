@@ -256,6 +256,19 @@ typedef struct //0x0301
     interaction_figure_t interaction_figure;
 } robot_interaction_data_t;
 
+#define UI_CMD_GRAPHIC_ONE   0x0101
+#define UI_CMD_GRAPHIC_TWO   0x0102
+#define UI_CMD_GRAPHIC_FIVE  0x0103
+#define UI_CMD_GRAPHIC_SEVEN 0x0104
+
+typedef struct // 0x0301 sub-cmd 0x0104
+{
+    uint16_t data_cmd_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    interaction_figure_t interaction_figure[7];
+} client_custom_graphic_seven_t;
+
 typedef struct // 0x0302
 {
     uint8_t *data;
@@ -330,10 +343,17 @@ typedef struct //0x0310
 
 #pragma pack(pop)
 
+_Static_assert(sizeof(interaction_figure_t) == 15, "graphic_data_struct_t must be 15 bytes");
+_Static_assert(sizeof(client_custom_graphic_seven_t) == 111, "seven-graphic packet must be 111 bytes");
+
 extern void ref_structs_init(void);
 extern void ref_structs_solve(uint8_t *frame);
 extern void build_hud_data(uint8_t *buf);
 extern uint8_t get_robot_id(void);
 extern void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat);
+
+extern void hud_state_set_supercap(float voltage_pct, uint8_t mode);
+extern void hud_state_set_vision(uint8_t target_state, uint32_t tick_ms);
+extern void hud_state_set_opstate(uint8_t spin_mode, uint8_t gimbal_follow, uint8_t aimbot_engaged);
 
 #endif
