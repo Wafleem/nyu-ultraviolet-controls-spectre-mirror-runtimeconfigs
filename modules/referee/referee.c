@@ -3,11 +3,9 @@
 #include "ref_crc.h"
 #include "fifo.h"
 #include "printing.h"
-#if 0  // ===== HUD-extension extra includes (commented out) =====
 #include "message_center.h"
 #include "can_comm.h"
 #include "vision_comm.h"
-#endif
 
 uint8_t referee_rx_buf[REFEREE_RX_BUF_LENGTH] DMA_SECTION;
 uint8_t referee_fifo_buf[REFEREE_FIFO_BUF_LENGTH];
@@ -21,7 +19,6 @@ uint8_t referee_send_seq;
 volatile uint32_t referee_rx_byte_count = 0;
 volatile uint32_t referee_rx_callback_count = 0;
 
-#if 0  // ===== HUD message-center callbacks (commented out) =====
 static void on_hud_supercap(const MsgEvent *ev, void *user_data) {
   (void)user_data;
   if (ev->size != sizeof(SupercapFeedbackEvent)) return;
@@ -42,7 +39,6 @@ static void on_hud_opstate(const MsgEvent *ev, void *user_data) {
   const HudOpStateEvent *op = (const HudOpStateEvent *)ev->data;
   hud_state_set_opstate(op->spin_mode, op->gimbal_follow, op->aimbot_engaged);
 }
-#endif
 
 // Get the referee buffer for debugging purposes
 void get_referee_buffer(uint8_t out[REFEREE_RX_BUF_LENGTH]) {
@@ -205,7 +201,7 @@ void referee_send_data(void)
     return;
   }
 
-  static enum { S_DELETE, S_YIELD, S_RUNNING } s_init_state = S_DELETE;
+  static enum { S_DELETE, S_YIELD, S_ADD, S_RUNNING } s_init_state = S_DELETE;
   switch (s_init_state) {
     case S_DELETE:
       USB_CDC_Printf("[HUD] robot_id=%u recv_id=0x%X -> sending DELETE_ALL\r\n",
@@ -215,14 +211,17 @@ void referee_send_data(void)
       return;
     case S_YIELD:
       // skip one task cycle so the client finishes processing DELETE_ALL
-      s_init_state = S_RUNNING;
+      s_init_state = S_ADD;
       return;
+    case S_ADD:
     case S_RUNNING:
     default:
       break;
   }
 
-  uint16_t data_len = sizeof(robot_interaction_data_t);
+  hud_operation_t op = (s_init_state == S_ADD) ? ADD : EDIT;
+
+  uint16_t data_len = sizeof(client_custom_graphic_seven_t);
   uint16_t cmd_id = 0x0301;
   uint16_t frame_len = 7 + data_len + 2;
 
@@ -234,13 +233,23 @@ void referee_send_data(void)
   append_CRC8_check_sum(referee_tx_buf, 5);
   referee_tx_buf[5] = cmd_id & 0xFF;
   referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
-  build_hud_data(referee_tx_buf + 7);
+  build_hud_data(referee_tx_buf + 7, op);
+
+  int is_add = (s_init_state == S_ADD);
+  if (is_add) s_init_state = S_RUNNING;
+
   append_CRC16_check_sum(referee_tx_buf, frame_len);
-  ptr = out;
-  for (int i = 0; i < frame_len; i++) {
-    ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
+
+  // --- Debug output ---
+  if (is_add) {
+    // Full hex dump on the initial ADD — verify packet byte-for-byte in serial console
+    ptr = out;
+    for (int i = 0; i < frame_len; i++) {
+      ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
+    }
+    USB_CDC_Printf("[HUD ADD] len=%u seq=%u\r\n%s\r\n", frame_len, referee_send_seq, out);
   }
-  USB_CDC_Printf("%s\r\n", out);
+
   HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, HAL_MAX_DELAY);
 
   referee_send_seq++;
@@ -257,11 +266,9 @@ void referee_init(void)
   // Initialize FIFO
   fifo_s_init(&referee_fifo, referee_fifo_buf, REFEREE_FIFO_BUF_LENGTH);
 
-#if 0  // ===== HUD-extension subscriptions (commented out) =====
   (void)MsgCenter_Subscribe(TOPIC_SUPERCAP_FEEDBACK, on_hud_supercap, NULL);
   (void)MsgCenter_Subscribe(TOPIC_VISION_DATA,       on_hud_vision,   NULL);
   (void)MsgCenter_Subscribe(TOPIC_HUD_OPSTATE,       on_hud_opstate,  NULL);
-#endif
 
   // Start DMA reception with IDLE detection
   HAL_UARTEx_ReceiveToIdle_DMA(REFEREE_UART_HANDLE, referee_rx_buf, REFEREE_RX_BUF_LENGTH);

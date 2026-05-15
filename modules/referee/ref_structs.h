@@ -348,7 +348,7 @@ _Static_assert(sizeof(client_custom_graphic_seven_t) == 111, "seven-graphic pack
 
 extern void ref_structs_init(void);
 extern void ref_structs_solve(uint8_t *frame);
-extern void build_hud_data(uint8_t *buf);
+extern void build_hud_data(uint8_t *buf, hud_operation_t op);
 extern uint8_t get_robot_id(void);
 extern void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat);
 

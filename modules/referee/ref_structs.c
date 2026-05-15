@@ -11,14 +11,29 @@
 #include "string.h"
 #include "stdio.h"
 
-#if 0  // ===== HUD-extension code (commented out for Friday-baseline test) =====
 #include "main.h"
 
-#define RETICLE_X_PX 960
-#define RETICLE_Y_PX 540
 #define HEAT_WARN_NUM 80u
 #define HEAT_WARN_DEN 100u
 #define VISION_STALE_MS 100u
+
+// CAP bar: x=300 to x=300+1500*(pct/100), y=60, 8px thick
+#define CAP_BAR_X0     300u
+#define CAP_BAR_WIDTH  1500u
+#define CAP_BAR_Y      60u
+
+// Status indicator circles in top-right (x=1860, y descending by 45)
+#define IND_X          1860u
+#define IND_AIM_Y      1000u
+#define IND_SPN_Y      955u
+#define IND_FOL_Y      910u
+#define IND_VIS_Y      865u
+#define IND_R          20u
+
+// Heat warning dot at bottom-left
+#define HEAT_X         100u
+#define HEAT_Y         90u
+#define HEAT_R         20u
 
 static struct {
     float    sc_voltage_pct;
@@ -45,7 +60,6 @@ void hud_state_set_opstate(uint8_t spin_mode, uint8_t gimbal_follow, uint8_t aim
     s_hud_state.gimbal_follow = gimbal_follow;
     s_hud_state.aimbot_engaged = aimbot_engaged;
 }
-#endif  // ===== end HUD-extension code =====
 
 frame_header_struct_t referee_receive_header;
 
@@ -85,12 +99,10 @@ uint8_t get_robot_id(void) {
     return robot_status.robot_id;
 }
 
-#if 0  // unused for Friday-baseline test
 void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat) {
     if (heat_limit) *heat_limit = robot_status.shooter_barrel_heat_limit;
     if (heat)       *heat       = power_heat_data.shooter_heat_17mm;
 }
-#endif
 
 // Initialize referee structs
 void ref_structs_init(void)
@@ -301,7 +313,6 @@ void ref_structs_solve(uint8_t *frame)
     }
 }
 
-#if 0  // ===== fill helpers (commented out, only single rectangle below) =====
 static void fill_name(interaction_figure_t *f, const char name[3])
 {
     f->figure_name[0] = (uint8_t)name[0];
@@ -314,7 +325,6 @@ static void fill_line(interaction_figure_t *f, const char name[3],
                       hud_color_t color, uint16_t width)
 {
     fill_name(f, name);
-    f->operate_type = ADD;
     f->figure_type  = LINE;
     f->layer        = 0;
     f->color        = color;
@@ -330,7 +340,6 @@ static void fill_rect(interaction_figure_t *f, const char name[3],
                       hud_color_t color, uint16_t width)
 {
     fill_name(f, name);
-    f->operate_type = ADD;
     f->figure_type  = RECTANGLE;
     f->layer        = 0;
     f->color        = color;
@@ -346,7 +355,6 @@ static void fill_circle(interaction_figure_t *f, const char name[3],
                         hud_color_t color, uint16_t width)
 {
     fill_name(f, name);
-    f->operate_type = ADD;
     f->figure_type  = CIRCLE;
     f->layer        = 0;
     f->color        = color;
@@ -355,32 +363,99 @@ static void fill_circle(interaction_figure_t *f, const char name[3],
     f->start_y      = cy;
     f->details_c    = radius;
 }
-#endif
 
-void build_hud_data(uint8_t *buf)
+void build_hud_data(uint8_t *buf, hud_operation_t op)
 {
-    robot_interaction_data_t data;
+    client_custom_graphic_seven_t data;
     memset(&data, 0, sizeof(data));
 
-    data.data_cmd_id = UI_CMD_GRAPHIC_ONE;  // 0x0101 single-graphic sub-cmd
+    data.data_cmd_id = UI_CMD_GRAPHIC_SEVEN;
     data.sender_id   = robot_status.robot_id;
     data.receiver_id = robot_status.robot_id + 0x100;
 
-    data.interaction_figure.figure_name[0] = 'r';
-    data.interaction_figure.figure_name[1] = '0';
-    data.interaction_figure.figure_name[2] = '0';
-    data.interaction_figure.operate_type = ADD;
-    data.interaction_figure.figure_type  = RECTANGLE;
-    data.interaction_figure.layer        = 1;
-    data.interaction_figure.color        = WHITE;
-    data.interaction_figure.details_a    = 0;
-    data.interaction_figure.details_b    = 0;
-    data.interaction_figure.width        = 3;
-    data.interaction_figure.start_x      = 1000;
-    data.interaction_figure.start_y      = 500;
-    data.interaction_figure.details_c    = 0;
-    data.interaction_figure.details_d    = 1500;
-    data.interaction_figure.details_e    = 700;
+    // [0] "box" — white reticle reference rectangle at screen center
+    fill_rect(&data.interaction_figure[0], "box",
+              760, 390, 1160, 690, WHITE, 2);
+
+    // [1] "cap" — supercap charge bar: horizontal line at bottom, length = voltage_pct
+    {
+        float pct = s_hud_state.sc_voltage_pct;
+        if (pct < 0.0f)   pct = 0.0f;
+        if (pct > 100.0f) pct = 100.0f;
+        uint16_t bar_end = CAP_BAR_X0 + (uint16_t)(CAP_BAR_WIDTH * pct / 100.0f);
+        if (bar_end <= CAP_BAR_X0) bar_end = CAP_BAR_X0 + 1;
+        hud_color_t cap_color = (pct > 50.0f) ? GREEN : (pct > 20.0f) ? ORANGE : MAGENTA;
+        fill_line(&data.interaction_figure[1], "cap",
+                  CAP_BAR_X0, CAP_BAR_Y, bar_end, CAP_BAR_Y, cap_color, 8);
+    }
+
+    // [2] "aim" — aimbot engaged: GREEN=on, YELLOW=off
+    fill_circle(&data.interaction_figure[2], "aim",
+                IND_X, IND_AIM_Y, IND_R,
+                s_hud_state.aimbot_engaged ? GREEN : YELLOW, 3);
+
+    // [3] "spn" — spin mode: CYAN=spinning, ORANGE=not
+    fill_circle(&data.interaction_figure[3], "spn",
+                IND_X, IND_SPN_Y, IND_R,
+                s_hud_state.spin_mode ? CYAN : ORANGE, 3);
+
+    // [4] "fol" — gimbal follow: GREEN=following, MAGENTA=chassis-frame
+    fill_circle(&data.interaction_figure[4], "fol",
+                IND_X, IND_FOL_Y, IND_R,
+                s_hud_state.gimbal_follow ? GREEN : MAGENTA, 3);
+
+    // [5] "vis" — vision target state: GREEN=ready, ORANGE=converging, YELLOW=none/stale
+    {
+        hud_color_t vis_color;
+        uint32_t age_ms = HAL_GetTick() - s_hud_state.last_vision_tick_ms;
+        if (age_ms > VISION_STALE_MS) {
+            vis_color = YELLOW;
+        } else if (s_hud_state.vision_target_state == 2) {  // READY_TO_FIRE
+            vis_color = GREEN;
+        } else if (s_hud_state.vision_target_state == 1) {  // TARGET_CONVERGING
+            vis_color = ORANGE;
+        } else {
+            vis_color = YELLOW;  // NO_TARGET
+        }
+        fill_circle(&data.interaction_figure[5], "vis",
+                    IND_X, IND_VIS_Y, IND_R, vis_color, 3);
+    }
+
+    // [6] "hte" — heat warning: MAGENTA if >80% of limit, GREEN otherwise
+    {
+        uint16_t heat_limit = 0, heat = 0;
+        get_shoot_heat_limit_and_heat(&heat_limit, &heat);
+        hud_color_t hte_color = (heat_limit > 0 &&
+                                  (uint32_t)heat * HEAT_WARN_DEN >
+                                  (uint32_t)heat_limit * HEAT_WARN_NUM)
+                                 ? MAGENTA : GREEN;
+        fill_circle(&data.interaction_figure[6], "hte",
+                    HEAT_X, HEAT_Y, HEAT_R, hte_color, 3);
+    }
+
+    // Apply operation (ADD on first send, EDIT on every subsequent send)
+    for (int i = 0; i < 7; i++) {
+        data.interaction_figure[i].operate_type = op;
+    }
+
+    // Periodic state log — print every 50 calls (~1 Hz at 50 Hz task rate)
+    static uint32_t s_log_ctr = 0;
+    if (++s_log_ctr >= 50) {
+        s_log_ctr = 0;
+        uint16_t heat_limit = 0, heat = 0;
+        get_shoot_heat_limit_and_heat(&heat_limit, &heat);
+        USB_CDC_Printf(
+            "[HUD] op=%s sc=%.1f%%(%u) aim=%u spn=%u fol=%u vis=%u heat=%u/%u\r\n",
+            (op == ADD) ? "ADD" : "EDIT",
+            (double)s_hud_state.sc_voltage_pct,
+            (unsigned)s_hud_state.sc_mode,
+            (unsigned)s_hud_state.aimbot_engaged,
+            (unsigned)s_hud_state.spin_mode,
+            (unsigned)s_hud_state.gimbal_follow,
+            (unsigned)s_hud_state.vision_target_state,
+            (unsigned)heat,
+            (unsigned)heat_limit);
+    }
 
     memcpy(buf, &data, sizeof(data));
 }
