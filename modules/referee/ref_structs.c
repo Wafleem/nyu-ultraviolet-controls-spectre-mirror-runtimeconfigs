@@ -8,6 +8,7 @@
 #include "ref_protocol.h"
 #include "message_center.h"
 #include "printing.h"
+#include "logger.h"
 #include "string.h"
 #include "stdio.h"
 
@@ -17,22 +18,22 @@
 #define HEAT_WARN_DEN 100u
 #define VISION_STALE_MS 100u
 
-// CAP bar: x=300 to x=300+1500*(pct/100), y=60, 8px thick
+// CAP bar: horizontal line near bottom but above system power bar (~y=150+)
 #define CAP_BAR_X0     300u
-#define CAP_BAR_WIDTH  1500u
-#define CAP_BAR_Y      60u
+#define CAP_BAR_WIDTH  1300u
+#define CAP_BAR_Y      200u
 
-// Status indicator circles in top-right (x=1860, y descending by 45)
-#define IND_X          1860u
-#define IND_AIM_Y      1000u
-#define IND_SPN_Y      955u
-#define IND_FOL_Y      910u
-#define IND_VIS_Y      865u
+// Status indicator circles in top-right, below system top bar (y < ~850)
+#define IND_X          1820u
+#define IND_AIM_Y      820u
+#define IND_SPN_Y      775u
+#define IND_FOL_Y      730u
+#define IND_VIS_Y      685u
 #define IND_R          20u
 
-// Heat warning dot at bottom-left
-#define HEAT_X         100u
-#define HEAT_Y         90u
+// Heat warning dot — left side, above minimap zone (y > 250, x > 320)
+#define HEAT_X         350u
+#define HEAT_Y         260u
 #define HEAT_R         20u
 
 static struct {
@@ -161,8 +162,8 @@ void ref_structs_solve(uint8_t *frame)
         case GAME_STATE_CMD_ID:
         {
             memcpy(&game_state, frame + index, sizeof(game_state_t));
-            USB_CDC_Printf("[GAME] progress=%u remain=%us\r\n",
-                           game_state.game_progress, game_state.stage_remain_time);
+            LOG_INFO(LOG_TAG_REF, "GAME progress=%u remain=%us",
+                     game_state.game_progress, game_state.stage_remain_time);
         }
         break;
         case GAME_RESULT_CMD_ID:
@@ -438,14 +439,12 @@ void build_hud_data(uint8_t *buf, hud_operation_t op)
         data.interaction_figure[i].operate_type = op;
     }
 
-    // Periodic state log — print every 50 calls (~1 Hz at 50 Hz task rate)
-    static uint32_t s_log_ctr = 0;
-    if (++s_log_ctr >= 50) {
-        s_log_ctr = 0;
+    // Log HUD state every call (rate limiting disabled for LOG_TAG_HUD)
+    {
         uint16_t heat_limit = 0, heat = 0;
         get_shoot_heat_limit_and_heat(&heat_limit, &heat);
-        USB_CDC_Printf(
-            "[HUD] op=%s sc=%.1f%%(%u) aim=%u spn=%u fol=%u vis=%u heat=%u/%u\r\n",
+        LOG_DEBUG(LOG_TAG_HUD,
+            "op=%s sc=%.1f%%(%u) aim=%u spn=%u fol=%u vis=%u heat=%u/%u",
             (op == ADD) ? "ADD" : "EDIT",
             (double)s_hud_state.sc_voltage_pct,
             (unsigned)s_hud_state.sc_mode,

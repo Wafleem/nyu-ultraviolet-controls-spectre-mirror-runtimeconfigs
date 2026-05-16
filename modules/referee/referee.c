@@ -3,6 +3,7 @@
 #include "ref_crc.h"
 #include "fifo.h"
 #include "printing.h"
+#include "logger.h"
 #include "message_center.h"
 #include "can_comm.h"
 #include "vision_comm.h"
@@ -73,7 +74,7 @@ void referee_unpack_fifo_data(void)
           p_obj->index = 0;
         }
       }break;
-      
+
       // Start reading the frame length and go next
       case STEP_LENGTH_LOW:
       {
@@ -81,7 +82,7 @@ void referee_unpack_fifo_data(void)
         p_obj->protocol_packet[p_obj->index++] = byte;
         p_obj->unpack_step = STEP_LENGTH_HIGH;
       }break;
-      
+
       // Finish reading the frame length. If it is valid, go next
       case STEP_LENGTH_HIGH:
       {
@@ -123,14 +124,14 @@ void referee_unpack_fifo_data(void)
             p_obj->index = 0;
           }
         }
-      }break;  
-      
+      }break;
+
       // Read the CRC16 checksum. If it is valid, read the frame data
       case STEP_DATA_CRC16:
       {
         if (p_obj->index < (REF_HEADER_CRC_CMDID_LEN + p_obj->data_len))
         {
-           p_obj->protocol_packet[p_obj->index++] = byte;  
+           p_obj->protocol_packet[p_obj->index++] = byte;
         }
         if (p_obj->index >= (REF_HEADER_CRC_CMDID_LEN + p_obj->data_len))
         {
@@ -180,38 +181,52 @@ static void referee_send_delete_all(uint8_t robot_id)
   referee_tx_buf[13] = 2;             // DELETE_ALL
   referee_tx_buf[14] = 0;             // layer (ignored for DELETE_ALL)
   append_CRC16_check_sum(referee_tx_buf, frame_len);
-  HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, HAL_MAX_DELAY);
+  HAL_StatusTypeDef tx_status = HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, 50);
+  if (tx_status != HAL_OK) {
+    LOG_ERROR(LOG_TAG_HUD, "DELETE_ALL TX ERR status=%u", tx_status);
+  } else {
+    LOG_INFO(LOG_TAG_HUD, "DELETE_ALL sent seq=%u", referee_send_seq);
+  }
   referee_send_seq++;
 }
 
+// Number of 10Hz cycles to yield after DELETE_ALL (let referee process it)
+#define HUD_YIELD_CYCLES   5
+// Number of 10Hz cycles to send ADD before switching to EDIT
+#define HUD_ADD_CYCLES     10
+
 void referee_send_data(void)
 {
-  USB_CDC_Printf("[REF LINK] rx_bytes=%lu callbacks=%lu\r\n",
-                 (unsigned long)referee_rx_byte_count,
-                 (unsigned long)referee_rx_callback_count);
+  LOG_INFO(LOG_TAG_REF, "rx_bytes=%lu callbacks=%lu",
+           (unsigned long)referee_rx_byte_count,
+           (unsigned long)referee_rx_callback_count);
 
-  // ARUW pattern (client_display_command.cpp:84-91):
-  //   1. wait until referee data is being received (robot_id != 0)
-  //   2. send DELETE_ALL once
-  //   3. yield one cycle so the client processes the delete
-  //   4. then send ADD packets every cycle
+  // State machine: DELETE_ALL → yield → ADD (repeated) → EDIT (steady state)
+  // Based on ARUW pattern (client_display_command.cpp:84-91)
   uint8_t rid = get_robot_id();
   if (rid == 0) {
-    USB_CDC_Printf("[HUD] waiting for robot_id (no 0x0201 received yet)\r\n");
+    LOG_WARN(LOG_TAG_HUD, "waiting for robot_id (no 0x0201 received yet)");
     return;
   }
 
   static enum { S_DELETE, S_YIELD, S_ADD, S_RUNNING } s_init_state = S_DELETE;
+  static uint8_t s_cycle_count = 0;
+
   switch (s_init_state) {
     case S_DELETE:
-      USB_CDC_Printf("[HUD] robot_id=%u recv_id=0x%X -> sending DELETE_ALL\r\n",
-                     rid, rid + 0x100);
+      LOG_INFO(LOG_TAG_HUD, "robot_id=%u recv_id=0x%X -> sending DELETE_ALL",
+               rid, rid + 0x100);
       referee_send_delete_all(rid);
       s_init_state = S_YIELD;
+      s_cycle_count = 0;
       return;
     case S_YIELD:
-      // skip one task cycle so the client finishes processing DELETE_ALL
-      s_init_state = S_ADD;
+      s_cycle_count++;
+      LOG_INFO(LOG_TAG_HUD, "yield %u/%u after DELETE_ALL", s_cycle_count, HUD_YIELD_CYCLES);
+      if (s_cycle_count >= HUD_YIELD_CYCLES) {
+        s_init_state = S_ADD;
+        s_cycle_count = 0;
+      }
       return;
     case S_ADD:
     case S_RUNNING:
@@ -219,7 +234,19 @@ void referee_send_data(void)
       break;
   }
 
-  hud_operation_t op = (s_init_state == S_ADD) ? ADD : EDIT;
+  // Send ADD for multiple cycles to survive packet drops, then switch to EDIT
+  hud_operation_t op;
+  if (s_init_state == S_ADD) {
+    op = ADD;
+    s_cycle_count++;
+    LOG_INFO(LOG_TAG_HUD, "ADD cycle %u/%u rid=%u", s_cycle_count, HUD_ADD_CYCLES, rid);
+    if (s_cycle_count >= HUD_ADD_CYCLES) {
+      s_init_state = S_RUNNING;
+      LOG_INFO(LOG_TAG_HUD, "ADD phase complete, switching to EDIT");
+    }
+  } else {
+    op = EDIT;
+  }
 
   uint16_t data_len = sizeof(client_custom_graphic_seven_t);
   uint16_t cmd_id = 0x0301;
@@ -235,22 +262,22 @@ void referee_send_data(void)
   referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
   build_hud_data(referee_tx_buf + 7, op);
 
-  int is_add = (s_init_state == S_ADD);
-  if (is_add) s_init_state = S_RUNNING;
-
   append_CRC16_check_sum(referee_tx_buf, frame_len);
 
-  // --- Debug output ---
-  if (is_add) {
-    // Full hex dump on the initial ADD — verify packet byte-for-byte in serial console
+  // Full hex dump on ADD cycles for debugging
+  if (op == ADD) {
     ptr = out;
     for (int i = 0; i < frame_len; i++) {
       ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
     }
-    USB_CDC_Printf("[HUD ADD] len=%u seq=%u\r\n%s\r\n", frame_len, referee_send_seq, out);
+    LOG_INFO(LOG_TAG_HUD, "ADD pkt len=%u seq=%u\r\n%s", frame_len, referee_send_seq, out);
   }
 
-  HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, HAL_MAX_DELAY);
+  HAL_StatusTypeDef tx_status = HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, 50);
+  if (tx_status != HAL_OK) {
+    LOG_ERROR(LOG_TAG_HUD, "TX ERR status=%u seq=%u op=%s",
+              tx_status, referee_send_seq, (op == ADD) ? "ADD" : "EDIT");
+  }
 
   referee_send_seq++;
 }
@@ -265,6 +292,10 @@ void referee_init(void)
 
   // Initialize FIFO
   fifo_s_init(&referee_fifo, referee_fifo_buf, REFEREE_FIFO_BUF_LENGTH);
+
+  // Disable rate limiting on REF/HUD logger tags so every print comes through
+  Logger_SetRate(LOG_TAG_REF, 0);
+  Logger_SetRate(LOG_TAG_HUD, 0);
 
   (void)MsgCenter_Subscribe(TOPIC_SUPERCAP_FEEDBACK, on_hud_supercap, NULL);
   (void)MsgCenter_Subscribe(TOPIC_VISION_DATA,       on_hud_vision,   NULL);
@@ -291,7 +322,7 @@ void referee_IDLE_Handler(UART_HandleTypeDef *huart, uint16_t size)
 void referee_Error_Handler(UART_HandleTypeDef *huart) {
 	// Clear overrun error
     __HAL_UART_CLEAR_OREFLAG(REFEREE_UART_HANDLE);
-    
+
   // Abort and restart reception
   HAL_UART_AbortReceive(REFEREE_UART_HANDLE);
   HAL_UARTEx_ReceiveToIdle_DMA(REFEREE_UART_HANDLE, referee_rx_buf, REFEREE_RX_BUF_LENGTH);
