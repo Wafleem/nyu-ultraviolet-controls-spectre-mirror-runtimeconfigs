@@ -468,7 +468,7 @@ static void configure_robot(robot_status_t *robot_status) {
 
   // Restart Controls modules and applications
   MotorDriver_ModuleInit(robot_status->robot_id);
-  ChassisApp_Init();
+  ChassisApp_Init(robot_cfg);
   GimbalApp_Init();
   ShooterApp_Init(robot_cfg);
   CmdController_Init(robot_cfg);

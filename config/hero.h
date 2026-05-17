@@ -159,6 +159,7 @@ static const RobotConfig_t g_robot_config_hero = {
     .reverse_chassis = 1,
     .enable_startup_alignment = 0,
     .chassis_yaw_source = YAW_SOURCE_GM6020,
+    .power_limit_source = POWER_LIMIT_SOURCE_PDB,   // No supercap mounted on Hero yet
     .aligned_yaw = 55.0f,
     .supercap_limit = 100.0f,
     .feeder_speed = 4000.0f,

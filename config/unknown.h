@@ -14,6 +14,7 @@ static const RobotConfig_t g_robot_config_unknown = {
     .motor_configs = NULL,
     .total_motor_count = 0,
     .chassis_yaw_source = YAW_SOURCE_DEVC,
+    .power_limit_source = POWER_LIMIT_SOURCE_SUPERCAP,
     .aligned_yaw = 0.0f,
     .supercap_limit = 75.0f,
 };

@@ -46,6 +46,15 @@ typedef enum {
 } YawSource_e;
 
 /**
+ * @brief Chassis power-limiter input source
+ * Selects which CAN feedback feeds the current-scaling logic in chassis_controller.
+ */
+typedef enum {
+    POWER_LIMIT_SOURCE_SUPERCAP,   // Wraith supercap board, TOPIC_SUPERCAP_FEEDBACK (pmm_w)
+    POWER_LIMIT_SOURCE_PDB         // PDB board, TOPIC_CHASSIS_POWER (total chassis W)
+} PowerLimitSource_e;
+
+/**
  * @brief PID parameters structure
  */
 typedef struct {
@@ -105,6 +114,7 @@ typedef struct {
     uint8_t reverse_chassis;             // Whether to reverse the controller input for driving
     uint8_t enable_startup_alignment;    // Spin gimbal at startup to align head and chassis
     YawSource_e chassis_yaw_source;      // Hardware used to measure chassis yaw
+    PowerLimitSource_e power_limit_source; // Which board feeds the chassis power limiter
     float aligned_yaw;                   // Depends on yaw source:
                                          // - Dev C: Spectre IMU yaw when ToF is aligned
                                          // - GM6020: GM6020 yaw when head and chassis are aligned
