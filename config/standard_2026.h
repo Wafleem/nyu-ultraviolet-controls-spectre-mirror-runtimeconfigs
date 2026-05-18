@@ -143,6 +143,7 @@ static const RobotConfig_t g_robot_config_standard_2026 = {
     .reverse_chassis = 0,
     .enable_startup_alignment = 0,
     .chassis_yaw_source = YAW_SOURCE_DEVC,
+    .power_limit_source = POWER_LIMIT_SOURCE_SUPERCAP,
     .aligned_yaw = 0.0f,
     .supercap_limit = 75.0f,
     .feeder_speed = 3000.0f,

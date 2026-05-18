@@ -108,8 +108,9 @@ void ChassisController_UpdateMotorFeedback(ChassisController *controller, uint8_
 
 /**
  * @brief Initialize chassis application (subscriptions, etc.)
+ * @param robot_config Active robot configuration (selects power-limiter source)
  */
-void ChassisApp_Init(void);
+void ChassisApp_Init(const RobotConfig_t *robot_config);
 
 /**
  * @brief Run one chassis PID cycle.
