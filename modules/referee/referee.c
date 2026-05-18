@@ -155,101 +155,20 @@ void referee_unpack_fifo_data(void)
   }
 }
 
-// DELETE_ALL packet (sub-cmd 0x0100) — clears all custom graphics on client.
-// Mirrors taproot RefSerialTransmitter::deleteGraphicLayer with DELETE_ALL=2.
-static void referee_send_delete_all(uint8_t robot_id)
-{
-  uint16_t data_len = 8;
-  uint16_t cmd_id   = 0x0301;
-  uint16_t frame_len = 7 + data_len + 2;
-  uint16_t recv_id  = (uint16_t)robot_id + 0x100;
-
-  memset(referee_tx_buf, 0, frame_len);
-  referee_tx_buf[0] = 0xA5;
-  referee_tx_buf[1] = data_len & 0xFF;
-  referee_tx_buf[2] = (data_len >> 8) & 0xFF;
-  referee_tx_buf[3] = referee_send_seq;
-  append_CRC8_check_sum(referee_tx_buf, 5);
-  referee_tx_buf[5] = cmd_id & 0xFF;
-  referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
-  referee_tx_buf[7]  = 0x00;          // data_cmd_id lo (=0x0100)
-  referee_tx_buf[8]  = 0x01;          // data_cmd_id hi
-  referee_tx_buf[9]  = robot_id;      // sender_id lo
-  referee_tx_buf[10] = 0x00;          // sender_id hi
-  referee_tx_buf[11] = recv_id & 0xFF;
-  referee_tx_buf[12] = (recv_id >> 8) & 0xFF;
-  referee_tx_buf[13] = 2;             // DELETE_ALL
-  referee_tx_buf[14] = 0;             // layer (ignored for DELETE_ALL)
-  append_CRC16_check_sum(referee_tx_buf, frame_len);
-  HAL_StatusTypeDef tx_status = HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, 50);
-  if (tx_status != HAL_OK) {
-    LOG_ERROR(LOG_TAG_HUD, "DELETE_ALL TX ERR status=%u", tx_status);
-  } else {
-    LOG_INFO(LOG_TAG_HUD, "DELETE_ALL sent seq=%u", referee_send_seq);
-  }
-  referee_send_seq++;
-}
-
-// Number of 10Hz cycles to yield after DELETE_ALL (let referee process it)
-#define HUD_YIELD_CYCLES   5
-// Number of 10Hz cycles to send ADD before switching to EDIT
-#define HUD_ADD_CYCLES     10
-
 void referee_send_data(void)
 {
   LOG_INFO(LOG_TAG_REF, "rx_bytes=%lu callbacks=%lu",
            (unsigned long)referee_rx_byte_count,
            (unsigned long)referee_rx_callback_count);
 
-  // State machine: DELETE_ALL → yield → ADD (repeated) → EDIT (steady state)
-  // Based on ARUW pattern (client_display_command.cpp:84-91)
   uint8_t rid = get_robot_id();
   if (rid == 0) {
     LOG_WARN(LOG_TAG_HUD, "waiting for robot_id (no 0x0201 received yet)");
     return;
   }
 
-  static enum { S_DELETE, S_YIELD, S_ADD, S_RUNNING } s_init_state = S_DELETE;
-  static uint8_t s_cycle_count = 0;
-
-  switch (s_init_state) {
-    case S_DELETE:
-      LOG_INFO(LOG_TAG_HUD, "robot_id=%u recv_id=0x%X -> sending DELETE_ALL",
-               rid, rid + 0x100);
-      referee_send_delete_all(rid);
-      s_init_state = S_YIELD;
-      s_cycle_count = 0;
-      return;
-    case S_YIELD:
-      s_cycle_count++;
-      LOG_INFO(LOG_TAG_HUD, "yield %u/%u after DELETE_ALL", s_cycle_count, HUD_YIELD_CYCLES);
-      if (s_cycle_count >= HUD_YIELD_CYCLES) {
-        s_init_state = S_ADD;
-        s_cycle_count = 0;
-      }
-      return;
-    case S_ADD:
-    case S_RUNNING:
-    default:
-      break;
-  }
-
-  // Send ADD for multiple cycles to survive packet drops, then switch to EDIT
-  hud_operation_t op;
-  if (s_init_state == S_ADD) {
-    op = ADD;
-    s_cycle_count++;
-    LOG_INFO(LOG_TAG_HUD, "ADD cycle %u/%u rid=%u", s_cycle_count, HUD_ADD_CYCLES, rid);
-    if (s_cycle_count >= HUD_ADD_CYCLES) {
-      s_init_state = S_RUNNING;
-      LOG_INFO(LOG_TAG_HUD, "ADD phase complete, switching to EDIT");
-    }
-  } else {
-    op = EDIT;
-  }
-
-  uint16_t data_len = sizeof(client_custom_graphic_seven_t);
-  uint16_t cmd_id = 0x0301;
+  uint16_t data_len  = sizeof(robot_interaction_data_t);
+  uint16_t cmd_id    = 0x0301;
   uint16_t frame_len = 7 + data_len + 2;
 
   memset(referee_tx_buf, 0, frame_len);
@@ -260,23 +179,23 @@ void referee_send_data(void)
   append_CRC8_check_sum(referee_tx_buf, 5);
   referee_tx_buf[5] = cmd_id & 0xFF;
   referee_tx_buf[6] = (cmd_id >> 8) & 0xFF;
-  build_hud_data(referee_tx_buf + 7, op);
-
+  build_test_circle_single_for_robot(referee_tx_buf + 7, ADD, rid);
   append_CRC16_check_sum(referee_tx_buf, frame_len);
 
-  // Full hex dump on ADD cycles for debugging
-  if (op == ADD) {
-    ptr = out;
-    for (int i = 0; i < frame_len; i++) {
-      ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
-    }
-    LOG_INFO(LOG_TAG_HUD, "ADD pkt len=%u seq=%u\r\n%s", frame_len, referee_send_seq, out);
+  ptr = out;
+  for (int i = 0; i < frame_len; i++) {
+    ptr += sprintf(ptr, "%02X ", referee_tx_buf[i]);
   }
 
-  HAL_StatusTypeDef tx_status = HAL_UART_Transmit(REFEREE_UART_HANDLE, referee_tx_buf, frame_len, 50);
+  HAL_StatusTypeDef tx_status = HAL_UART_Transmit(REFEREE_UART_HANDLE,
+                                                   referee_tx_buf, frame_len, 50);
   if (tx_status != HAL_OK) {
-    LOG_ERROR(LOG_TAG_HUD, "TX ERR status=%u seq=%u op=%s",
-              tx_status, referee_send_seq, (op == ADD) ? "ADD" : "EDIT");
+    LOG_ERROR(LOG_TAG_HUD, "HUD TX ERR status=%u seq=%u", (unsigned)tx_status, referee_send_seq);
+  } else {
+    LOG_INFO(LOG_TAG_HUD,
+             "HUD RECT TX rid=%u recv=0x%X len=%u seq=%u\r\n%s",
+             rid, (unsigned)((uint16_t)rid + 0x100),
+             frame_len, referee_send_seq, out);
   }
 
   referee_send_seq++;
@@ -296,6 +215,7 @@ void referee_init(void)
   // Disable rate limiting on REF/HUD logger tags so every print comes through
   Logger_SetRate(LOG_TAG_REF, 0);
   Logger_SetRate(LOG_TAG_HUD, 0);
+  LOG_INFO(LOG_TAG_HUD, "HUD sender mode=MSB_RECT_PROBE");
 
   (void)MsgCenter_Subscribe(TOPIC_SUPERCAP_FEEDBACK, on_hud_supercap, NULL);
   (void)MsgCenter_Subscribe(TOPIC_VISION_DATA,       on_hud_vision,   NULL);

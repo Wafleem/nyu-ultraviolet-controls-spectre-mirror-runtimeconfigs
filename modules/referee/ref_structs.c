@@ -272,6 +272,7 @@ void ref_structs_solve(uint8_t *frame)
         {
             memcpy(&custom_robot_data, frame + index, sizeof(custom_robot_data_t));
         }
+        break;
         case MAP_COMMAND_CMD_ID:
         {
             memcpy(&map_command, frame + index, sizeof(map_command_t));
@@ -365,14 +366,64 @@ static void fill_circle(interaction_figure_t *f, const char name[3],
     f->details_c    = radius;
 }
 
-void build_hud_data(uint8_t *buf, hud_operation_t op)
+static void write_bits_msb_first(uint8_t *buf, int *bit, uint32_t val, int width)
+{
+    val &= (width == 32) ? 0xFFFFFFFFu : ((1u << width) - 1u);
+    for (int i = 0; i < width; i++) {
+        int src_bit = width - 1 - i;
+        if (val & (1u << src_bit)) {
+            int byte_index = (*bit + i) / 8;
+            int bit_index = 7 - ((*bit + i) % 8);
+            buf[byte_index] |= (uint8_t)(1u << bit_index);
+        }
+    }
+    *bit += width;
+}
+
+static void pack_figure_msb_first(uint8_t *buf,
+                                  const uint8_t name[3],
+                                  hud_operation_t op,
+                                  hud_shape_t shape,
+                                  uint8_t layer,
+                                  hud_color_t color,
+                                  uint16_t details_a,
+                                  uint16_t details_b,
+                                  uint16_t width,
+                                  uint16_t start_x,
+                                  uint16_t start_y,
+                                  uint16_t details_c,
+                                  uint16_t details_d,
+                                  uint16_t details_e)
+{
+    memset(buf, 0, sizeof(interaction_figure_t));
+    buf[0] = name[0];
+    buf[1] = name[1];
+    buf[2] = name[2];
+
+    uint8_t *bits = buf + 3;
+    int bit = 0;
+    write_bits_msb_first(bits, &bit, op,        3);
+    write_bits_msb_first(bits, &bit, shape,     3);
+    write_bits_msb_first(bits, &bit, layer,     4);
+    write_bits_msb_first(bits, &bit, color,     4);
+    write_bits_msb_first(bits, &bit, details_a, 9);
+    write_bits_msb_first(bits, &bit, details_b, 9);
+    write_bits_msb_first(bits, &bit, width,     10);
+    write_bits_msb_first(bits, &bit, start_x,   11);
+    write_bits_msb_first(bits, &bit, start_y,   11);
+    write_bits_msb_first(bits, &bit, details_c, 10);
+    write_bits_msb_first(bits, &bit, details_d, 11);
+    write_bits_msb_first(bits, &bit, details_e, 11);
+}
+
+void build_hud_data_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id)
 {
     client_custom_graphic_seven_t data;
     memset(&data, 0, sizeof(data));
 
     data.data_cmd_id = UI_CMD_GRAPHIC_SEVEN;
-    data.sender_id   = robot_status.robot_id;
-    data.receiver_id = robot_status.robot_id + 0x100;
+    data.sender_id   = robot_id;
+    data.receiver_id = (uint16_t)robot_id + 0x100;
 
     // [0] "box" — white reticle reference rectangle at screen center
     fill_rect(&data.interaction_figure[0], "box",
@@ -459,3 +510,34 @@ void build_hud_data(uint8_t *buf, hud_operation_t op)
     memcpy(buf, &data, sizeof(data));
 }
 
+void build_hud_data(uint8_t *buf, hud_operation_t op)
+{
+    build_hud_data_for_robot(buf, op, robot_status.robot_id);
+}
+
+// Debug helper: single-graphic packet (sub-cmd 0x0101, 21 bytes payload).
+// Draws one obvious white rectangle in the central screen region.
+
+void build_test_circle_single_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id)
+{
+    memset(buf, 0, sizeof(robot_interaction_data_t));
+
+    uint16_t data_cmd_id = UI_CMD_GRAPHIC_ONE;
+    uint16_t sender_id = robot_id;
+    uint16_t receiver_id = (uint16_t)robot_id + 0x100;
+    buf[0] = (uint8_t)(data_cmd_id & 0xFF);
+    buf[1] = (uint8_t)(data_cmd_id >> 8);
+    buf[2] = (uint8_t)(sender_id & 0xFF);
+    buf[3] = (uint8_t)(sender_id >> 8);
+    buf[4] = (uint8_t)(receiver_id & 0xFF);
+    buf[5] = (uint8_t)(receiver_id >> 8);
+
+    const uint8_t name[3] = {0, 0, 0};
+    pack_figure_msb_first(buf + 6, name, op, RECTANGLE, 1, TEAM_COLOR,
+                          0, 0, 10, 1000, 500, 0, 1500, 700);
+}
+
+void build_test_circle_single(uint8_t *buf, hud_operation_t op)
+{
+    build_test_circle_single_for_robot(buf, op, robot_status.robot_id);
+}

@@ -349,6 +349,10 @@ _Static_assert(sizeof(client_custom_graphic_seven_t) == 111, "seven-graphic pack
 extern void ref_structs_init(void);
 extern void ref_structs_solve(uint8_t *frame);
 extern void build_hud_data(uint8_t *buf, hud_operation_t op);
+extern void build_hud_data_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id);
+// Debug: builds a single-graphic interaction packet (0x0101 sub-cmd, 21 bytes).
+extern void build_test_circle_single(uint8_t *buf, hud_operation_t op);
+extern void build_test_circle_single_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id);
 extern uint8_t get_robot_id(void);
 extern void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat);
 
