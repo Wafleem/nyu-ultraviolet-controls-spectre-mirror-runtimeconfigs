@@ -153,11 +153,15 @@ void ChassisController_ComputeCurrents(ChassisController *controller, uint32_t c
             measured_w = s_last_supercap.pmm_w;
             engage_limiter = true;
         }
+        // Debug_Printf("src=SCAP pmm=%.1fW cap=%.1f%% mode=%d discharging=%d\r\n",
+        //          (double)s_last_supercap.pmm_w, (double)s_last_supercap.voltage_pct,
+        //          (int)s_last_supercap.mode, (int)supercap_discharging);
     } else {  // POWER_LIMIT_SOURCE_PDB
         if (s_last_power.power > PMM_TRICKLE_THRESHOLD_W) {
             measured_w = s_last_power.power;
             engage_limiter = true;
         }
+        //Debug_Printf("src=PDB power=%.1fW\r\n", (double)s_last_power.power);
     }
 
     // Speed boost: only meaningful when a real supercap is discharging.
