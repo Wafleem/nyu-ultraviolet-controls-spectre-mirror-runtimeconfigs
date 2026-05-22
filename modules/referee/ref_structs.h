@@ -47,6 +47,39 @@ typedef enum
     PROGRESS_CALCULATING    = 5,
 } game_progress_t;
 
+typedef enum
+{
+    NO_OPERATION    = 0,
+    ADD             = 1,
+    EDIT            = 2,
+    DELETE          = 3
+} hud_operation_t;
+
+typedef enum
+{
+    LINE        = 0,
+    RECTANGLE   = 1,
+    CIRCLE      = 2,
+    ELLIPSE     = 3,
+    ARC         = 4,
+    FLOAT       = 5,
+    INTEGER     = 6,
+    CHARACTER   = 7
+} hud_shape_t;
+
+typedef enum
+{
+    TEAM_COLOR  = 0,
+    YELLOW      = 1,
+    GREEN       = 2,
+    ORANGE      = 3,
+    MAGENTA     = 4,
+    PINK        = 5,
+    CYAN        = 6,
+    BLACK       = 7,
+    WHITE       = 8
+} hud_color_t;
+
 #pragma pack(push, 1)
 typedef struct //0001
 {
@@ -200,11 +233,81 @@ typedef struct //0x020E
 
 typedef struct //0x0301
 {
+    uint8_t figure_name[3];
+    uint32_t operate_type : 3;
+    uint32_t figure_type : 3;
+    uint32_t layer : 4;
+    uint32_t color : 4;
+    uint32_t details_a : 9;
+    uint32_t details_b : 9;
+    uint32_t width : 10;
+    uint32_t start_x : 11;
+    uint32_t start_y : 11;
+    uint32_t details_c : 10;
+    uint32_t details_d : 11;
+    uint32_t details_e : 11;
+} interaction_figure_t;
+
+typedef struct //0x0301
+{
     uint16_t data_cmd_id;
     uint16_t sender_id;
     uint16_t receiver_id;
-    uint8_t *user_data;
+    interaction_figure_t interaction_figure;
 } robot_interaction_data_t;
+
+#define UI_CMD_DELETE_LAYER  0x0100
+#define UI_CMD_GRAPHIC_ONE   0x0101
+#define UI_CMD_GRAPHIC_TWO   0x0102
+#define UI_CMD_GRAPHIC_FIVE  0x0103
+#define UI_CMD_GRAPHIC_SEVEN 0x0104
+#define UI_CMD_CHARACTER     0x0110
+
+typedef enum
+{
+    HUD_TEXT_SPIN      = 0,
+    HUD_TEXT_CAP       = 1,
+    HUD_TEXT_CLEAR_AIM = 2,
+} hud_text_slot_t;
+
+typedef struct // 0x0301 sub-cmd 0x0100
+{
+    uint8_t delete_type;
+    uint8_t layer;
+} interaction_layer_delete_t;
+
+typedef struct // 0x0301 sub-cmd 0x0100 with interaction header
+{
+    uint16_t data_cmd_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    interaction_layer_delete_t layer_delete;
+} client_delete_layer_t;
+
+typedef struct // 0x0301 sub-cmd 0x0102
+{
+    uint16_t data_cmd_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    interaction_figure_t interaction_figure[2];
+} client_custom_graphic_two_t;
+
+typedef struct // 0x0301 sub-cmd 0x0104
+{
+    uint16_t data_cmd_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    interaction_figure_t interaction_figure[7];
+} client_custom_graphic_seven_t;
+
+typedef struct // 0x0301 sub-cmd 0x0110
+{
+    uint16_t data_cmd_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    interaction_figure_t interaction_figure;
+    uint8_t data[30];
+} client_custom_character_t;
 
 typedef struct // 0x0302
 {
@@ -280,7 +383,26 @@ typedef struct //0x0310
 
 #pragma pack(pop)
 
+_Static_assert(sizeof(interaction_figure_t) == 15, "graphic_data_struct_t must be 15 bytes");
+_Static_assert(sizeof(client_delete_layer_t) == 8, "delete-layer packet must be 8 bytes");
+_Static_assert(sizeof(client_custom_graphic_two_t) == 36, "two-graphic packet must be 36 bytes");
+_Static_assert(sizeof(client_custom_graphic_seven_t) == 111, "seven-graphic packet must be 111 bytes");
+_Static_assert(sizeof(client_custom_character_t) == 51, "character packet must be 51 bytes");
+
 extern void ref_structs_init(void);
 extern void ref_structs_solve(uint8_t *frame);
+extern void build_delete_all_for_robot(uint8_t *buf, uint8_t robot_id);
+extern void build_hud_data(uint8_t *buf, hud_operation_t op);
+extern void build_hud_data_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id);
+extern void build_hud_text_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id, hud_text_slot_t slot);
+// Debug: builds a single-graphic interaction packet (0x0101 sub-cmd, 21 bytes).
+extern void build_test_circle_single(uint8_t *buf, hud_operation_t op);
+extern void build_test_circle_single_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id);
+extern uint8_t get_robot_id(void);
+extern void get_shoot_heat_limit_and_heat(uint16_t *heat_limit, uint16_t *heat);
+
+extern void hud_state_set_supercap(float voltage_pct, uint8_t mode);
+extern void hud_state_set_vision(uint8_t target_state, uint32_t tick_ms);
+extern void hud_state_set_opstate(uint8_t spin_mode, uint8_t gimbal_follow, uint8_t aimbot_engaged);
 
 #endif

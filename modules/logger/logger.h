@@ -26,6 +26,8 @@ typedef enum {
     LOG_TAG_CAN,        // CAN communication
     LOG_TAG_VIS,        // Vision communication
     LOG_TAG_RC,         // Remote control
+    LOG_TAG_REF,        // Referee protocol (RX parsing, link status)
+    LOG_TAG_HUD,        // HUD drawing state machine & graphics
     LOG_TAG_DEBUG,      // General debug
     LOG_TAG_COUNT       // Total number of tags
 } LogTag_t;
@@ -105,6 +107,8 @@ void Logger_CSV(LogTag_t tag, const char *fmt, ...);
      (tag == LOG_TAG_CAN && LOG_ENABLE_CAN) || \
      (tag == LOG_TAG_VIS && LOG_ENABLE_VIS) || \
      (tag == LOG_TAG_RC  && LOG_ENABLE_RC) || \
+     (tag == LOG_TAG_REF && LOG_ENABLE_REF) || \
+     (tag == LOG_TAG_HUD && LOG_ENABLE_HUD) || \
      (tag == LOG_TAG_DEBUG && LOG_ENABLE_DEBUG))
 
 // Text logging macros with compile-time optimization

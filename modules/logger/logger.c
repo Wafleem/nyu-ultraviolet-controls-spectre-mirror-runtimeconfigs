@@ -32,6 +32,8 @@ static const char* s_tag_names[LOG_TAG_COUNT] = {
     "CAN",      // LOG_TAG_CAN
     "VIS",      // LOG_TAG_VIS
     "RC",       // LOG_TAG_RC
+    "REF",      // LOG_TAG_REF
+    "HUD",      // LOG_TAG_HUD
     "DEBUG"     // LOG_TAG_DEBUG
 };
 

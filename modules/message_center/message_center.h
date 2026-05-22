@@ -181,6 +181,11 @@ typedef enum {
                     // Publisher: ToFTask (tof_sensor.c, ~20Hz)
                     // Subscribers: sentry_controller (obstacle avoidance)
 
+  TOPIC_HUD_OPSTATE, // Operator-state snapshot for HUD (chassis mode, aimbot)
+                     // Data: HudOpStateEvent
+                     // Publisher: cmd_controller (200Hz)
+                     // Subscribers: referee (HUD overlay)
+
   TOPIC_NUM_TOPICS // Total number of topics (must be last!)
 
 } MsgTopic;

@@ -24,6 +24,8 @@
 #define LOG_ENABLE_CAN    0  // CAN communication
 #define LOG_ENABLE_VIS    0  // Vision communication
 #define LOG_ENABLE_RC     0  // Remote control
+#define LOG_ENABLE_REF    1  // Referee protocol (RX parsing, link status)
+#define LOG_ENABLE_HUD    1  // HUD drawing state machine & graphics
 #define LOG_ENABLE_DEBUG  0  // General debug
 
 // ============================================================================
