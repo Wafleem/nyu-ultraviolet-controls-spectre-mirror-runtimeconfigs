@@ -14,27 +14,17 @@
 
 #include "main.h"
 
-#define HEAT_WARN_NUM 80u
-#define HEAT_WARN_DEN 100u
-#define VISION_STALE_MS 100u
+#define BASE_SIGHT_X              960u
+#define BASE_SIGHT_Y              540u
+#define SMM_AIM_X                 BASE_SIGHT_X
+#define SMM_AIM_Y                 ((uint16_t)(BASE_SIGHT_Y - 55u))
+#define AIM_HALF_LEN              34u
+#define AIM_RADIUS                18u
+#define AIM_WIDTH                 3u
 
-// CAP bar: horizontal line near bottom but above system power bar (~y=150+)
-#define CAP_BAR_X0     300u
-#define CAP_BAR_WIDTH  1300u
-#define CAP_BAR_Y      200u
-
-// Status indicator circles in top-right, below system top bar (y < ~850)
-#define IND_X          1820u
-#define IND_AIM_Y      820u
-#define IND_SPN_Y      775u
-#define IND_FOL_Y      730u
-#define IND_VIS_Y      685u
-#define IND_R          20u
-
-// Heat warning dot — left side, above minimap zone (y > 250, x > 320)
-#define HEAT_X         350u
-#define HEAT_Y         260u
-#define HEAT_R         20u
+#define STATUS_TEXT_X             1260u
+#define SPIN_TEXT_Y               700u
+#define CAP_TEXT_Y                635u
 
 static struct {
     float    sc_voltage_pct;
@@ -337,21 +327,6 @@ static void fill_line(interaction_figure_t *f, const char name[3],
     f->details_e    = y1;
 }
 
-static void fill_rect(interaction_figure_t *f, const char name[3],
-                      uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
-                      hud_color_t color, uint16_t width)
-{
-    fill_name(f, name);
-    f->figure_type  = RECTANGLE;
-    f->layer        = 0;
-    f->color        = color;
-    f->width        = width;
-    f->start_x      = x0;
-    f->start_y      = y0;
-    f->details_d    = x1;
-    f->details_e    = y1;
-}
-
 static void fill_circle(interaction_figure_t *f, const char name[3],
                         uint16_t cx, uint16_t cy, uint16_t radius,
                         hud_color_t color, uint16_t width)
@@ -366,54 +341,50 @@ static void fill_circle(interaction_figure_t *f, const char name[3],
     f->details_c    = radius;
 }
 
-static void write_bits_msb_first(uint8_t *buf, int *bit, uint32_t val, int width)
+static void fill_text(client_custom_character_t *data, const char name[3],
+                      const char *text, uint16_t x, uint16_t y,
+                      hud_color_t color, uint16_t font_size,
+                      uint16_t line_width, hud_operation_t op)
 {
-    val &= (width == 32) ? 0xFFFFFFFFu : ((1u << width) - 1u);
-    for (int i = 0; i < width; i++) {
-        int src_bit = width - 1 - i;
-        if (val & (1u << src_bit)) {
-            int byte_index = (*bit + i) / 8;
-            int bit_index = 7 - ((*bit + i) % 8);
-            buf[byte_index] |= (uint8_t)(1u << bit_index);
-        }
+    size_t len = strlen(text);
+    if (len > sizeof(data->data)) {
+        len = sizeof(data->data);
     }
-    *bit += width;
+
+    fill_name(&data->interaction_figure, name);
+    data->interaction_figure.operate_type = op;
+    data->interaction_figure.figure_type  = CHARACTER;
+    data->interaction_figure.layer        = 0;
+    data->interaction_figure.color        = color;
+    data->interaction_figure.details_a    = font_size;
+    data->interaction_figure.details_b    = (uint16_t)len;
+    data->interaction_figure.width        = line_width;
+    data->interaction_figure.start_x      = x;
+    data->interaction_figure.start_y      = y;
+
+    memcpy(data->data, text, len);
 }
 
-static void pack_figure_msb_first(uint8_t *buf,
-                                  const uint8_t name[3],
-                                  hud_operation_t op,
-                                  hud_shape_t shape,
-                                  uint8_t layer,
-                                  hud_color_t color,
-                                  uint16_t details_a,
-                                  uint16_t details_b,
-                                  uint16_t width,
-                                  uint16_t start_x,
-                                  uint16_t start_y,
-                                  uint16_t details_c,
-                                  uint16_t details_d,
-                                  uint16_t details_e)
+static hud_color_t cap_mode_color(void)
 {
-    memset(buf, 0, sizeof(interaction_figure_t));
-    buf[0] = name[0];
-    buf[1] = name[1];
-    buf[2] = name[2];
+    switch (s_hud_state.sc_mode) {
+        case 2: return CYAN;
+        case 4: return GREEN;
+        case 1: return YELLOW;
+        case 3: return MAGENTA;
+        default: return WHITE;
+    }
+}
 
-    uint8_t *bits = buf + 3;
-    int bit = 0;
-    write_bits_msb_first(bits, &bit, op,        3);
-    write_bits_msb_first(bits, &bit, shape,     3);
-    write_bits_msb_first(bits, &bit, layer,     4);
-    write_bits_msb_first(bits, &bit, color,     4);
-    write_bits_msb_first(bits, &bit, details_a, 9);
-    write_bits_msb_first(bits, &bit, details_b, 9);
-    write_bits_msb_first(bits, &bit, width,     10);
-    write_bits_msb_first(bits, &bit, start_x,   11);
-    write_bits_msb_first(bits, &bit, start_y,   11);
-    write_bits_msb_first(bits, &bit, details_c, 10);
-    write_bits_msb_first(bits, &bit, details_d, 11);
-    write_bits_msb_first(bits, &bit, details_e, 11);
+static const char *cap_mode_text(void)
+{
+    switch (s_hud_state.sc_mode) {
+        case 2: return "CAP: ON       ";
+        case 4: return "CAP: READY    ";
+        case 1: return "CAP: CHARGING ";
+        case 3: return "CAP: LOW      ";
+        default: return "CAP: UNKNOWN  ";
+    }
 }
 
 void build_hud_data_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id)
@@ -425,69 +396,48 @@ void build_hud_data_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id
     data.sender_id   = robot_id;
     data.receiver_id = (uint16_t)robot_id + 0x100;
 
-    // [0] "box" — white reticle reference rectangle at screen center
-    fill_rect(&data.interaction_figure[0], "box",
-              760, 390, 1160, 690, WHITE, 2);
-
-    // [1] "cap" — supercap charge bar: horizontal line at bottom, length = voltage_pct
-    {
-        float pct = s_hud_state.sc_voltage_pct;
-        if (pct < 0.0f)   pct = 0.0f;
-        if (pct > 100.0f) pct = 100.0f;
-        uint16_t bar_end = CAP_BAR_X0 + (uint16_t)(CAP_BAR_WIDTH * pct / 100.0f);
-        if (bar_end <= CAP_BAR_X0) bar_end = CAP_BAR_X0 + 1;
-        hud_color_t cap_color = (pct > 50.0f) ? GREEN : (pct > 20.0f) ? ORANGE : MAGENTA;
-        fill_line(&data.interaction_figure[1], "cap",
-                  CAP_BAR_X0, CAP_BAR_Y, bar_end, CAP_BAR_Y, cap_color, 8);
-    }
-
-    // [2] "aim" — aimbot engaged: GREEN=on, YELLOW=off
-    fill_circle(&data.interaction_figure[2], "aim",
-                IND_X, IND_AIM_Y, IND_R,
-                s_hud_state.aimbot_engaged ? GREEN : YELLOW, 3);
-
-    // [3] "spn" — spin mode: CYAN=spinning, ORANGE=not
-    fill_circle(&data.interaction_figure[3], "spn",
-                IND_X, IND_SPN_Y, IND_R,
-                s_hud_state.spin_mode ? CYAN : ORANGE, 3);
-
-    // [4] "fol" — gimbal follow: GREEN=following, MAGENTA=chassis-frame
-    fill_circle(&data.interaction_figure[4], "fol",
-                IND_X, IND_FOL_Y, IND_R,
-                s_hud_state.gimbal_follow ? GREEN : MAGENTA, 3);
-
-    // [5] "vis" — vision target state: GREEN=ready, ORANGE=converging, YELLOW=none/stale
-    {
-        hud_color_t vis_color;
-        uint32_t age_ms = HAL_GetTick() - s_hud_state.last_vision_tick_ms;
-        if (age_ms > VISION_STALE_MS) {
-            vis_color = YELLOW;
-        } else if (s_hud_state.vision_target_state == 2) {  // READY_TO_FIRE
-            vis_color = GREEN;
-        } else if (s_hud_state.vision_target_state == 1) {  // TARGET_CONVERGING
-            vis_color = ORANGE;
-        } else {
-            vis_color = YELLOW;  // NO_TARGET
+    if (op == DELETE) {
+        const char legacy_names[7][3] = {
+            {'s', 'm', 'l'},
+            {'s', 'm', 'r'},
+            {'s', 'm', 't'},
+            {'s', 'm', 'b'},
+            {'s', 'p', 'n'},
+            {'c', 'a', 'p'},
+            {'c', 'f', 'l'},
+        };
+        for (int i = 0; i < 7; i++) {
+            data.interaction_figure[i].operate_type = DELETE;
+            fill_name(&data.interaction_figure[i], legacy_names[i]);
         }
-        fill_circle(&data.interaction_figure[5], "vis",
-                    IND_X, IND_VIS_Y, IND_R, vis_color, 3);
-    }
+    } else {
+        fill_line(&data.interaction_figure[0], "aih",
+                  SMM_AIM_X - AIM_HALF_LEN, SMM_AIM_Y,
+                  SMM_AIM_X + AIM_HALF_LEN, SMM_AIM_Y,
+                  WHITE, AIM_WIDTH);
 
-    // [6] "hte" — heat warning: MAGENTA if >80% of limit, GREEN otherwise
-    {
-        uint16_t heat_limit = 0, heat = 0;
-        get_shoot_heat_limit_and_heat(&heat_limit, &heat);
-        hud_color_t hte_color = (heat_limit > 0 &&
-                                  (uint32_t)heat * HEAT_WARN_DEN >
-                                  (uint32_t)heat_limit * HEAT_WARN_NUM)
-                                 ? MAGENTA : GREEN;
-        fill_circle(&data.interaction_figure[6], "hte",
-                    HEAT_X, HEAT_Y, HEAT_R, hte_color, 3);
-    }
+        fill_line(&data.interaction_figure[1], "aiv",
+                  SMM_AIM_X, SMM_AIM_Y - AIM_HALF_LEN,
+                  SMM_AIM_X, SMM_AIM_Y + AIM_HALF_LEN,
+                  WHITE, AIM_WIDTH);
 
-    // Apply operation (ADD on first send, EDIT on every subsequent send)
-    for (int i = 0; i < 7; i++) {
-        data.interaction_figure[i].operate_type = op;
+        fill_circle(&data.interaction_figure[2], "air",
+                    SMM_AIM_X, SMM_AIM_Y, AIM_RADIUS,
+                    WHITE, 2);
+
+        const char unused_names[4][3] = {
+            {'s', 'm', 'l'},
+            {'s', 'm', 'r'},
+            {'s', 'm', 't'},
+            {'s', 'm', 'b'},
+        };
+        for (int i = 3; i < 7; i++) {
+            data.interaction_figure[i].operate_type = DELETE;
+            fill_name(&data.interaction_figure[i], unused_names[i - 3]);
+        }
+        for (int i = 0; i < 3; i++) {
+            data.interaction_figure[i].operate_type = op;
+        }
     }
 
     // Log HUD state every call (rate limiting disabled for LOG_TAG_HUD)
@@ -510,9 +460,53 @@ void build_hud_data_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id
     memcpy(buf, &data, sizeof(data));
 }
 
+void build_hud_text_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id, hud_text_slot_t slot)
+{
+    client_custom_character_t data;
+    memset(&data, 0, sizeof(data));
+
+    data.data_cmd_id = UI_CMD_CHARACTER;
+    data.sender_id   = robot_id;
+    data.receiver_id = (uint16_t)robot_id + 0x100;
+
+    switch (slot) {
+        case HUD_TEXT_SPIN:
+            fill_text(&data, "spt",
+                      s_hud_state.spin_mode ? "SPIN: ON " : "SPIN: OFF",
+                      STATUS_TEXT_X, SPIN_TEXT_Y,
+                      s_hud_state.spin_mode ? CYAN : WHITE, 22u, 2u, op);
+            break;
+        case HUD_TEXT_CAP:
+        default:
+            fill_text(&data, "cpt", cap_mode_text(),
+                      STATUS_TEXT_X, CAP_TEXT_Y,
+                      cap_mode_color(), 22u, 2u, op);
+            break;
+        case HUD_TEXT_CLEAR_AIM:
+            fill_text(&data, "smm", "", STATUS_TEXT_X, CAP_TEXT_Y, WHITE, 1u, 1u, DELETE);
+            break;
+    }
+
+    memcpy(buf, &data, sizeof(data));
+}
+
 void build_hud_data(uint8_t *buf, hud_operation_t op)
 {
     build_hud_data_for_robot(buf, op, robot_status.robot_id);
+}
+
+void build_delete_all_for_robot(uint8_t *buf, uint8_t robot_id)
+{
+    client_delete_layer_t data;
+    memset(&data, 0, sizeof(data));
+
+    data.data_cmd_id = UI_CMD_DELETE_LAYER;
+    data.sender_id   = robot_id;
+    data.receiver_id = (uint16_t)robot_id + 0x100;
+    data.layer_delete.delete_type = 2;
+    data.layer_delete.layer = 0;
+
+    memcpy(buf, &data, sizeof(data));
 }
 
 // Debug helper: single-graphic packet (sub-cmd 0x0101, 21 bytes payload).
@@ -520,21 +514,30 @@ void build_hud_data(uint8_t *buf, hud_operation_t op)
 
 void build_test_circle_single_for_robot(uint8_t *buf, hud_operation_t op, uint8_t robot_id)
 {
-    memset(buf, 0, sizeof(robot_interaction_data_t));
+    robot_interaction_data_t data;
+    memset(&data, 0, sizeof(data));
 
-    uint16_t data_cmd_id = UI_CMD_GRAPHIC_ONE;
-    uint16_t sender_id = robot_id;
-    uint16_t receiver_id = (uint16_t)robot_id + 0x100;
-    buf[0] = (uint8_t)(data_cmd_id & 0xFF);
-    buf[1] = (uint8_t)(data_cmd_id >> 8);
-    buf[2] = (uint8_t)(sender_id & 0xFF);
-    buf[3] = (uint8_t)(sender_id >> 8);
-    buf[4] = (uint8_t)(receiver_id & 0xFF);
-    buf[5] = (uint8_t)(receiver_id >> 8);
+    data.data_cmd_id = UI_CMD_GRAPHIC_ONE;
+    data.sender_id   = robot_id;
+    data.receiver_id = (uint16_t)robot_id + 0x100;
 
-    const uint8_t name[3] = {0, 0, 0};
-    pack_figure_msb_first(buf + 6, name, op, RECTANGLE, 1, TEAM_COLOR,
-                          0, 0, 10, 1000, 500, 0, 1500, 700);
+    data.interaction_figure.figure_name[0] = 'r';
+    data.interaction_figure.figure_name[1] = '0';
+    data.interaction_figure.figure_name[2] = '0';
+    data.interaction_figure.operate_type   = op;
+    data.interaction_figure.figure_type    = RECTANGLE;
+    data.interaction_figure.layer          = 1;
+    data.interaction_figure.color          = WHITE;
+    data.interaction_figure.details_a      = 0;
+    data.interaction_figure.details_b      = 0;
+    data.interaction_figure.width          = 3;
+    data.interaction_figure.start_x        = 1000;
+    data.interaction_figure.start_y        = 500;
+    data.interaction_figure.details_c      = 0;
+    data.interaction_figure.details_d      = 1500;
+    data.interaction_figure.details_e      = 700;
+
+    memcpy(buf, &data, sizeof(data));
 }
 
 void build_test_circle_single(uint8_t *buf, hud_operation_t op)
