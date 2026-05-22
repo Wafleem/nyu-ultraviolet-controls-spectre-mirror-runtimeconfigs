@@ -18,10 +18,10 @@ To fix both issues, a power offset was added. This power offset is subtracted fr
 
 This offset power is implemented under the Supercap\_App\_Task in supercap\_app.c, Controls\_Supercap\_Controller repository. 
 
-     ![Power Limit Code](./assets/power_limiting_supercap_img3.png)  
+![Power Limit Code](./assets/power_limiting_supercap_img3.png)  
 
 Test Result:
 
-     ![Power Limit Test Result](./assets/power_limiting_supercap_img4.png)  
+![Power Limit Test Result](./assets/power_limiting_supercap_img4.png)  
 
 As you can see, the 20.0W is being subtracted from the original Supercap power limit of 40.0W \- 3.0W, producing the new 17.0W Supercap charging power limit. 

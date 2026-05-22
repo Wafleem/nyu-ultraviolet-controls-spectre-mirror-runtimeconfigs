@@ -46,6 +46,15 @@ typedef enum {
 } YawSource_e;
 
 /**
+ * @brief Chassis power-limiter input source
+ * Selects which CAN feedback feeds the current-scaling logic in chassis_controller.
+ */
+typedef enum {
+    POWER_LIMIT_SOURCE_SUPERCAP,   // Wraith supercap board, TOPIC_SUPERCAP_FEEDBACK (pmm_w)
+    POWER_LIMIT_SOURCE_PDB         // PDB board, TOPIC_CHASSIS_POWER (total chassis W)
+} PowerLimitSource_e;
+
+/**
  * @brief PID parameters structure
  */
 typedef struct {
@@ -73,12 +82,11 @@ typedef struct {
     CAN_Channel_t can_channel;     // CAN bus channel (CAN_CHANNEL_1 or CAN_CHANNEL_2)
     uint16_t can_rx_id;            // CAN ID for receiving feedback
     uint16_t can_tx_id;            // CAN ID for sending commands (0x200, 0x1FF, or 0x2FF)
-    uint8_t tx_slot;               // Slot position in TX frame (0-3)
 
     // Motor-specific parameters
     int8_t direction;              // Motor direction: +1 or -1
 
-    // Type-specific limits (union to save memory)
+    // Type-specific limits (only GM6020 uses this; zero-initialized otherwise)
     union {
         // GM6020-specific parameters
         struct {
@@ -87,11 +95,6 @@ typedef struct {
             float gravity_compensation; // Gravity compensation torque (for pitch axis)
             float initial_angle;        // Initial calibration angle (encoder units)
         } gm6020;
-
-        // M3508-specific parameters
-        struct {
-            float speed_limit;          // Maximum speed (RPM)
-        } m3508;
     } limits;
 
     // PID control parameters
@@ -106,14 +109,12 @@ typedef struct {
  */
 typedef struct {
     const char *name;                    // Robot configuration name
-    uint8_t chassis_motor_count;         // Number of chassis motors
-    uint8_t gimbal_motor_count;          // Number of gimbal motors
-    uint8_t shooter_motor_count;         // Number of shooter motors
     const MotorConfig_t *motor_configs;  // Pointer to motor configuration array
     uint8_t total_motor_count;           // Total number of motors
     uint8_t reverse_chassis;             // Whether to reverse the controller input for driving
-    uint8_t enable_imu_calibration;      // Enable IMU calibration at startup (1 = enabled, 0 = disabled)
+    uint8_t enable_startup_alignment;    // Spin gimbal at startup to align head and chassis
     YawSource_e chassis_yaw_source;      // Hardware used to measure chassis yaw
+    PowerLimitSource_e power_limit_source; // Which board feeds the chassis power limiter
     float aligned_yaw;                   // Depends on yaw source:
                                          // - Dev C: Spectre IMU yaw when ToF is aligned
                                          // - GM6020: GM6020 yaw when head and chassis are aligned

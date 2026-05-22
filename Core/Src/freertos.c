@@ -483,11 +483,16 @@ static void configure_robot(robot_status_t *robot_status) {
 
   // Restart Controls modules and applications
   MotorDriver_ModuleInit(robot_status->robot_id);
-  ChassisApp_Init();
+  ChassisApp_Init(robot_cfg);
   GimbalApp_Init();
   ShooterApp_Init(robot_cfg);
   CmdController_Init(robot_cfg);
   ToF_SetRobotConfig(robot_cfg);
+
+  
+  if (robot_cfg->enable_startup_alignment) {
+    GimbalApp_WaitForAlignment();
+  }
 
   /* Push the per-robot charging power ceiling to Wraith over CAN (0x408) */
   LOG_INFO(LOG_TAG_SYS, "Supercap limit set to %f watts\r\n", robot_cfg->supercap_limit);

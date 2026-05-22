@@ -6,6 +6,7 @@
 #include "printing.h"
 #include "stm32h7xx_hal.h"
 #include "logger.h"
+#include "tof_sensor.h"
 
 // Motor IDs (dynamically assigned during init)
 static uint8_t s_pitch_motor_id = 0xFF;
@@ -14,6 +15,8 @@ static uint8_t s_yaw_motor_id = 0xFF;
 // Static state for application
 static GimbalCmd s_last_cmd;
 static Gimbal_Sensor_Data_t s_last_sensor;
+static ToF_Data_t s_last_tof;
+static bool s_startup_active = false;
 static bool s_initialized = false;
 static bool s_yaw_target_seeded = false;
 static uint32_t last_tick = 0;
@@ -132,6 +135,19 @@ void GimbalController_UpdateTargets(GimbalCmd *cmd, MotorContext_t *yaw, MotorCo
     }
 
     float current_yaw = s_last_sensor.ekf_yaw;
+
+    // Yaw Startup Behavior
+    if (s_startup_active){
+        if (yaw && yaw->angle_initialized){
+            // spin until condition
+            yaw->angle_target += 0.2f * MAX_YAW_ANGLE_CHANGE * dt;
+        }
+        if (pitch && pitch->angle_initialized){
+            pitch->angle_target = pitch->angle_raw; // hold pitch
+        }
+    }
+
+
     // Continuous angle control: update target angle every cycle when vision is valid
     if (use_vision_target) {
         if (yaw && yaw->angle_initialized) {
@@ -246,9 +262,18 @@ static void on_imu_update(const MsgEvent *ev, void *user) {
     }
 }
 
+static void on_tof_update(const MsgEvent *ev, void *user) {
+    (void)user;
+    if (ev->size == sizeof(ToF_Data_t)) {
+        memcpy(&s_last_tof, ev->data, sizeof(ToF_Data_t));
+    }
+}
+
 void GimbalApp_Init(void) {
     memset(&s_last_cmd, 0, sizeof(s_last_cmd));
     memset(&s_last_sensor, 0, sizeof(s_last_sensor));
+    memset(&s_last_tof, 0, sizeof(s_last_tof));
+
 
     // Find gimbal motors by role (module layer handles config)
     uint8_t pitch_motors[1];
@@ -266,12 +291,17 @@ void GimbalApp_Init(void) {
     if (!s_initialized) {
         (void)MsgCenter_Subscribe(TOPIC_GIMBAL_CMD, on_gimbal_cmd, NULL);
         (void)MsgCenter_Subscribe(TOPIC_IMU_UPDATE, on_imu_update, NULL);
+        (void)MsgCenter_Subscribe(TOPIC_TOF_UPDATE, on_tof_update, NULL);
     }
 
     s_initialized = true;
 }
 
 void GimbalApp_Tick(void) {
+    if (s_startup_active && tof_initialized && s_last_tof.distance_mm < TOF_RESET_THRESHOLD_MM){
+        s_startup_active = false;
+    }
+
     // Update dt
     uint32_t now = HAL_GetTick();
     dt = (last_tick > 0) ? (now - last_tick) / 1000.0f : 0.005f; // seconds
@@ -306,63 +336,6 @@ void GimbalApp_Tick(void) {
     MotorDriver_SendCurrent(s_yaw_motor_id, yaw_current);
 }
 
-/**
- * @brief Wait for gimbal to reach initial alignment position
- * @note This function sends gimbal commands and waits for both yaw and pitch
- *       to reach their initial positions before returning.
- */
-void Gimbal_WaitForAlignment(void)
-{
-    const float ALIGNMENT_THRESHOLD = 50.0f;  // encoder ticks
-    const uint32_t TIMEOUT_MS = 10000;  // 10 seconds timeout
-    const uint32_t CHECK_INTERVAL_MS = 100;
-
-    USB_CDC_Printf("[Gimbal] Waiting for gimbal alignment...\r\n");
-
-    // Create gimbal command to enable gimbal and hold initial position
-    GimbalCmd cmd = {
-        .enabled = true,
-        .pitch_rate = 0.0f,
-        .yaw_rate = 0.0f,
-        .yaw_rate_memo = 0.0f,
-        .yaw_target_memo = 0.0f,
-        .vision_valid = false,
-        .vision_yaw_err_rad = 0.0f,
-        .vision_pitch_err_rad = 0.0f,
-        .vision_ts_ms = 0
-    };
-
-    uint32_t start_time = HAL_GetTick();
-
-    while (HAL_GetTick() - start_time < TIMEOUT_MS) {
-        // Continuously send command to keep gimbal control
-        MsgCenter_Publish(TOPIC_GIMBAL_CMD, &cmd, sizeof(cmd), 0);
-        // Dispatcher task will process messages asynchronously
-
-        HAL_Delay(CHECK_INTERVAL_MS);
-
-        // Check if gimbal has reached target position
-        MotorContext_t *yaw = MotorDriver_GetContext(s_yaw_motor_id);
-        MotorContext_t *pitch = MotorDriver_GetContext(s_pitch_motor_id);
-
-        if (yaw && pitch && yaw->angle_initialized && pitch->angle_initialized) {
-            float yaw_error = fabsf(yaw->angle_target - (float)yaw->angle_raw);
-            float pitch_error = fabsf(pitch->angle_target - (float)pitch->angle_raw);
-
-            // Handle yaw wraparound (0-MAX/2 range)
-            if (yaw_error > MAX_YAW_ANGLE / 2) {
-                yaw_error = MAX_YAW_ANGLE - yaw_error;
-            }
-
-            USB_CDC_Printf("[Gimbal] Yaw error: %.1f, Pitch error: %.1f\r\n",
-                          yaw_error, pitch_error);
-
-            if (yaw_error < ALIGNMENT_THRESHOLD && pitch_error < ALIGNMENT_THRESHOLD) {
-                USB_CDC_Printf("[Gimbal] Alignment complete!\r\n");
-                return;
-            }
-        }
-    }
-
-    USB_CDC_Printf("[Gimbal] Warning: Alignment timeout, continuing anyway...\r\n");
+void GimbalApp_WaitForAlignment(void) {
+    s_startup_active = true;
 }
