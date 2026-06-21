@@ -165,6 +165,22 @@ Once flashed, the firmware boots into the `unknown` configuration (0 motors). Co
 
 ---
 
+## Hardware Target: Spectre Board
+
+This firmware is built for our custom **Spectre board**, an STM32H743-based controller designed in-house by our electrical team. The `Spectre_Controls.ioc` CubeMX project, the linker script (`STM32H743XX_FLASH.ld`), and all HAL initialization in `Core/` are generated specifically for this board's pin assignments, clock tree, and peripheral mapping (which FDCAN buses, which UARTs, which SPI/I2C, etc.).
+
+### Porting to a Different Board
+
+The runtime configuration system (`config/`, `application/`, and most of `modules/`) is hardware-agnostic — it operates on top of the HAL, not directly on registers. If you want to run this logic on a different STM32 board (e.g. a RoboMaster Type-A/C board, or your own custom PCB):
+
+1. **Regenerate the HAL** — Create a new CubeMX `.ioc` project for your target MCU. Configure the same peripherals (2x FDCAN, UART for referee, UART for vision, SPI for IMU, etc.) mapped to your board's actual pins.
+2. **Audit the module layer** — The modules in `modules/` call HAL functions like `HAL_FDCAN_AddMessageToTxFifoQ()`, `HAL_UART_Receive_DMA()`, etc. with handles (`hfdcan1`, `huart1`, ...) that are tied to the CubeMX-generated peripheral instances. You'll need to go through each module and update these handles to match your new HAL configuration. The application layer (`application/`) should not need changes.
+3. **Update the linker script** — Replace `STM32H743XX_FLASH.ld` with one matching your target MCU's flash/RAM layout.
+
+The key point: the config system and control logic are portable. The HAL plumbing is not.
+
+---
+
 ## Architecture Overview
 
 ```
